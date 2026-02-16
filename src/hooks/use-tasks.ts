@@ -1,0 +1,97 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { Task } from "@/types";
+
+export function useTasks(householdId: string | null, categoryId?: string | null) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchTasks = useCallback(async () => {
+    if (!householdId) return;
+    const supabase = createClient();
+
+    let query = supabase
+      .from("tasks")
+      .select("*")
+      .eq("household_id", householdId)
+      .order("is_done")
+      .order("sort_order")
+      .order("created_at", { ascending: false });
+
+    if (categoryId) {
+      query = query.eq("category_id", categoryId);
+    }
+
+    const { data } = await query;
+    if (data) setTasks(data);
+    setLoading(false);
+  }, [householdId, categoryId]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  const addTask = async (task: {
+    title: string;
+    category_id?: string | null;
+    due_date?: string | null;
+    memo?: string | null;
+    url?: string | null;
+    created_by?: string | null;
+  }) => {
+    if (!householdId) return;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({ ...task, household_id: householdId })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setTasks((prev) => [data, ...prev]);
+    }
+    return { data, error };
+  };
+
+  const updateTask = async (id: string, updates: Partial<Task>) => {
+    const supabase = createClient();
+    // If marking as done, set completed_at
+    if (updates.is_done === true) {
+      updates.completed_at = new Date().toISOString();
+    } else if (updates.is_done === false) {
+      updates.completed_at = null;
+    }
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (!error && data) {
+      setTasks((prev) => prev.map((t) => (t.id === id ? data : t)));
+    }
+    return { data, error };
+  };
+
+  const deleteTask = async (id: string) => {
+    const supabase = createClient();
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+
+    if (!error) {
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+    }
+    return { error };
+  };
+
+  const toggleTask = async (id: string) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+    return updateTask(id, { is_done: !task.is_done });
+  };
+
+  return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, refetch: fetchTasks };
+}
