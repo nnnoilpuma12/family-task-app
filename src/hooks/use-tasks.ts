@@ -93,5 +93,22 @@ export function useTasks(householdId: string | null, categoryId?: string | null)
     return updateTask(id, { is_done: !task.is_done });
   };
 
-  return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, refetch: fetchTasks };
+  const reorderTasks = async (orderedIds: string[]) => {
+    // Optimistic update
+    setTasks((prev) => {
+      const idToTask = new Map(prev.map((t) => [t.id, t]));
+      const reordered = orderedIds.map((id, i) => ({ ...idToTask.get(id)!, sort_order: i }));
+      const rest = prev.filter((t) => !orderedIds.includes(t.id));
+      return [...reordered, ...rest];
+    });
+
+    const supabase = createClient();
+    await Promise.all(
+      orderedIds.map((id, i) =>
+        supabase.from("tasks").update({ sort_order: i }).eq("id", id)
+      )
+    );
+  };
+
+  return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, refetch: fetchTasks };
 }
