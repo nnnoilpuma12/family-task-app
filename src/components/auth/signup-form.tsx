@@ -18,7 +18,7 @@ export function SignupForm() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -28,6 +28,13 @@ export function SignupForm() {
 
     if (error) {
       setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // silent duplicate: Supabase returns identities: [] for already-registered emails
+    if (!data.user || (data.user.identities?.length ?? 0) === 0) {
+      setError("このメールアドレスは既に登録されています。ログインするか、パスワードをリセットしてください。");
       setLoading(false);
       return;
     }
