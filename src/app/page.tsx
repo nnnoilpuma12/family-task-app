@@ -39,6 +39,7 @@ export default function Home() {
 
       if (!user) {
         router.push("/login");
+        setLoading(false);
         return;
       }
 
@@ -48,11 +49,15 @@ export default function Home() {
         .eq("id", user.id)
         .single();
 
-      if (!profileData) return;
+      if (!profileData) {
+        setLoading(false);
+        return;
+      }
       setProfile(profileData);
 
       if (!profileData.household_id) {
         router.push("/household/new");
+        setLoading(false);
         return;
       }
 
