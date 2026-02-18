@@ -2,14 +2,13 @@
 -- 家族タスク共有アプリ - 初期スキーマ
 -- ============================================
 
--- Enable UUID extension
-create extension if not exists "uuid-ossp";
+-- gen_random_uuid() is built-in to PostgreSQL 13+, no extension needed
 
 -- ============================================
 -- households テーブル
 -- ============================================
 create table public.households (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name text not null default 'わが家',
   invite_code text unique,
   invite_code_expires_at timestamptz,
@@ -33,7 +32,7 @@ create table public.profiles (
 -- categories テーブル
 -- ============================================
 create table public.categories (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   name text not null,
   color text not null default '#6366f1',
@@ -47,7 +46,7 @@ create table public.categories (
 -- tasks テーブル
 -- ============================================
 create table public.tasks (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   category_id uuid references public.categories(id) on delete set null,
   title text not null,
@@ -75,7 +74,7 @@ create table public.task_assignees (
 -- task_images テーブル
 -- ============================================
 create table public.task_images (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   task_id uuid not null references public.tasks(id) on delete cascade,
   storage_path text not null,
   created_at timestamptz not null default now()
