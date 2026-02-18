@@ -47,15 +47,25 @@ export default function Home() {
         .from("profiles")
         .select("*")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (!profileData) {
+      let profile = profileData;
+      if (!profile) {
+        const { data: created } = await supabase
+          .from("profiles")
+          .upsert({ id: user.id, nickname: user.user_metadata?.nickname ?? "" })
+          .select()
+          .single();
+        profile = created;
+      }
+
+      if (!profile) {
         setLoading(false);
         return;
       }
-      setProfile(profileData);
+      setProfile(profile);
 
-      if (!profileData.household_id) {
+      if (!profile.household_id) {
         router.push("/household/new");
         setLoading(false);
         return;
@@ -65,7 +75,7 @@ export default function Home() {
       const { data: membersData } = await supabase
         .from("profiles")
         .select("*")
-        .eq("household_id", profileData.household_id);
+        .eq("household_id", profile.household_id);
       if (membersData) setMembers(membersData);
 
       setLoading(false);

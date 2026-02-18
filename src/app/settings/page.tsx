@@ -30,7 +30,7 @@ export default function SettingsPage() {
         .from("profiles")
         .select("*")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
       if (p) setProfile(p);
 
       if (p?.household_id) {
