@@ -50,7 +50,10 @@ export function useTasks(householdId: string | null, categoryId?: string | null)
       .single();
 
     if (!error && data) {
-      setTasks((prev) => [data, ...prev]);
+      setTasks((prev) => {
+        if (prev.some((t) => t.id === data.id)) return prev;
+        return [data, ...prev];
+      });
     }
     return { data, error };
   };
