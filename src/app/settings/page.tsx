@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ProfileEditor } from "@/components/settings/profile-editor";
 import { HouseholdSettings } from "@/components/settings/household-settings";
 import { CategorySettings } from "@/components/settings/category-settings";
+import { NotificationSettings } from "@/components/settings/notification-settings";
 import { useCategories } from "@/hooks/use-categories";
 import type { Profile, Household } from "@/types";
 
@@ -73,6 +74,10 @@ export default function SettingsPage() {
             <HouseholdSettings household={household} onUpdate={setHousehold} />
           </div>
         )}
+
+        <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
+          <NotificationSettings />
+        </div>
 
         <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
           <CategorySettings

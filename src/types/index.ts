@@ -8,6 +8,7 @@ export type Category = Tables["categories"]["Row"];
 export type Task = Tables["tasks"]["Row"];
 export type TaskAssignee = Tables["task_assignees"]["Row"];
 export type TaskImage = Tables["task_images"]["Row"];
+export type PushSubscription = Tables["push_subscriptions"]["Row"];
 
 export type TaskWithAssignees = Task & {
   assignees: Profile[];
