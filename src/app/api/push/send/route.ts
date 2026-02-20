@@ -2,13 +2,29 @@ import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient } from "@/lib/supabase/server";
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+let vapidConfigured = false;
+
+function ensureVapidConfigured() {
+  if (vapidConfigured) return;
+  const subject = process.env.VAPID_SUBJECT;
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  if (!subject || !publicKey || !privateKey) {
+    throw new Error("VAPID environment variables are not set");
+  }
+  webpush.setVapidDetails(subject, publicKey, privateKey);
+  vapidConfigured = true;
+}
 
 export async function POST(request: Request) {
+  try {
+    ensureVapidConfigured();
+  } catch {
+    return NextResponse.json(
+      { error: "Push notifications not configured" },
+      { status: 500 }
+    );
+  }
   const supabase = await createClient();
   const {
     data: { user },
