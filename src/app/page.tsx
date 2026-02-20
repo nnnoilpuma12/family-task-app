@@ -8,6 +8,7 @@ import { CategoryTabs } from "@/components/category/category-tabs";
 import { TaskList } from "@/components/task/task-list";
 import { TaskCreateSheet } from "@/components/task/task-create-sheet";
 import { TaskDetailModal } from "@/components/task/task-detail-modal";
+import { SwipeableTaskContainer } from "@/components/task/swipeable-task-container";
 import { Fab } from "@/components/ui/fab";
 import { useTasks } from "@/hooks/use-tasks";
 import { useCategories } from "@/hooks/use-categories";
@@ -125,30 +126,36 @@ export default function Home() {
 
       {/* Task List */}
       <main className="pt-2">
-        {tasksLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-          </div>
-        ) : (
-          <TaskList
-            tasks={tasks}
-            categories={categories}
-            onToggle={toggleTask}
-            onTap={(task) => setSelectedTask(task)}
-            onDelete={async (id) => { await deleteTask(id); }}
-            onReorder={reorderTasks}
-            onBulkComplete={async (ids) => {
-              await Promise.all(ids.map((id) => updateTask(id, { is_done: true })));
-            }}
-            onBulkDelete={async (ids) => {
-              await Promise.all(ids.map((id) => deleteTask(id)));
-            }}
-            onDeleteAllDone={async () => {
-              const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
-              await Promise.all(doneIds.map((id) => deleteTask(id)));
-            }}
-          />
-        )}
+        <SwipeableTaskContainer
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          onCategoryChange={setSelectedCategoryId}
+        >
+          {tasksLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+            </div>
+          ) : (
+            <TaskList
+              tasks={tasks}
+              categories={categories}
+              onToggle={toggleTask}
+              onTap={(task) => setSelectedTask(task)}
+              onDelete={async (id) => { await deleteTask(id); }}
+              onReorder={reorderTasks}
+              onBulkComplete={async (ids) => {
+                await Promise.all(ids.map((id) => updateTask(id, { is_done: true })));
+              }}
+              onBulkDelete={async (ids) => {
+                await Promise.all(ids.map((id) => deleteTask(id)));
+              }}
+              onDeleteAllDone={async () => {
+                const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
+                await Promise.all(doneIds.map((id) => deleteTask(id)));
+              }}
+            />
+          )}
+        </SwipeableTaskContainer>
       </main>
 
       {/* FAB */}

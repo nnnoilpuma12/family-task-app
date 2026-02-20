@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import type { Category } from "@/types";
 
@@ -10,11 +11,24 @@ interface CategoryTabsProps {
 }
 
 export function CategoryTabs({ categories, selectedId, onSelect }: CategoryTabsProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to active tab when selectedId changes
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const activeBtn = container.querySelector("[data-active]") as HTMLElement | null;
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+  }, [selectedId]);
+
   return (
-    <div className="flex gap-1 overflow-x-auto px-4 py-2 no-scrollbar">
+    <div ref={containerRef} className="flex gap-1 overflow-x-auto px-4 py-2 no-scrollbar">
       <button
         onClick={() => onSelect(null)}
         className="relative shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+        {...(selectedId === null ? { "data-active": true } : {})}
       >
         {selectedId === null && (
           <motion.div
@@ -32,6 +46,7 @@ export function CategoryTabs({ categories, selectedId, onSelect }: CategoryTabsP
           key={cat.id}
           onClick={() => onSelect(cat.id)}
           className="relative shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+          {...(selectedId === cat.id ? { "data-active": true } : {})}
         >
           {selectedId === cat.id && (
             <motion.div

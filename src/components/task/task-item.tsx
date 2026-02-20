@@ -113,7 +113,7 @@ export function TaskItem({
   };
 
   return (
-    <div ref={setNodeRef} style={sortStyle}>
+    <div ref={setNodeRef} style={sortStyle} data-task-item>
       <motion.div
         layout
         initial={{ opacity: 0, y: 20 }}
