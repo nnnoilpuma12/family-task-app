@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import type { Category } from "@/types";
@@ -27,6 +27,12 @@ export function TaskCreateSheet({
 }: TaskCreateSheetProps) {
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(selectedCategoryId);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCategoryId(selectedCategoryId);
+    }
+  }, [isOpen, selectedCategoryId]);
   const [dueDate, setDueDate] = useState<string>("");
   const [memo, setMemo] = useState("");
   const [loading, setLoading] = useState(false);
