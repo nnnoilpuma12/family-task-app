@@ -54,6 +54,16 @@ export function useTasks(householdId: string | null, categoryId?: string | null)
         if (prev.some((t) => t.id === data.id)) return prev;
         return [data, ...prev];
       });
+      // Send push notification (fire-and-forget)
+      fetch("/api/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "家族タスク",
+          body: `「${data.title}」が追加されました`,
+          householdId: householdId,
+        }),
+      }).catch(() => {});
     }
     return { data, error };
   };
@@ -93,7 +103,20 @@ export function useTasks(householdId: string | null, categoryId?: string | null)
   const toggleTask = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
-    return updateTask(id, { is_done: !task.is_done });
+    const result = await updateTask(id, { is_done: !task.is_done });
+    // Send push notification when task is completed (fire-and-forget)
+    if (!task.is_done && result?.data) {
+      fetch("/api/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "家族タスク",
+          body: `「${task.title}」が完了しました`,
+          householdId: householdId,
+        }),
+      }).catch(() => {});
+    }
+    return result;
   };
 
   const reorderTasks = async (orderedIds: string[]) => {
