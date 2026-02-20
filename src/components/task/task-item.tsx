@@ -120,14 +120,14 @@ export function TaskItem({
         animate={{ opacity: isDragging ? 0.4 : isDeleting ? 0 : 1, x: isDeleting ? -300 : 0, y: 0 }}
         exit={{ opacity: 0, height: 0, marginBottom: 0 }}
         transition={{ type: "spring", damping: 20, stiffness: 300 }}
-        className="relative overflow-hidden rounded-xl"
+        className="relative overflow-hidden rounded-lg"
         style={isOverlay ? { opacity: 0.9, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" } : {}}
       >
         {/* Delete background */}
         {!selectionMode && (
           <motion.div
             style={{ opacity: deleteOpacity }}
-            className="absolute inset-0 flex items-center justify-end bg-red-500 px-6 rounded-xl"
+            className="absolute inset-0 flex items-center justify-end bg-red-500 px-6 rounded-lg"
           >
             <Trash2 size={20} className="text-white" />
           </motion.div>
@@ -141,7 +141,7 @@ export function TaskItem({
           dragConstraints={{ left: -150, right: 0 }}
           dragElastic={0.1}
           onDragEnd={handleDragEnd}
-          className={`relative flex items-center gap-3 bg-white p-4 rounded-xl shadow-sm border cursor-pointer transition-colors ${
+          className={`relative flex items-center gap-2.5 bg-white px-3 py-2.5 rounded-lg shadow-sm border cursor-pointer transition-colors ${
             isSelected ? "border-indigo-400 bg-indigo-50" : "border-gray-100"
           }`}
           onPointerDown={startLongPress}
@@ -152,7 +152,7 @@ export function TaskItem({
           {/* Selection checkbox or drag handle */}
           {selectionMode ? (
             <div
-              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                 isSelected ? "border-indigo-600 bg-indigo-600" : "border-gray-300"
               }`}
             >
@@ -168,7 +168,7 @@ export function TaskItem({
                   className="touch-none text-gray-300 cursor-grab active:cursor-grabbing"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <GripVertical size={16} />
+                  <GripVertical size={14} />
                 </div>
               )}
 
@@ -181,7 +181,7 @@ export function TaskItem({
                 whileTap={{ scale: 0.85 }}
                 animate={task.is_done ? { scale: [1, 1.2, 1] } : {}}
                 transition={{ duration: 0.25 }}
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                   task.is_done
                     ? "border-green-500 bg-green-500"
                     : "border-gray-300 hover:border-indigo-400"
