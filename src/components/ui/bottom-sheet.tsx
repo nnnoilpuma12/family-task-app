@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface BottomSheetProps {
@@ -11,6 +11,8 @@ interface BottomSheetProps {
 }
 
 export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetProps) {
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -21,6 +23,35 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
       document.body.style.overflow = "";
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handleResize = () => {
+      // キーボードが開くとvisualViewportの高さが縮む
+      const diff = window.innerHeight - vv.height;
+      // 閾値を設けてURLバー変化との誤検知を防ぐ
+      setKeyboardHeight(diff > 80 ? diff : 0);
+    };
+
+    vv.addEventListener("resize", handleResize);
+    vv.addEventListener("scroll", handleResize);
+    // 初回チェックを次フレームに遅延してlintルール準拠
+    const rafId = requestAnimationFrame(handleResize);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      vv.removeEventListener("resize", handleResize);
+      vv.removeEventListener("scroll", handleResize);
+      setKeyboardHeight(0);
+    };
+  }, [isOpen]);
+
+  // シートが閉じている時はキーボード高さを0として扱う
+  const effectiveKeyboardHeight = isOpen ? keyboardHeight : 0;
 
   return (
     <AnimatePresence>
@@ -34,7 +65,13 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             onClick={onClose}
           />
           <motion.div
-            className="relative w-full max-w-lg bg-white rounded-t-2xl max-h-[80dvh] overflow-y-auto"
+            className="relative w-full max-w-lg bg-white rounded-t-2xl overflow-y-auto"
+            style={{
+              maxHeight: effectiveKeyboardHeight > 0
+                ? `calc(100dvh - ${effectiveKeyboardHeight}px - 40px)`
+                : "80dvh",
+              marginBottom: effectiveKeyboardHeight > 0 ? `${effectiveKeyboardHeight}px` : 0,
+            }}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
