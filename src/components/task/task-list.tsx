@@ -17,11 +17,12 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-ki
 import confetti from "canvas-confetti";
 import { CheckCircle, Trash2 } from "lucide-react";
 import { TaskItem } from "./task-item";
-import type { Task, Category } from "@/types";
+import type { Task, Category, Profile } from "@/types";
 
 interface TaskListProps {
   tasks: Task[];
   categories: Category[];
+  members: Profile[];
   onToggle: (id: string) => void;
   onTap: (task: Task) => void;
   onDelete: (id: string) => void;
@@ -34,6 +35,7 @@ interface TaskListProps {
 export function TaskList({
   tasks,
   categories,
+  members,
   onToggle,
   onTap,
   onDelete,
@@ -43,6 +45,7 @@ export function TaskList({
   onDeleteAllDone,
 }: TaskListProps) {
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
+  const memberMap = new Map(members.map((m) => [m.id, m]));
   const activeTasks = tasks.filter((t) => !t.is_done);
   const doneTasks = tasks.filter((t) => t.is_done);
 
@@ -190,6 +193,7 @@ export function TaskList({
                   key={task.id}
                   task={task}
                   category={categoryMap.get(task.category_id ?? "")}
+                  createdBy={task.created_by ? memberMap.get(task.created_by) : undefined}
                   onToggle={onToggle}
                   onTap={onTap}
                   onDelete={onDelete}
@@ -209,6 +213,7 @@ export function TaskList({
               <TaskItem
                 task={activeTask}
                 category={categoryMap.get(activeTask.category_id ?? "")}
+                createdBy={activeTask.created_by ? memberMap.get(activeTask.created_by) : undefined}
                 onToggle={() => {}}
                 onTap={() => {}}
                 onDelete={() => {}}
@@ -269,6 +274,7 @@ export function TaskList({
                   key={task.id}
                   task={task}
                   category={categoryMap.get(task.category_id ?? "")}
+                  createdBy={task.created_by ? memberMap.get(task.created_by) : undefined}
                   onToggle={onToggle}
                   onTap={onTap}
                   onDelete={onDelete}

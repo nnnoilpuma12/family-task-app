@@ -5,11 +5,12 @@ import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Check, Trash2, Calendar, GripVertical } from "lucide-react";
-import type { Task, Category } from "@/types";
+import type { Task, Category, Profile } from "@/types";
 
 interface TaskItemProps {
   task: Task;
   category?: Category | null;
+  createdBy?: Profile | null;
   onToggle: (id: string) => void;
   onTap: (task: Task) => void;
   onDelete: (id: string) => void;
@@ -25,6 +26,7 @@ interface TaskItemProps {
 export function TaskItem({
   task,
   category,
+  createdBy,
   onToggle,
   onTap,
   onDelete,
@@ -229,6 +231,11 @@ export function TaskItem({
                 >
                   <Calendar size={10} />
                   {formatDueDate(task.due_date)}
+                </span>
+              )}
+              {createdBy && (
+                <span className="text-xs text-gray-400">
+                  {createdBy.nickname}
                 </span>
               )}
             </div>

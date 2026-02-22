@@ -156,6 +156,7 @@ export default function Home() {
             <TaskList
               tasks={tasks}
               categories={categories}
+              members={members}
               onToggle={toggleTask}
               onTap={(task) => setSelectedTask(task)}
               onDelete={async (id) => { await deleteTask(id); }}
