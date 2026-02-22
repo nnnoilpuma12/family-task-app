@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +13,8 @@ import { Fab } from "@/components/ui/fab";
 import { useTasks } from "@/hooks/use-tasks";
 import { useCategories } from "@/hooks/use-categories";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
+import type { TabMeasurements } from "@/components/category/category-tabs";
+import type { IndicatorRefs } from "@/hooks/use-swipeable-tab";
 import type { Profile, Task } from "@/types";
 
 export default function Home() {
@@ -23,6 +25,18 @@ export default function Home() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Indicator refs for swipe ↔ tab sync
+  const indicatorBarRef = useRef<HTMLDivElement>(null);
+  const tabMeasurementsRef = useRef<TabMeasurements>({ tabWidths: [], tabOffsets: [] });
+  const indicatorRefs: IndicatorRefs = {
+    barRef: indicatorBarRef,
+    get tabWidths() { return tabMeasurementsRef.current.tabWidths; },
+    get tabOffsets() { return tabMeasurementsRef.current.tabOffsets; },
+  };
+  const handleTabMeasure = useCallback((m: TabMeasurements) => {
+    tabMeasurementsRef.current = m;
+  }, []);
 
   const householdId = profile?.household_id ?? null;
   const { categories } = useCategories(householdId);
@@ -121,6 +135,8 @@ export default function Home() {
           categories={categories}
           selectedId={selectedCategoryId}
           onSelect={setSelectedCategoryId}
+          indicatorRef={indicatorBarRef}
+          onTabMeasure={handleTabMeasure}
         />
       </header>
 
@@ -130,6 +146,7 @@ export default function Home() {
           categories={categories}
           selectedCategoryId={selectedCategoryId}
           onCategoryChange={setSelectedCategoryId}
+          indicatorRefs={indicatorRefs}
         >
           {tasksLoading ? (
             <div className="flex items-center justify-center py-20">
