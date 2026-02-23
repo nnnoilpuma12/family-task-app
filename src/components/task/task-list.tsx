@@ -15,7 +15,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import confetti from "canvas-confetti";
-import { CheckCircle, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle, Trash2 } from "lucide-react";
 import { TaskItem } from "./task-item";
 import type { Task, Category, Profile } from "@/types";
 
@@ -192,12 +192,6 @@ export function TaskList({
         )}
       </AnimatePresence>
 
-      {/* Swipe hint */}
-      <div className="flex items-center justify-center gap-1 py-1 text-gray-300">
-        <ChevronLeft size={14} />
-        <span className="text-xs">スワイプでカテゴリ切替</span>
-        <ChevronRight size={14} />
-      </div>
 
       <div className="flex flex-col gap-1.5 px-4 pb-24">
         <DndContext
