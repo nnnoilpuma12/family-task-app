@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
+import { useRef, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Check, Trash2, Calendar, GripVertical } from "lucide-react";
+import { Check, Calendar, GripVertical } from "lucide-react";
 import type { Task, Category, Profile } from "@/types";
 
 interface TaskItemProps {
@@ -29,7 +29,6 @@ export function TaskItem({
   createdBy,
   onToggle,
   onTap,
-  onDelete,
   selectionMode,
   isSelected,
   onLongPress,
@@ -38,11 +37,6 @@ export function TaskItem({
   sortable: isSortable = false,
   isOverlay = false,
 }: TaskItemProps) {
-  const [isDeleting, setIsDeleting] = useState(false);
-  const x = useMotionValue(0);
-  const deleteOpacity = useTransform(x, [-120, -60], [1, 0]);
-  const constraintsRef = useRef(null);
-
   // Long press detection
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -82,13 +76,6 @@ export function TaskItem({
     transition: sortTransition,
   };
 
-  const handleDragEnd = (_: unknown, info: PanInfo) => {
-    if (info.offset.x < -100) {
-      setIsDeleting(true);
-      setTimeout(() => onDelete(task.id), 300);
-    }
-  };
-
   const formatDueDate = (date: string) => {
     const d = new Date(date);
     const today = new Date();
@@ -119,30 +106,14 @@ export function TaskItem({
       <motion.div
         layout
         initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: isDragging ? 0.4 : isDeleting ? 0 : 1, x: isDeleting ? -300 : 0, y: 0 }}
+        animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }}
         exit={{ opacity: 0, height: 0, marginBottom: 0 }}
         transition={{ type: "spring", damping: 20, stiffness: 300 }}
         className="relative overflow-hidden rounded-lg"
         style={isOverlay ? { opacity: 0.9, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" } : {}}
       >
-        {/* Delete background */}
-        {!selectionMode && (
-          <motion.div
-            style={{ opacity: deleteOpacity }}
-            className="absolute inset-0 flex items-center justify-end bg-red-500 px-6 rounded-lg"
-          >
-            <Trash2 size={20} className="text-white" />
-          </motion.div>
-        )}
-
         {/* Card */}
-        <motion.div
-          ref={constraintsRef}
-          style={selectionMode ? {} : { x }}
-          drag={selectionMode ? false : "x"}
-          dragConstraints={{ left: -150, right: 0 }}
-          dragElastic={0.1}
-          onDragEnd={handleDragEnd}
+        <div
           className={`relative flex items-center gap-2.5 bg-white px-3 py-2.5 rounded-lg shadow-sm border cursor-pointer transition-colors ${
             isSelected ? "border-indigo-400 bg-indigo-50" : "border-gray-100"
           }`}
@@ -240,7 +211,7 @@ export function TaskItem({
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
       </motion.div>
     </div>
   );

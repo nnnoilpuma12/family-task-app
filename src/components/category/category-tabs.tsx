@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, type RefObject } from "react";
+import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
 import type { Category } from "@/types";
 
 export interface TabMeasurements {
@@ -27,6 +27,25 @@ export function CategoryTabs({
   const internalIndicatorRef = useRef<HTMLDivElement>(null);
   const indicatorRef = externalIndicatorRef ?? internalIndicatorRef;
   const tabButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Fade gradient state
+  const [showLeftFade, setShowLeftFade] = useState(false);
+  const [showRightFade, setShowRightFade] = useState(false);
+
+  const updateFades = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    setShowLeftFade(el.scrollLeft > 4);
+    setShowRightFade(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    updateFades();
+    el.addEventListener("scroll", updateFades, { passive: true });
+    return () => el.removeEventListener("scroll", updateFades);
+  }, [updateFades, categories.length]);
 
   // All tab IDs in order: [null, ...category ids]
   const tabIds: (string | null)[] = [null, ...categories.map((c) => c.id)];
@@ -101,6 +120,7 @@ export function CategoryTabs({
       // Re-measure after scroll animation
       const timer = setTimeout(() => {
         positionIndicator(safeIndex, false);
+        updateFades();
         // Report updated measurements
         if (onTabMeasure) {
           const measurements = measureTabs();
@@ -131,42 +151,54 @@ export function CategoryTabs({
   };
 
   return (
-    <div ref={containerRef} className="relative flex gap-1 overflow-x-auto px-4 py-2 no-scrollbar">
-      {/* Indicator bar */}
-      <div
-        ref={indicatorRef}
-        className="absolute top-2 h-[calc(100%-16px)] rounded-full pointer-events-none"
-        style={{
-          backgroundColor: getActiveBg(safeIndex),
-          willChange: "transform, width",
-        }}
-      />
+    <div className="relative">
+      <div ref={containerRef} className="relative flex gap-1 overflow-x-auto px-4 py-2 no-scrollbar">
+        {/* Indicator bar */}
+        <div
+          ref={indicatorRef}
+          className="absolute top-2 h-[calc(100%-16px)] rounded-full pointer-events-none"
+          style={{
+            backgroundColor: getActiveBg(safeIndex),
+            willChange: "transform, width",
+          }}
+        />
 
-      {/* Tab buttons */}
-      <button
-        ref={(el) => { tabButtonRefs.current[0] = el; }}
-        onClick={() => handleSelect(null, 0)}
-        className="relative z-10 shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
-      >
-        <span className={selectedId === null ? "text-indigo-700" : "text-gray-600"}>
-          すべて
-        </span>
-      </button>
-      {categories.map((cat, i) => {
-        const tabIndex = i + 1;
-        return (
-          <button
-            key={cat.id}
-            ref={(el) => { tabButtonRefs.current[tabIndex] = el; }}
-            onClick={() => handleSelect(cat.id, tabIndex)}
-            className="relative z-10 shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
-          >
-            <span style={{ color: selectedId === cat.id ? cat.color : "#6b7280" }}>
-              {cat.name}
-            </span>
-          </button>
-        );
-      })}
+        {/* Tab buttons */}
+        <button
+          ref={(el) => { tabButtonRefs.current[0] = el; }}
+          onClick={() => handleSelect(null, 0)}
+          className="relative z-10 shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+        >
+          <span className={selectedId === null ? "text-indigo-700" : "text-gray-600"}>
+            すべて
+          </span>
+        </button>
+        {categories.map((cat, i) => {
+          const tabIndex = i + 1;
+          return (
+            <button
+              key={cat.id}
+              ref={(el) => { tabButtonRefs.current[tabIndex] = el; }}
+              onClick={() => handleSelect(cat.id, tabIndex)}
+              className="relative z-10 shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+            >
+              <span style={{ color: selectedId === cat.id ? cat.color : "#6b7280" }}>
+                {cat.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Left fade gradient */}
+      {showLeftFade && (
+        <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-white to-transparent pointer-events-none z-20" />
+      )}
+
+      {/* Right fade gradient */}
+      {showRightFade && (
+        <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white to-transparent pointer-events-none z-20" />
+      )}
     </div>
   );
 }

@@ -122,20 +122,6 @@ export function useSwipeableTab({
 
     if (directionLocked.current !== "horizontal") return;
 
-    // Left swipe guard for task-item swipe-to-delete
-    if (dx < 0) {
-      const target = e.target as HTMLElement;
-      if (target.closest("[data-task-item]")) {
-        swiping.current = false;
-        // Reset container position
-        const container = containerRef.current;
-        if (container) {
-          container.style.transform = "";
-        }
-        return;
-      }
-    }
-
     e.preventDefault();
 
     const idx = activeIndexRef.current;
