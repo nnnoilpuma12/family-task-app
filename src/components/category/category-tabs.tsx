@@ -167,7 +167,7 @@ export function CategoryTabs({
         <button
           ref={(el) => { tabButtonRefs.current[0] = el; }}
           onClick={() => handleSelect(null, 0)}
-          className="relative z-10 shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+          className="relative z-10 shrink-0 inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium leading-none transition-colors"
         >
           <span className={selectedId === null ? "text-indigo-700" : "text-gray-600"}>
             すべて
@@ -180,7 +180,7 @@ export function CategoryTabs({
               key={cat.id}
               ref={(el) => { tabButtonRefs.current[tabIndex] = el; }}
               onClick={() => handleSelect(cat.id, tabIndex)}
-              className="relative z-10 shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+              className="relative z-10 shrink-0 inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium leading-none transition-colors"
             >
               <span style={{ color: selectedId === cat.id ? cat.color : "#6b7280" }}>
                 {cat.name}
