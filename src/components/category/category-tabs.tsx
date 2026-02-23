@@ -89,6 +89,10 @@ export function CategoryTabs({
   // Position indicator when selection changes
   useEffect(() => {
     requestAnimationFrame(() => {
+      const bar = indicatorRef.current;
+      // If a swipe transition is still in progress, skip repositioning
+      // to avoid competing with snapIndicator's animated transition
+      if (bar && bar.style.transition) return;
       positionIndicator(safeIndex, false);
       // Report updated measurements
       if (onTabMeasure) {
@@ -99,9 +103,23 @@ export function CategoryTabs({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, categories.length]);
 
-  // Initial position (no animation)
+  // Initial position (no animation) + re-measure on layout changes (e.g. font load)
   useEffect(() => {
     positionIndicator(safeIndex, false);
+
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => {
+      const bar = indicatorRef.current;
+      if (bar && bar.style.transition) return;
+      positionIndicator(safeIndex, false);
+      if (onTabMeasure) {
+        const measurements = measureTabs();
+        if (measurements) onTabMeasure(measurements);
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -123,7 +141,7 @@ export function CategoryTabs({
         {/* Indicator bar */}
         <div
           ref={indicatorRef}
-          className="absolute top-2 h-[calc(100%-16px)] rounded-full pointer-events-none"
+          className="absolute top-2 bottom-2 rounded-full pointer-events-none"
           style={{
             backgroundColor: getActiveBg(safeIndex),
             willChange: "transform, width",
