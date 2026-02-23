@@ -178,10 +178,12 @@ export function useSwipeableTab({
 
       const onTransitionEnd = () => {
         container.style.transition = "";
-        container.style.transform = "";
         if (targetIndex !== idx) {
+          // Update state first so React renders new content,
+          // then reset transform in the same frame to avoid flicker
           onChangeIndexRef.current(targetIndex);
         }
+        container.style.transform = "";
       };
       container.addEventListener("transitionend", onTransitionEnd, { once: true });
     }

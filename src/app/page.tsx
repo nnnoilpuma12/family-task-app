@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Settings } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { CategoryTabs } from "@/components/category/category-tabs";
 import { TaskList } from "@/components/task/task-list";
@@ -155,39 +154,29 @@ export default function Home() {
           onCategoryChange={setSelectedCategoryId}
           indicatorRefs={indicatorRefs}
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={selectedCategoryId ?? "all"}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              {tasksLoading ? (
-                <TaskListSkeleton />
-              ) : (
-                <TaskList
-                  tasks={tasks}
-                  categories={categories}
-                  members={members}
-                  onToggle={toggleTask}
-                  onTap={(task) => setSelectedTask(task)}
-                  onDelete={async (id) => { await deleteTask(id); }}
-                  onReorder={reorderTasks}
-                  onBulkComplete={async (ids) => {
-                    await Promise.all(ids.map((id) => updateTask(id, { is_done: true })));
-                  }}
-                  onBulkDelete={async (ids) => {
-                    await Promise.all(ids.map((id) => deleteTask(id)));
-                  }}
-                  onDeleteAllDone={async () => {
-                    const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
-                    await Promise.all(doneIds.map((id) => deleteTask(id)));
-                  }}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
+          {tasksLoading ? (
+            <TaskListSkeleton />
+          ) : (
+            <TaskList
+              tasks={tasks}
+              categories={categories}
+              members={members}
+              onToggle={toggleTask}
+              onTap={(task) => setSelectedTask(task)}
+              onDelete={async (id) => { await deleteTask(id); }}
+              onReorder={reorderTasks}
+              onBulkComplete={async (ids) => {
+                await Promise.all(ids.map((id) => updateTask(id, { is_done: true })));
+              }}
+              onBulkDelete={async (ids) => {
+                await Promise.all(ids.map((id) => deleteTask(id)));
+              }}
+              onDeleteAllDone={async () => {
+                const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
+                await Promise.all(doneIds.map((id) => deleteTask(id)));
+              }}
+            />
+          )}
         </SwipeableTaskContainer>
       </main>
 

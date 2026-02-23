@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
@@ -109,11 +109,26 @@ export function TaskList({
 
   // DnD
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [localActiveTasks, setLocalActiveTasks] = useState(activeTasks);
+  // Track DnD reorder locally; reset when the source task list changes
+  const [dndOrderedIds, setDndOrderedIds] = useState<string[] | null>(null);
+  const activeTaskIds = useMemo(() => activeTasks.map((t) => t.id), [activeTasks]);
+  const [prevActiveTaskIds, setPrevActiveTaskIds] = useState(activeTaskIds);
 
-  useEffect(() => {
-    setLocalActiveTasks(activeTasks);
-  }, [tasks]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Reset DnD order when source tasks change (category switch or external update)
+  if (prevActiveTaskIds !== activeTaskIds) {
+    setPrevActiveTaskIds(activeTaskIds);
+    if (dndOrderedIds !== null) {
+      setDndOrderedIds(null);
+    }
+  }
+
+  const localActiveTasks = useMemo(() => {
+    if (!dndOrderedIds) return activeTasks;
+    const taskMap = new Map(activeTasks.map((t) => [t.id, t]));
+    return dndOrderedIds
+      .map((id) => taskMap.get(id))
+      .filter((t): t is Task => t !== undefined);
+  }, [activeTasks, dndOrderedIds]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -132,8 +147,9 @@ export function TaskList({
     const oldIndex = localActiveTasks.findIndex((t) => t.id === active.id);
     const newIndex = localActiveTasks.findIndex((t) => t.id === over.id);
     const reordered = arrayMove(localActiveTasks, oldIndex, newIndex);
-    setLocalActiveTasks(reordered);
-    onReorder(reordered.map((t) => t.id));
+    const reorderedIds = reordered.map((t) => t.id);
+    setDndOrderedIds(reorderedIds);
+    onReorder(reorderedIds);
   };
 
   const activeTask = activeId ? localActiveTasks.find((t) => t.id === activeId) : null;
