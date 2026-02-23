@@ -46,8 +46,8 @@ export function TaskList({
 }: TaskListProps) {
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
   const memberMap = new Map(members.map((m) => [m.id, m]));
-  const activeTasks = tasks.filter((t) => !t.is_done);
-  const doneTasks = tasks.filter((t) => t.is_done);
+  const activeTasks = useMemo(() => tasks.filter((t) => !t.is_done), [tasks]);
+  const doneTasks = useMemo(() => tasks.filter((t) => t.is_done), [tasks]);
 
   // Confetti on all tasks done
   const allDoneRef = useRef(false);
