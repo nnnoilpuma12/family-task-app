@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Settings } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { CategoryTabs } from "@/components/category/category-tabs";
 import { TaskList } from "@/components/task/task-list";
+import { TaskListSkeleton } from "@/components/task/task-list-skeleton";
 import { TaskCreateSheet } from "@/components/task/task-create-sheet";
 import { TaskDetailModal } from "@/components/task/task-detail-modal";
 import { SwipeableTaskContainer } from "@/components/task/swipeable-task-container";
@@ -40,10 +42,15 @@ export default function Home() {
 
   const householdId = profile?.household_id ?? null;
   const { categories } = useCategories(householdId);
-  const { tasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, toggleTask, reorderTasks } =
-    useTasks(householdId, selectedCategoryId);
+  const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, toggleTask, reorderTasks } =
+    useTasks(householdId);
 
   useRealtimeTasks(householdId, setTasks);
+
+  const tasks = useMemo(() => {
+    if (!selectedCategoryId) return allTasks;
+    return allTasks.filter((t) => t.category_id === selectedCategoryId);
+  }, [allTasks, selectedCategoryId]);
 
   useEffect(() => {
     const load = async () => {
@@ -148,31 +155,39 @@ export default function Home() {
           onCategoryChange={setSelectedCategoryId}
           indicatorRefs={indicatorRefs}
         >
-          {tasksLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-            </div>
-          ) : (
-            <TaskList
-              tasks={tasks}
-              categories={categories}
-              members={members}
-              onToggle={toggleTask}
-              onTap={(task) => setSelectedTask(task)}
-              onDelete={async (id) => { await deleteTask(id); }}
-              onReorder={reorderTasks}
-              onBulkComplete={async (ids) => {
-                await Promise.all(ids.map((id) => updateTask(id, { is_done: true })));
-              }}
-              onBulkDelete={async (ids) => {
-                await Promise.all(ids.map((id) => deleteTask(id)));
-              }}
-              onDeleteAllDone={async () => {
-                const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
-                await Promise.all(doneIds.map((id) => deleteTask(id)));
-              }}
-            />
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedCategoryId ?? "all"}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              {tasksLoading ? (
+                <TaskListSkeleton />
+              ) : (
+                <TaskList
+                  tasks={tasks}
+                  categories={categories}
+                  members={members}
+                  onToggle={toggleTask}
+                  onTap={(task) => setSelectedTask(task)}
+                  onDelete={async (id) => { await deleteTask(id); }}
+                  onReorder={reorderTasks}
+                  onBulkComplete={async (ids) => {
+                    await Promise.all(ids.map((id) => updateTask(id, { is_done: true })));
+                  }}
+                  onBulkDelete={async (ids) => {
+                    await Promise.all(ids.map((id) => deleteTask(id)));
+                  }}
+                  onDeleteAllDone={async () => {
+                    const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
+                    await Promise.all(doneIds.map((id) => deleteTask(id)));
+                  }}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </SwipeableTaskContainer>
       </main>
 

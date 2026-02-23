@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Task } from "@/types";
 
-export function useTasks(householdId: string | null, categoryId?: string | null) {
+export function useTasks(householdId: string | null) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,7 +12,7 @@ export function useTasks(householdId: string | null, categoryId?: string | null)
     if (!householdId) return;
     const supabase = createClient();
 
-    let query = supabase
+    const { data } = await supabase
       .from("tasks")
       .select("*")
       .eq("household_id", householdId)
@@ -20,14 +20,9 @@ export function useTasks(householdId: string | null, categoryId?: string | null)
       .order("sort_order")
       .order("created_at", { ascending: false });
 
-    if (categoryId) {
-      query = query.eq("category_id", categoryId);
-    }
-
-    const { data } = await query;
     if (data) setTasks(data);
     setLoading(false);
-  }, [householdId, categoryId]);
+  }, [householdId]);
 
   useEffect(() => {
     fetchTasks();
