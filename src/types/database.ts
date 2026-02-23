@@ -287,6 +287,10 @@ export type Database = {
         Args: { p_household_id: string };
         Returns: string;
       };
+      reorder_tasks: {
+        Args: { p_task_ids: string[]; p_sort_orders: number[] };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

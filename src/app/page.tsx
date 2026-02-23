@@ -84,20 +84,22 @@ export default function Home() {
         setLoading(false);
         return;
       }
-      setProfile(profile);
-
       if (!profile.household_id) {
+        setProfile(profile);
         router.push("/household/new");
         setLoading(false);
         return;
       }
 
-      // Fetch household members
-      const { data: membersData } = await supabase
+      // setProfile を先に呼ぶ → useTasks/useCategories が即座にフェッチ開始
+      setProfile(profile);
+
+      // メンバー取得はバックグラウンドで並行（画面表示をブロックしない）
+      supabase
         .from("profiles")
         .select("*")
-        .eq("household_id", profile.household_id);
-      if (membersData) setMembers(membersData);
+        .eq("household_id", profile.household_id)
+        .then(({ data }) => { if (data) setMembers(data); });
 
       setLoading(false);
     };

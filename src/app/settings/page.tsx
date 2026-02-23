@@ -32,9 +32,12 @@ export default function SettingsPage() {
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
-      if (p) setProfile(p);
+      if (!p) return;
 
-      if (p?.household_id) {
+      // setProfile を先に呼ぶ → useCategories が即座にフェッチ開始
+      setProfile(p);
+
+      if (p.household_id) {
         const { data: h } = await supabase
           .from("households")
           .select("*")

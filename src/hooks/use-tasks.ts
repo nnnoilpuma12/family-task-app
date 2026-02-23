@@ -124,11 +124,10 @@ export function useTasks(householdId: string | null) {
     });
 
     const supabase = createClient();
-    await Promise.all(
-      orderedIds.map((id, i) =>
-        supabase.from("tasks").update({ sort_order: i }).eq("id", id)
-      )
-    );
+    await supabase.rpc("reorder_tasks", {
+      p_task_ids: orderedIds,
+      p_sort_orders: orderedIds.map((_, i) => i),
+    });
   };
 
   return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, refetch: fetchTasks };
