@@ -141,7 +141,7 @@ export function CategoryTabs({
         {/* Indicator bar */}
         <div
           ref={indicatorRef}
-          className="absolute top-2 bottom-2 rounded-full pointer-events-none"
+          className="absolute left-0 top-2 bottom-2 rounded-full pointer-events-none"
           style={{
             backgroundColor: getActiveBg(safeIndex),
             willChange: "transform, width",
