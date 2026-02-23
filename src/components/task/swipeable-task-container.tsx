@@ -43,7 +43,7 @@ export function SwipeableTaskContainer({
   return (
     <div
       ref={containerRef}
-      className="overflow-hidden"
+      className="overflow-hidden min-h-[calc(100dvh-7rem)]"
       style={{ willChange: "transform" }}
     >
       {children}
