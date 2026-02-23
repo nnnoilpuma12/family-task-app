@@ -185,7 +185,7 @@ export function TaskItem({
             <div className="flex items-center gap-2 mt-0.5">
               {category && (
                 <span
-                  className="text-xs px-1.5 py-0.5 rounded-full"
+                  className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-full leading-none"
                   style={{
                     backgroundColor: `${category.color}15`,
                     color: category.color,
