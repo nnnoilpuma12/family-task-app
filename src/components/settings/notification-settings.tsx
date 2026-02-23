@@ -4,7 +4,7 @@ import { Bell, BellOff } from "lucide-react";
 import { usePushNotification } from "@/hooks/use-push-notification";
 
 export function NotificationSettings() {
-  const { permission, isSubscribed, isSupported, subscribe, unsubscribe } =
+  const { permission, isSubscribed, isSupported, isLoading, subscribe, unsubscribe } =
     usePushNotification();
 
   if (!isSupported) {
@@ -12,12 +12,15 @@ export function NotificationSettings() {
   }
 
   const handleToggle = async () => {
+    if (isLoading) return;
     if (isSubscribed) {
       await unsubscribe();
     } else {
       await subscribe();
     }
   };
+
+  const isDisabled = permission === "denied" || isLoading;
 
   return (
     <div>
@@ -42,10 +45,10 @@ export function NotificationSettings() {
         </div>
         <button
           onClick={handleToggle}
-          disabled={permission === "denied"}
+          disabled={isDisabled}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
             isSubscribed ? "bg-primary" : "bg-gray-300"
-          } ${permission === "denied" ? "opacity-50 cursor-not-allowed" : ""}`}
+          } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <span
             className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${

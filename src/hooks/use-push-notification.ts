@@ -12,6 +12,7 @@ function getInitialPermission(): NotificationPermission {
 export function usePushNotification() {
   const [permission, setPermission] = useState<NotificationPermission>(getInitialPermission);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("Notification" in window)) return;
@@ -29,50 +30,72 @@ export function usePushNotification() {
   const subscribe = useCallback(async () => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
 
-    const perm = await Notification.requestPermission();
-    setPermission(perm);
-    if (perm !== "granted") return false;
+    setIsLoading(true);
+    try {
+      const perm = await Notification.requestPermission();
+      setPermission(perm);
+      if (perm !== "granted") return false;
 
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-    });
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      });
 
-    const json = sub.toJSON();
-    await fetch("/api/push/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        endpoint: json.endpoint,
-        keys: json.keys,
-      }),
-    });
+      const json = sub.toJSON();
+      const res = await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: json.endpoint,
+          keys: json.keys,
+        }),
+      });
 
-    setIsSubscribed(true);
-    return true;
+      if (!res.ok) {
+        await sub.unsubscribe();
+        return false;
+      }
+
+      setIsSubscribed(true);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const unsubscribe = useCallback(async () => {
     if (!("serviceWorker" in navigator)) return;
 
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (!sub) return;
+    setIsLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        setIsSubscribed(false);
+        return;
+      }
 
-    const endpoint = sub.endpoint;
-    await sub.unsubscribe();
+      const endpoint = sub.endpoint;
+      await sub.unsubscribe();
 
-    await fetch("/api/push/subscribe", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ endpoint }),
-    });
+      await fetch("/api/push/subscribe", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint }),
+      });
 
-    setIsSubscribed(false);
+      setIsSubscribed(false);
+    } catch {
+      // unsubscribe failed, keep current state
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const isSupported = typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator;
 
-  return { permission, isSubscribed, isSupported, subscribe, unsubscribe };
+  return { permission, isSubscribed, isSupported, isLoading, subscribe, unsubscribe };
 }
