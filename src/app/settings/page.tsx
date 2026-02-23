@@ -15,6 +15,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
+  const [members, setMembers] = useState<Profile[]>([]);
   const { categories, addCategory, updateCategory, deleteCategory } = useCategories(
     profile?.household_id ?? null
   );
@@ -44,6 +45,14 @@ export default function SettingsPage() {
           .eq("id", p.household_id)
           .single();
         if (h) setHousehold(h);
+
+        // メンバー取得
+        const { data: membersData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("household_id", p.household_id)
+          .order("created_at", { ascending: true });
+        if (membersData) setMembers(membersData);
       }
     };
     load();
@@ -72,9 +81,14 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {household && (
+        {household && profile && (
           <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-            <HouseholdSettings household={household} onUpdate={setHousehold} />
+            <HouseholdSettings
+              household={household}
+              onUpdate={setHousehold}
+              members={members}
+              currentUserId={profile.id}
+            />
           </div>
         )}
 

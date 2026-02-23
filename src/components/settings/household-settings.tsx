@@ -4,14 +4,21 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Copy, RefreshCw } from "lucide-react";
-import type { Household } from "@/types";
+import type { Household, Profile } from "@/types";
 
 interface HouseholdSettingsProps {
   household: Household;
   onUpdate: (household: Household) => void;
+  members: Profile[];
+  currentUserId: string;
 }
 
-export function HouseholdSettings({ household, onUpdate }: HouseholdSettingsProps) {
+export function HouseholdSettings({
+  household,
+  onUpdate,
+  members,
+  currentUserId,
+}: HouseholdSettingsProps) {
   const [name, setName] = useState(household.name);
   const [saving, setSaving] = useState(false);
   const [inviteCode, setInviteCode] = useState(household.invite_code);
@@ -94,6 +101,28 @@ export function HouseholdSettings({ household, onUpdate }: HouseholdSettingsProp
         <p className="text-xs text-gray-400">
           招待コードは24時間有効です
         </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs text-gray-500">メンバー</label>
+        <div className="flex flex-col gap-2">
+          {members.map((member) => (
+            <div key={member.id} className="flex items-center gap-3 py-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+                {member.nickname.charAt(0) || "?"}
+              </div>
+              <span className="flex-1 text-sm text-gray-900">{member.nickname}</span>
+              {member.id === currentUserId && (
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  あなた
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        {members.length === 0 && (
+          <p className="text-sm text-gray-400">メンバーがいません</p>
+        )}
       </div>
     </div>
   );
