@@ -46,6 +46,13 @@ export default function Home() {
 
   useRealtimeTasks(householdId, setTasks);
 
+  // Auto-select first category when categories load and none is selected
+  useEffect(() => {
+    if (selectedCategoryId === null && categories.length > 0) {
+      setSelectedCategoryId(categories[0].id);
+    }
+  }, [categories, selectedCategoryId]);
+
   const tasks = useMemo(() => {
     if (!selectedCategoryId) return allTasks;
     return allTasks.filter((t) => t.category_id === selectedCategoryId);

@@ -28,9 +28,9 @@ export function CategoryTabs({
   const indicatorRef = externalIndicatorRef ?? internalIndicatorRef;
   const tabButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // All tab IDs in order: [null, ...category ids]
-  const tabIds: (string | null)[] = [null, ...categories.map((c) => c.id)];
-  const activeIndex = tabIds.indexOf(selectedId);
+  // Tab IDs in order: category ids only (no "すべて")
+  const tabIds: string[] = categories.map((c) => c.id);
+  const activeIndex = selectedId ? tabIds.indexOf(selectedId) : -1;
   const safeIndex = activeIndex === -1 ? 0 : activeIndex;
 
   const measureTabs = useCallback(() => {
@@ -130,8 +130,7 @@ export function CategoryTabs({
 
   // Get background color for active tab
   const getActiveBg = (index: number): string => {
-    if (index === 0) return "#e0e7ff"; // indigo-100
-    const cat = categories[index - 1];
+    const cat = categories[index];
     return cat ? `${cat.color}20` : "#e0e7ff";
   };
 
@@ -149,30 +148,18 @@ export function CategoryTabs({
         />
 
         {/* Tab buttons */}
-        <button
-          ref={(el) => { tabButtonRefs.current[0] = el; }}
-          onClick={() => handleSelect(null, 0)}
-          className="relative z-10 flex-1 flex items-center justify-center rounded-full py-1.5 text-sm font-medium transition-colors"
-        >
-          <span className={selectedId === null ? "text-indigo-700" : "text-gray-600"}>
-            すべて
-          </span>
-        </button>
-        {categories.map((cat, i) => {
-          const tabIndex = i + 1;
-          return (
-            <button
-              key={cat.id}
-              ref={(el) => { tabButtonRefs.current[tabIndex] = el; }}
-              onClick={() => handleSelect(cat.id, tabIndex)}
-              className="relative z-10 flex-1 flex items-center justify-center rounded-full py-1.5 text-sm font-medium transition-colors"
-            >
-              <span style={{ color: selectedId === cat.id ? cat.color : "#6b7280" }}>
-                {cat.name}
-              </span>
-            </button>
-          );
-        })}
+        {categories.map((cat, i) => (
+          <button
+            key={cat.id}
+            ref={(el) => { tabButtonRefs.current[i] = el; }}
+            onClick={() => handleSelect(cat.id, i)}
+            className="relative z-10 flex-1 flex items-center justify-center rounded-full py-1.5 text-sm font-medium transition-colors"
+          >
+            <span style={{ color: selectedId === cat.id ? cat.color : "#6b7280" }}>
+              {cat.name}
+            </span>
+          </button>
+        ))}
       </div>
     </div>
   );

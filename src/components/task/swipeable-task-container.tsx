@@ -21,13 +21,13 @@ export function SwipeableTaskContainer({
 }: SwipeableTaskContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Build ordered category id list: [null, ...category ids]
+  // Build ordered category id list: category ids only
   const categoryOrder = useMemo(
-    () => [null, ...categories.map((c) => c.id)] as (string | null)[],
+    () => categories.map((c) => c.id),
     [categories]
   );
 
-  const activeIndex = categoryOrder.indexOf(selectedCategoryId);
+  const activeIndex = selectedCategoryId ? categoryOrder.indexOf(selectedCategoryId) : -1;
   const safeIndex = activeIndex === -1 ? 0 : activeIndex;
 
   useSwipeableTab({
@@ -35,7 +35,7 @@ export function SwipeableTaskContainer({
     tabCount: categoryOrder.length,
     activeIndex: safeIndex,
     onChangeIndex: (index: number) => {
-      onCategoryChange(categoryOrder[index]);
+      onCategoryChange(categoryOrder[index] ?? null);
     },
     indicatorRefs,
   });
