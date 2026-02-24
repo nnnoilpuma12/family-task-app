@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback, type RefObject } from "react";
+import { flushSync } from "react-dom";
 
 export interface IndicatorRefs {
   barRef: RefObject<HTMLDivElement | null>;
@@ -179,9 +180,12 @@ export function useSwipeableTab({
       const onTransitionEnd = () => {
         container.style.transition = "";
         if (targetIndex !== idx) {
-          // Update state first so React renders new content,
-          // then reset transform in the same frame to avoid flicker
-          onChangeIndexRef.current(targetIndex);
+          // flushSync ensures React commits the new content to the DOM
+          // synchronously before we reset the transform, preventing
+          // the old category's tasks from flashing at position 0.
+          flushSync(() => {
+            onChangeIndexRef.current(targetIndex);
+          });
         }
         container.style.transform = "";
       };
