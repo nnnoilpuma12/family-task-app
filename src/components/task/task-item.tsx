@@ -92,30 +92,34 @@ export function TaskItem({
           )}
 
           {/* Checkbox */}
-          <motion.button
+          <button
             onClick={(e) => {
               e.stopPropagation();
               onToggle(task.id);
             }}
-            whileTap={{ scale: 0.85 }}
-            animate={task.is_done ? { scale: [1, 1.2, 1] } : {}}
-            transition={{ duration: 0.25 }}
-            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-              task.is_done
-                ? "border-green-500 bg-green-500"
-                : "border-gray-300 hover:border-indigo-400"
-            }`}
+            className="shrink-0 flex items-center justify-center p-3 -m-3 touch-manipulation"
           >
-            {task.is_done && (
-              <motion.div
-                initial={{ scale: 0, rotate: -90 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", damping: 15, stiffness: 400 }}
-              >
-                <Check size={14} className="text-white" />
-              </motion.div>
-            )}
-          </motion.button>
+            <motion.span
+              whileTap={{ scale: 0.85 }}
+              animate={task.is_done ? { scale: [1, 1.2, 1] } : {}}
+              transition={{ duration: 0.25 }}
+              className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors ${
+                task.is_done
+                  ? "border-green-500 bg-green-500"
+                  : "border-gray-300 hover:border-indigo-400"
+              }`}
+            >
+              {task.is_done && (
+                <motion.div
+                  initial={{ scale: 0, rotate: -90 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", damping: 15, stiffness: 400 }}
+                >
+                  <Check size={14} className="text-white" />
+                </motion.div>
+              )}
+            </motion.span>
+          </button>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
