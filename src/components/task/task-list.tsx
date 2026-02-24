@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
@@ -15,7 +15,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import confetti from "canvas-confetti";
-import { CheckCircle, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { TaskItem } from "./task-item";
 import type { Task, Category, Profile } from "@/types";
 
@@ -27,8 +27,6 @@ interface TaskListProps {
   onTap: (task: Task) => void;
   onDelete: (id: string) => void;
   onReorder: (orderedIds: string[]) => void;
-  onBulkComplete: (ids: string[]) => void;
-  onBulkDelete: (ids: string[]) => void;
   onDeleteAllDone: () => void;
 }
 
@@ -40,8 +38,6 @@ export function TaskList({
   onTap,
   onDelete,
   onReorder,
-  onBulkComplete,
-  onBulkDelete,
   onDeleteAllDone,
 }: TaskListProps) {
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
@@ -68,43 +64,6 @@ export function TaskList({
   const handleConfirmDelete = () => {
     onDeleteAllDone();
     setShowConfirm(false);
-  };
-
-  // Bulk selection mode
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const handleLongPress = useCallback((id: string) => {
-    setSelectionMode(true);
-    setSelectedIds(new Set([id]));
-  }, []);
-
-  const handleSelectToggle = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        if (next.size === 0) setSelectionMode(false);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleCancelSelection = () => {
-    setSelectionMode(false);
-    setSelectedIds(new Set());
-  };
-
-  const handleBulkComplete = () => {
-    onBulkComplete(Array.from(selectedIds));
-    handleCancelSelection();
-  };
-
-  const handleBulkDelete = () => {
-    onBulkDelete(Array.from(selectedIds));
-    handleCancelSelection();
   };
 
   // DnD
@@ -165,34 +124,6 @@ export function TaskList({
 
   return (
     <>
-      {/* Bulk selection header */}
-      <AnimatePresence>
-        {selectionMode && (
-          <motion.div
-            initial={{ opacity: 0, y: -40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -40 }}
-            className="sticky top-0 z-20 flex items-center justify-between bg-indigo-600 px-4 py-3 text-white shadow-md"
-          >
-            <button onClick={handleCancelSelection} className="text-sm font-medium">
-              キャンセル
-            </button>
-            <span className="text-sm font-bold">{selectedIds.size}件選択中</span>
-            <div className="flex items-center gap-3">
-              <button onClick={handleBulkComplete} className="flex items-center gap-1 text-sm font-medium">
-                <CheckCircle size={16} />
-                完了
-              </button>
-              <button onClick={handleBulkDelete} className="flex items-center gap-1 text-sm font-medium text-red-200">
-                <Trash2 size={16} />
-                削除
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-
       <div className="flex flex-col gap-1.5 px-4 pb-24">
         <DndContext
           sensors={sensors}
@@ -214,10 +145,6 @@ export function TaskList({
                   onToggle={onToggle}
                   onTap={onTap}
                   onDelete={onDelete}
-                  selectionMode={selectionMode}
-                  isSelected={selectedIds.has(task.id)}
-                  onLongPress={handleLongPress}
-                  onSelectToggle={handleSelectToggle}
                   isDragging={activeId === task.id}
                   sortable
                 />
@@ -234,10 +161,6 @@ export function TaskList({
                 onToggle={() => {}}
                 onTap={() => {}}
                 onDelete={() => {}}
-                selectionMode={false}
-                isSelected={false}
-                onLongPress={() => {}}
-                onSelectToggle={() => {}}
                 isDragging={false}
                 isOverlay
               />
@@ -295,10 +218,6 @@ export function TaskList({
                   onToggle={onToggle}
                   onTap={onTap}
                   onDelete={onDelete}
-                  selectionMode={selectionMode}
-                  isSelected={selectedIds.has(task.id)}
-                  onLongPress={handleLongPress}
-                  onSelectToggle={handleSelectToggle}
                   isDragging={false}
                 />
               ))}
