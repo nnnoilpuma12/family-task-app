@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -14,10 +13,6 @@ interface TaskItemProps {
   onToggle: (id: string) => void;
   onTap: (task: Task) => void;
   onDelete: (id: string) => void;
-  selectionMode: boolean;
-  isSelected: boolean;
-  onLongPress: (id: string) => void;
-  onSelectToggle: (id: string) => void;
   isDragging: boolean;
   sortable?: boolean;
   isOverlay?: boolean;
@@ -29,38 +24,10 @@ export function TaskItem({
   createdBy,
   onToggle,
   onTap,
-  selectionMode,
-  isSelected,
-  onLongPress,
-  onSelectToggle,
   isDragging,
   sortable: isSortable = false,
   isOverlay = false,
 }: TaskItemProps) {
-  // Long press detection
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTriggered = useRef(false);
-
-  const startLongPress = () => {
-    longPressTriggered.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressTriggered.current = true;
-      onLongPress(task.id);
-    }, 250);
-  };
-
-  const cancelLongPress = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    };
-  }, []);
 
   // dnd-kit sortable
   const {
@@ -93,12 +60,7 @@ export function TaskItem({
   const isOverdue = task.due_date && !task.is_done && new Date(task.due_date) < new Date(new Date().toDateString());
 
   const handleCardClick = () => {
-    if (longPressTriggered.current) return;
-    if (selectionMode) {
-      onSelectToggle(task.id);
-    } else {
-      onTap(task);
-    }
+    onTap(task);
   };
 
   return (
@@ -114,64 +76,46 @@ export function TaskItem({
       >
         {/* Card */}
         <div
-          className={`relative flex items-center gap-2.5 bg-white px-3 py-2.5 rounded-lg shadow-sm border cursor-pointer transition-colors ${
-            isSelected ? "border-indigo-400 bg-indigo-50" : "border-gray-100"
-          }`}
-          onPointerDown={startLongPress}
-          onPointerUp={cancelLongPress}
-          onPointerLeave={cancelLongPress}
+          className="relative flex items-center gap-2.5 bg-white px-3 py-2.5 rounded-lg shadow-sm border border-gray-100 cursor-pointer transition-colors"
           onClick={handleCardClick}
         >
-          {/* Selection checkbox or drag handle */}
-          {selectionMode ? (
+          {/* Drag handle (only for sortable active tasks) */}
+          {isSortable && (
             <div
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                isSelected ? "border-indigo-600 bg-indigo-600" : "border-gray-300"
-              }`}
+              {...attributes}
+              {...listeners}
+              className="touch-none text-gray-300 cursor-grab active:cursor-grabbing"
+              onClick={(e) => e.stopPropagation()}
             >
-              {isSelected && <Check size={14} className="text-white" />}
+              <GripVertical size={14} />
             </div>
-          ) : (
-            <>
-              {/* Drag handle (only for sortable active tasks) */}
-              {isSortable && (
-                <div
-                  {...attributes}
-                  {...listeners}
-                  className="touch-none text-gray-300 cursor-grab active:cursor-grabbing"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <GripVertical size={14} />
-                </div>
-              )}
-
-              {/* Checkbox */}
-              <motion.button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggle(task.id);
-                }}
-                whileTap={{ scale: 0.85 }}
-                animate={task.is_done ? { scale: [1, 1.2, 1] } : {}}
-                transition={{ duration: 0.25 }}
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                  task.is_done
-                    ? "border-green-500 bg-green-500"
-                    : "border-gray-300 hover:border-indigo-400"
-                }`}
-              >
-                {task.is_done && (
-                  <motion.div
-                    initial={{ scale: 0, rotate: -90 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: "spring", damping: 15, stiffness: 400 }}
-                  >
-                    <Check size={14} className="text-white" />
-                  </motion.div>
-                )}
-              </motion.button>
-            </>
           )}
+
+          {/* Checkbox */}
+          <motion.button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(task.id);
+            }}
+            whileTap={{ scale: 0.85 }}
+            animate={task.is_done ? { scale: [1, 1.2, 1] } : {}}
+            transition={{ duration: 0.25 }}
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+              task.is_done
+                ? "border-green-500 bg-green-500"
+                : "border-gray-300 hover:border-indigo-400"
+            }`}
+          >
+            {task.is_done && (
+              <motion.div
+                initial={{ scale: 0, rotate: -90 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", damping: 15, stiffness: 400 }}
+              >
+                <Check size={14} className="text-white" />
+              </motion.div>
+            )}
+          </motion.button>
 
           {/* Content */}
           <div className="flex-1 min-w-0">

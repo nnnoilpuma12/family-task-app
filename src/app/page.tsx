@@ -174,12 +174,6 @@ export default function Home() {
               onTap={(task) => setSelectedTask(task)}
               onDelete={async (id) => { await deleteTask(id); }}
               onReorder={reorderTasks}
-              onBulkComplete={async (ids) => {
-                await Promise.all(ids.map((id) => updateTask(id, { is_done: true })));
-              }}
-              onBulkDelete={async (ids) => {
-                await Promise.all(ids.map((id) => deleteTask(id)));
-              }}
               onDeleteAllDone={async () => {
                 const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
                 await Promise.all(doneIds.map((id) => deleteTask(id)));
