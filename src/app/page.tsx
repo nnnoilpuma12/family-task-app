@@ -167,6 +167,7 @@ export default function Home() {
             <TaskListSkeleton />
           ) : (
             <TaskList
+              key={selectedCategoryId}
               tasks={tasks}
               categories={categories}
               members={members}

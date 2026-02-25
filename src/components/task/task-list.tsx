@@ -135,7 +135,7 @@ export function TaskList({
             items={localActiveTasks.map((t) => t.id)}
             strategy={verticalListSortingStrategy}
           >
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="popLayout" initial={false}>
               {localActiveTasks.map((task) => (
                 <TaskItem
                   key={task.id}
@@ -208,7 +208,7 @@ export function TaskList({
                 </motion.div>
               )}
             </AnimatePresence>
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="popLayout" initial={false}>
               {doneTasks.map((task) => (
                 <TaskItem
                   key={task.id}
