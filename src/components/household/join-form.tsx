@@ -73,14 +73,14 @@ export function JoinHouseholdForm() {
           value={code}
           onChange={(e) => setCode(e.target.value)}
           required
-          maxLength={6}
+          maxLength={16}
           className="rounded-lg border border-gray-300 px-4 py-3 text-center text-2xl font-mono tracking-widest uppercase outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-          placeholder="XXXXXX"
+          placeholder="XXXXXXXXXXXXXXXX"
         />
       </div>
       <button
         type="submit"
-        disabled={loading || code.length < 6}
+        disabled={loading || code.length < 16}
         className="mt-2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
       >
         {loading ? "参加中..." : "ハウスホールドに参加"}

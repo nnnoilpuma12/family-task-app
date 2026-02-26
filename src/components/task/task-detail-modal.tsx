@@ -16,6 +16,15 @@ interface TaskDetailModalProps {
   onDelete: (id: string) => Promise<void>;
 }
 
+function isValidUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return ["http:", "https:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
 export function TaskDetailModal({
   task,
   isOpen,
@@ -30,6 +39,7 @@ export function TaskDetailModal({
   const [dueDate, setDueDate] = useState("");
   const [memo, setMemo] = useState("");
   const [url, setUrl] = useState("");
+  const [urlError, setUrlError] = useState("");
 
   useEffect(() => {
     if (task) {
@@ -44,6 +54,11 @@ export function TaskDetailModal({
   if (!task) return null;
 
   const handleSave = async () => {
+    if (url && !isValidUrl(url)) {
+      setUrlError("URLはhttpまたはhttpsで始まる必要があります");
+      return;
+    }
+    setUrlError("");
     await onUpdate(task.id, {
       title: title.trim(),
       category_id: categoryId,
@@ -160,11 +175,11 @@ export function TaskDetailModal({
           <div className="flex gap-2">
             <input
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(e) => { setUrl(e.target.value); setUrlError(""); }}
               placeholder="https://..."
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-indigo-500"
+              className={`flex-1 rounded-lg border px-4 py-2 text-sm outline-none focus:border-indigo-500 ${urlError ? "border-red-400" : "border-gray-300"}`}
             />
-            {url && (
+            {url && !urlError && isValidUrl(url) && (
               <a
                 href={url}
                 target="_blank"
@@ -175,6 +190,9 @@ export function TaskDetailModal({
               </a>
             )}
           </div>
+          {urlError && (
+            <p className="mt-1 text-xs text-red-500">{urlError}</p>
+          )}
         </div>
 
         {/* Meta info */}
