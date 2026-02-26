@@ -26,10 +26,14 @@ export function ForgotPasswordForm() {
     return (
       <div className="rounded-lg bg-green-50 p-4 text-sm text-green-700">
         メールを送信しました。メールボックスをご確認ください。
-        <br />
-        <span className="text-xs text-green-600">
-          （ローカル開発時は localhost:54324 の Inbucket で確認できます）
-        </span>
+        {process.env.NODE_ENV === "development" && (
+          <>
+            <br />
+            <span className="text-xs text-green-600">
+              （ローカル開発時は localhost:54324 の Inbucket で確認できます）
+            </span>
+          </>
+        )}
       </div>
     );
   }
