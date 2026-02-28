@@ -40,6 +40,10 @@ family-task-app/
 │   │   ├── forgot-password/page.tsx
 │   │   ├── reset-password/page.tsx
 │   │   ├── settings/page.tsx       # Settings page (profile, household, categories)
+│   │   ├── api/
+│   │   │   └── push/
+│   │   │       ├── send/route.ts       # 他メンバーへのプッシュ通知送信
+│   │   │       └── subscribe/route.ts  # Web Push 購読登録/削除
 │   │   ├── household/
 │   │   │   ├── new/page.tsx        # Create new household
 │   │   │   └── join/page.tsx       # Join household via invite code
@@ -49,13 +53,16 @@ family-task-app/
 │   │   ├── auth/                   # Auth forms (login, signup, forgot/reset password)
 │   │   ├── category/               # CategoryTabs, CategoryManager
 │   │   ├── household/              # CreateForm, JoinForm
-│   │   ├── settings/               # ProfileEditor, HouseholdSettings, CategorySettings
-│   │   ├── task/                   # TaskList, TaskItem, TaskCreateSheet, TaskDetailModal
-│   │   └── ui/                     # Reusable primitives: Button, Input, BottomSheet, Modal, Fab
+│   │   ├── settings/               # ProfileEditor, HouseholdSettings, CategorySettings, NotificationSettings
+│   │   ├── task/                   # TaskList, TaskItem, TaskCreateSheet, TaskDetailModal, TaskListSkeleton, SwipeableTaskContainer
+│   │   ├── ui/                     # Reusable primitives: Button, Input, BottomSheet, Modal, Fab
+│   │   └── ServiceWorkerRegister.tsx   # PWA Service Worker 登録
 │   ├── hooks/
 │   │   ├── use-tasks.ts            # CRUD + reorder for tasks (client-side)
 │   │   ├── use-categories.ts       # CRUD for categories (client-side)
-│   │   └── use-realtime-tasks.ts   # Supabase Realtime subscription for tasks
+│   │   ├── use-realtime-tasks.ts   # Supabase Realtime subscription for tasks
+│   │   ├── use-swipeable-tab.ts    # カテゴリタブのタッチスワイプ操作
+│   │   └── use-push-notification.ts # Web Push 購読管理
 │   ├── lib/
 │   │   └── supabase/
 │   │       ├── client.ts           # Browser Supabase client (createBrowserClient)
@@ -68,7 +75,10 @@ family-task-app/
 ├── supabase/
 │   ├── config.toml                 # Supabase local dev configuration
 │   └── migrations/
-│       └── 001_initial_schema.sql  # Full DB schema, RLS policies, triggers, functions
+│       ├── 001_initial_schema.sql              # Full DB schema, RLS policies, triggers, functions
+│       ├── 002_add_profiles_insert_policy.sql  # プロフィール自己INSERT ポリシー追加
+│       ├── 003_push_subscriptions.sql          # push_subscriptions テーブルと RLS ポリシー
+│       └── 004_reorder_tasks_rpc.sql           # reorder_tasks RPC 関数
 ├── public/                         # Static assets
 ├── next.config.ts                  # Next.js configuration (currently minimal)
 ├── tsconfig.json                   # TypeScript configuration
@@ -93,6 +103,7 @@ All data is scoped to a **household** (group of users).
 | `tasks` | Core entity: `title`, `memo`, `url`, `due_date`, `is_done`, `sort_order`, `created_by`, `completed_at`. |
 | `task_assignees` | Many-to-many join between `tasks` and `profiles`. |
 | `task_images` | Storage paths for images attached to tasks. |
+| `push_subscriptions` | Web Push 購読情報 (`profile_id`, `endpoint`, `p256dh`, `auth`)。プロフィールに紐づく。 |
 
 ### Key Database Functions (callable via `supabase.rpc()`)
 
@@ -101,6 +112,7 @@ All data is scoped to a **household** (group of users).
 - `get_my_household_id()` — security-definer helper used in RLS policies to avoid infinite recursion.
 - `handle_new_user()` — trigger function: auto-creates a `profiles` row on `auth.users` insert.
 - `handle_updated_at()` — trigger function: keeps `updated_at` current on row updates.
+- `reorder_tasks(p_task_ids uuid[], p_sort_orders int[])` — security-definer でタスクの並び順を一括更新 (RLS 対応)。`useTasks` の `reorderTasks` から呼ばれる。
 
 ### RLS Summary
 
@@ -146,20 +158,36 @@ Do **not** use `createBrowserClient` in Server Components or vice versa.
 
 ## Custom Hooks
 
-### `useTasks(householdId, categoryId?)`
+### `useTasks(householdId)`
 Manages task state with full CRUD and optimistic reordering:
 - `tasks` — current task array
 - `setTasks` — raw state setter (used by `useRealtimeTasks`)
+- `refetch` — タスクを再フェッチする関数
 - `addTask(task)`, `updateTask(id, updates)`, `deleteTask(id)`, `toggleTask(id)`, `reorderTasks(orderedIds)`
 - Automatically sets `completed_at` when `is_done` transitions.
 - Tasks are ordered: `is_done ASC`, `sort_order ASC`, `created_at DESC`.
+- タスク追加・完了時に `/api/push/send` で他メンバーへプッシュ通知を送信する。
+- **注意**: `categoryId` パラメータは存在しない。カテゴリフィルタリングはコンポーネント側で行う。
 
 ### `useCategories(householdId)`
 Manages category state with CRUD:
-- `categories`, `addCategory(name, color)`, `updateCategory(id, updates)`, `deleteCategory(id)`
+- `categories`, `refetch`, `addCategory(name, color)`, `updateCategory(id, updates)`, `deleteCategory(id)`
+- **注意**: `setCategories` はエクスポートされない。
 
 ### `useRealtimeTasks(householdId, setTasks)`
 Opens a Supabase Realtime channel scoped to the household. Handles INSERT, UPDATE, DELETE events and merges them into local task state. Deduplicates inserts to avoid conflicts with optimistic updates.
+
+### `useSwipeableTab(options)`
+カテゴリタブのタッチスワイプ操作を管理。
+- パラメータ: `containerRef`, `tabCount`, `activeIndex`, `onChangeIndex`, `indicatorRefs`
+- 戻り値: `{ snapIndicator }`
+- 方向ロック・速度ベースのスワイプ判定・端での抵抗・iOS バックジェスチャー回避を実装。
+
+### `usePushNotification()`
+Web Push 通知の購読を管理。
+- 戻り値: `{ permission, isSubscribed, isSupported, isLoading, subscribe, unsubscribe }`
+- `/api/push/subscribe` エンドポイントと連携して購読登録/削除を行う。
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` 環境変数を使用。
 
 ---
 
@@ -179,6 +207,8 @@ Opens a Supabase Realtime channel scoped to the household. Handles INSERT, UPDAT
 - **`TaskItem`** — individual task card. Supports swipe-left-to-delete (Framer Motion pan gesture), drag handle (dnd-kit), long-press for selection mode.
 - **`TaskCreateSheet`** — bottom sheet form for creating tasks. Has quick-date buttons (today/tomorrow).
 - **`TaskDetailModal`** — modal for editing task details (title, memo, URL, due date, category, assignees).
+- **`TaskListSkeleton`** — ロード中に表示するスケルトン UI。
+- **`SwipeableTaskContainer`** — カテゴリ間をスワイプで切り替えるコンテナ。`useSwipeableTab` を使用。
 
 ### All components use `"use client"` directive
 
@@ -274,13 +304,22 @@ After `npx supabase db reset`, seed data is loaded. Use:
 ```
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<from npx supabase status>
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=<VAPID公開鍵>
+VAPID_PRIVATE_KEY=<VAPID秘密鍵 (サーバーサイドのみ)>
+VAPID_SUBJECT=mailto:<メールアドレス>
 ```
 
 ---
 
 ## Database Migrations
 
-Migration files live in `supabase/migrations/`. The single migration `001_initial_schema.sql` defines the full schema.
+Migration files live in `supabase/migrations/`. 現在4ファイルある：
+
+- `001_initial_schema.sql` — Full DB schema, RLS policies, triggers, functions
+- `002_add_profiles_insert_policy.sql` — プロフィール自己INSERT ポリシー追加
+- `003_push_subscriptions.sql` — `push_subscriptions` テーブルと RLS ポリシー
+- `004_reorder_tasks_rpc.sql` — `reorder_tasks` RPC 関数
+- `005_strengthen_invite_code.sql` — 招待コードのセキュリティ強化
 
 ```bash
 npx supabase db reset          # Reset DB and re-run all migrations + seed
@@ -302,6 +341,7 @@ When modifying the DB schema:
 
 `src/types/index.ts` — exports convenience aliases and composite types:
 - `Task`, `Profile`, `Category`, `Household`, `TaskAssignee`, `TaskImage` — aliases for `Row` types.
+- `PushSubscription` — alias for `push_subscriptions` Row type.
 - `TaskWithAssignees` — `Task & { assignees: Profile[]; category: Category | null }`.
 - `HouseholdMember` — alias for `Profile`.
 
