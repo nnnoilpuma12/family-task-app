@@ -26,11 +26,6 @@ export function useRealtimeTasks(
           const newTask = payload.new as Task;
           setTasks((prev) => {
             if (prev.some((t) => t.id === newTask.id)) return prev;
-            // 仮IDのタスク（楽観的更新）があれば置換
-            const tempIndex = prev.findIndex((t) => t.id.startsWith("temp-") && t.title === newTask.title);
-            if (tempIndex !== -1) {
-              return prev.map((t, i) => (i === tempIndex ? newTask : t));
-            }
             return [newTask, ...prev];
           });
         }

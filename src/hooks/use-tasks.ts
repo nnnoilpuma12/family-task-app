@@ -40,11 +40,11 @@ export function useTasks(householdId: string | null) {
   }) => {
     if (!householdId) return;
 
-    // Optimistic update with temporary ID
-    const tempId = `temp-${crypto.randomUUID()}`;
+    // Optimistic update with client-generated UUID (same ID used for DB insert)
+    const taskId = crypto.randomUUID();
     const now = new Date().toISOString();
     const optimisticTask: Task = {
-      id: tempId,
+      id: taskId,
       title: task.title,
       category_id: task.category_id ?? null,
       due_date: task.due_date ?? null,
@@ -64,24 +64,17 @@ export function useTasks(householdId: string | null) {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("tasks")
-      .insert({ ...task, household_id: householdId })
+      .insert({ id: taskId, ...task, household_id: householdId })
       .select()
       .single();
 
     if (error) {
       // Rollback: remove optimistic task
-      setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
       toast.error("タスクの追加に失敗しました");
     } else if (data) {
-      // Replace temp task with real data
-      setTasks((prev) => {
-        // Realtimeが先に追加済みなら仮タスクを除去するだけ
-        if (prev.some((t) => t.id === data.id)) {
-          return prev.filter((t) => t.id !== tempId);
-        }
-        // まだRealtimeが来ていなければ仮タスクを差し替え
-        return prev.map((t) => (t.id === tempId ? data : t));
-      });
+      // Update optimistic task with server data (ID is already the same)
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? data : t)));
       // Send push notification (fire-and-forget)
       fetch("/api/push/send", {
         method: "POST",
