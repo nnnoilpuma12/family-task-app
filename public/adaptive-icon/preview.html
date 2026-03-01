@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Adaptive Icon Preview</title>
+<style>
+  body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: sans-serif; color: #fff; gap: 40px; }
+  h1 { font-size: 18px; opacity: 0.7; }
+  .preview-row { display: flex; gap: 40px; align-items: flex-end; flex-wrap: wrap; justify-content: center; }
+  .preview { text-align: center; }
+  .preview p { margin: 8px 0 0; font-size: 12px; opacity: 0.6; }
+  .icon-wrap { position: relative; display: inline-block; }
+  .icon-wrap img { position: absolute; top: 0; left: 0; }
+  .icon-wrap img:first-child { position: relative; }
+
+  /* Adaptive icon shape masks */
+  .circle .icon-wrap { border-radius: 50%; overflow: hidden; }
+  .squircle .icon-wrap { border-radius: 22%; overflow: hidden; }
+  .rounded-square .icon-wrap { border-radius: 14%; overflow: hidden; }
+
+  .section { text-align: center; }
+  .section h2 { font-size: 14px; opacity: 0.5; margin-bottom: 16px; }
+
+  .layers { display: flex; gap: 30px; align-items: center; }
+  .layers .layer { text-align: center; border: 1px dashed rgba(255,255,255,0.2); padding: 10px; border-radius: 8px; }
+  .layers .layer p { margin: 8px 0 0; font-size: 11px; opacity: 0.5; }
+</style>
+</head>
+<body>
+
+<h1>Adaptive Icon Preview - 夫婦タスクアプリ</h1>
+
+<!-- Individual layers -->
+<div class="section">
+  <h2>レイヤー分離</h2>
+  <div class="layers">
+    <div class="layer">
+      <img src="background.svg" width="108" height="108">
+      <p>background</p>
+    </div>
+    <div class="layer">
+      <img src="foreground.svg" width="108" height="108" style="background: #999;">
+      <p>foreground</p>
+    </div>
+  </div>
+</div>
+
+<!-- Combined previews with different masks -->
+<div class="section">
+  <h2>合成プレビュー（各マスク形状）</h2>
+  <div class="preview-row">
+    <div class="preview circle">
+      <div class="icon-wrap" style="width:108px;height:108px;">
+        <img src="background.svg" width="108" height="108">
+        <img src="foreground.svg" width="108" height="108">
+      </div>
+      <p>Circle</p>
+    </div>
+    <div class="preview squircle">
+      <div class="icon-wrap" style="width:108px;height:108px;">
+        <img src="background.svg" width="108" height="108">
+        <img src="foreground.svg" width="108" height="108">
+      </div>
+      <p>Squircle</p>
+    </div>
+    <div class="preview rounded-square">
+      <div class="icon-wrap" style="width:108px;height:108px;">
+        <img src="background.svg" width="108" height="108">
+        <img src="foreground.svg" width="108" height="108">
+      </div>
+      <p>Rounded Square</p>
+    </div>
+  </div>
+</div>
+
+<!-- Size previews -->
+<div class="section">
+  <h2>エクスポートサイズプレビュー</h2>
+  <div class="preview-row">
+    <div class="preview circle">
+      <div class="icon-wrap" style="width:48px;height:48px;">
+        <img src="background.svg" width="48" height="48">
+        <img src="foreground.svg" width="48" height="48">
+      </div>
+      <p>48dp (mdpi)</p>
+    </div>
+    <div class="preview circle">
+      <div class="icon-wrap" style="width:72px;height:72px;">
+        <img src="background.svg" width="72" height="72">
+        <img src="foreground.svg" width="72" height="72">
+      </div>
+      <p>72dp (hdpi)</p>
+    </div>
+    <div class="preview circle">
+      <div class="icon-wrap" style="width:96px;height:96px;">
+        <img src="background.svg" width="96" height="96">
+        <img src="foreground.svg" width="96" height="96">
+      </div>
+      <p>96dp (xhdpi)</p>
+    </div>
+    <div class="preview circle">
+      <div class="icon-wrap" style="width:144px;height:144px;">
+        <img src="background.svg" width="144" height="144">
+        <img src="foreground.svg" width="144" height="144">
+      </div>
+      <p>144dp (xxhdpi)</p>
+    </div>
+    <div class="preview circle">
+      <div class="icon-wrap" style="width:192px;height:192px;">
+        <img src="background.svg" width="192" height="192">
+        <img src="foreground.svg" width="192" height="192">
+      </div>
+      <p>192dp (xxxhdpi)</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
