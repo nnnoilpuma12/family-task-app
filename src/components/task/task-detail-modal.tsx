@@ -12,8 +12,8 @@ interface TaskDetailModalProps {
   onClose: () => void;
   categories: Category[];
   members: Profile[];
-  onUpdate: (id: string, updates: Partial<Task>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onUpdate: (id: string, updates: Partial<Task>) => void;
+  onDelete: (id: string) => void;
 }
 
 function isValidUrl(value: string): boolean {
@@ -53,13 +53,13 @@ export function TaskDetailModal({
 
   if (!task) return null;
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (url && !isValidUrl(url)) {
       setUrlError("URLはhttpまたはhttpsで始まる必要があります");
       return;
     }
     setUrlError("");
-    await onUpdate(task.id, {
+    onUpdate(task.id, {
       title: title.trim(),
       category_id: categoryId,
       due_date: dueDate || null,
@@ -69,8 +69,8 @@ export function TaskDetailModal({
     onClose();
   };
 
-  const handleDelete = async () => {
-    await onDelete(task.id);
+  const handleDelete = () => {
+    onDelete(task.id);
     onClose();
   };
 

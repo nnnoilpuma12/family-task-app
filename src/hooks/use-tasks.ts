@@ -39,6 +39,28 @@ export function useTasks(householdId: string | null) {
     created_by?: string | null;
   }) => {
     if (!householdId) return;
+
+    // Optimistic update with temporary ID
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    const optimisticTask: Task = {
+      id: tempId,
+      title: task.title,
+      category_id: task.category_id ?? null,
+      due_date: task.due_date ?? null,
+      memo: task.memo ?? null,
+      url: task.url ?? null,
+      created_by: task.created_by ?? null,
+      household_id: householdId,
+      is_done: false,
+      sort_order: 0,
+      completed_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    setTasks((prev) => [optimisticTask, ...prev]);
+
     const supabase = createClient();
     const { data, error } = await supabase
       .from("tasks")
@@ -46,12 +68,13 @@ export function useTasks(householdId: string | null) {
       .select()
       .single();
 
-    if (error) toast.error("タスクの追加に失敗しました");
-    if (!error && data) {
-      setTasks((prev) => {
-        if (prev.some((t) => t.id === data.id)) return prev;
-        return [data, ...prev];
-      });
+    if (error) {
+      // Rollback: remove optimistic task
+      setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      toast.error("タスクの追加に失敗しました");
+    } else if (data) {
+      // Replace temp task with real data
+      setTasks((prev) => prev.map((t) => (t.id === tempId ? data : t)));
       // Send push notification (fire-and-forget)
       fetch("/api/push/send", {
         method: "POST",
@@ -67,7 +90,6 @@ export function useTasks(householdId: string | null) {
   };
 
   const updateTask = async (id: string, updates: Partial<Task>) => {
-    const supabase = createClient();
     // If marking as done, set completed_at
     if (updates.is_done === true) {
       updates.completed_at = new Date().toISOString();
@@ -75,6 +97,13 @@ export function useTasks(householdId: string | null) {
       updates.completed_at = null;
     }
 
+    // Optimistic update
+    const previousTasks = tasks;
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+    );
+
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("tasks")
       .update(updates)
@@ -82,20 +111,29 @@ export function useTasks(householdId: string | null) {
       .select()
       .single();
 
-    if (error) toast.error("タスクの更新に失敗しました");
-    if (!error && data) {
+    if (error) {
+      // Rollback
+      setTasks(previousTasks);
+      toast.error("タスクの更新に失敗しました");
+    } else if (data) {
+      // Sync with server data
       setTasks((prev) => prev.map((t) => (t.id === id ? data : t)));
     }
     return { data, error };
   };
 
   const deleteTask = async (id: string) => {
+    // Optimistic update: remove task immediately
+    const previousTasks = tasks;
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+
     const supabase = createClient();
     const { error } = await supabase.from("tasks").delete().eq("id", id);
 
-    if (error) toast.error("タスクの削除に失敗しました");
-    if (!error) {
-      setTasks((prev) => prev.filter((t) => t.id !== id));
+    if (error) {
+      // Rollback
+      setTasks(previousTasks);
+      toast.error("タスクの削除に失敗しました");
     }
     return { error };
   };

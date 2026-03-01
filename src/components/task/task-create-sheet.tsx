@@ -15,7 +15,7 @@ interface TaskCreateSheetProps {
     category_id?: string | null;
     due_date?: string | null;
     memo?: string | null;
-  }) => Promise<void>;
+  }) => void;
 }
 
 export function TaskCreateSheet({
@@ -35,14 +35,11 @@ export function TaskCreateSheet({
   }, [isOpen, selectedCategoryId]);
   const [dueDate, setDueDate] = useState<string>("");
   const [memo, setMemo] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    setLoading(true);
 
-    await onSubmit({
+    onSubmit({
       title: title.trim(),
       category_id: categoryId,
       due_date: dueDate || null,
@@ -52,7 +49,6 @@ export function TaskCreateSheet({
     setTitle("");
     setDueDate("");
     setMemo("");
-    setLoading(false);
     onClose();
   };
 
@@ -133,8 +129,8 @@ export function TaskCreateSheet({
           className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none resize-none focus:border-indigo-500"
         />
 
-        <Button type="submit" disabled={loading || !title.trim()}>
-          {loading ? "追加中..." : "追加"}
+        <Button type="submit" disabled={!title.trim()}>
+          追加
         </Button>
       </form>
     </BottomSheet>

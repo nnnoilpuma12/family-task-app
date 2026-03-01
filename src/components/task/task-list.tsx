@@ -40,8 +40,8 @@ export function TaskList({
   onReorder,
   onDeleteAllDone,
 }: TaskListProps) {
-  const categoryMap = new Map(categories.map((c) => [c.id, c]));
-  const memberMap = new Map(members.map((m) => [m.id, m]));
+  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+  const memberMap = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
   const activeTasks = useMemo(() => tasks.filter((t) => !t.is_done), [tasks]);
   const doneTasks = useMemo(() => tasks.filter((t) => t.is_done), [tasks]);
 
