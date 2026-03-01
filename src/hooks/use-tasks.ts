@@ -74,7 +74,14 @@ export function useTasks(householdId: string | null) {
       toast.error("タスクの追加に失敗しました");
     } else if (data) {
       // Replace temp task with real data
-      setTasks((prev) => prev.map((t) => (t.id === tempId ? data : t)));
+      setTasks((prev) => {
+        // Realtimeが先に追加済みなら仮タスクを除去するだけ
+        if (prev.some((t) => t.id === data.id)) {
+          return prev.filter((t) => t.id !== tempId);
+        }
+        // まだRealtimeが来ていなければ仮タスクを差し替え
+        return prev.map((t) => (t.id === tempId ? data : t));
+      });
       // Send push notification (fire-and-forget)
       fetch("/api/push/send", {
         method: "POST",
