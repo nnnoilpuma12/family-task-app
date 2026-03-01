@@ -16,6 +16,24 @@ function ensureVapidConfigured() {
   vapidConfigured = true;
 }
 
+// P2-4: Simple in-memory rate limiter (10 requests/minute/user)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+function isRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+
+  if (!entry || now >= entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX;
+}
+
 export async function POST(request: Request) {
   try {
     ensureVapidConfigured();
@@ -34,6 +52,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // P2-4: Rate limiting
+  if (isRateLimited(user.id)) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429 }
+    );
+  }
+
   const { title, body, householdId } = await request.json();
 
   if (!title || !body || !householdId) {
@@ -43,11 +69,37 @@ export async function POST(request: Request) {
     );
   }
 
-  // Get all push subscriptions for household members (excluding sender)
+  // P2-4: Verify sender belongs to the requested household
+  const { data: senderProfile } = await supabase
+    .from("profiles")
+    .select("household_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!senderProfile || senderProfile.household_id !== householdId) {
+    return NextResponse.json(
+      { error: "Forbidden" },
+      { status: 403 }
+    );
+  }
+
+  // Get push subscriptions for household members (excluding sender), filtered by household
+  const { data: householdMembers } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("household_id", householdId)
+    .neq("id", user.id);
+
+  if (!householdMembers || householdMembers.length === 0) {
+    return NextResponse.json({ success: true, sent: 0 });
+  }
+
+  const memberIds = householdMembers.map((m) => m.id);
+
   const { data: subscriptions } = await supabase
     .from("push_subscriptions")
     .select("endpoint, p256dh, auth, profile_id")
-    .neq("profile_id", user.id);
+    .in("profile_id", memberIds);
 
   if (!subscriptions || subscriptions.length === 0) {
     return NextResponse.json({ success: true, sent: 0 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Category } from "@/types";
 
@@ -11,12 +12,13 @@ export function useCategories(householdId: string | null) {
   const fetchCategories = useCallback(async () => {
     if (!householdId) return;
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("categories")
       .select("*")
       .eq("household_id", householdId)
       .order("sort_order");
 
+    if (error) toast.error("カテゴリの取得に失敗しました");
     if (data) setCategories(data);
     setLoading(false);
   }, [householdId]);
@@ -35,6 +37,7 @@ export function useCategories(householdId: string | null) {
       .select()
       .single();
 
+    if (error) toast.error("カテゴリの追加に失敗しました");
     if (!error && data) {
       setCategories((prev) => [...prev, data]);
     }
@@ -48,6 +51,7 @@ export function useCategories(householdId: string | null) {
       .update(updates)
       .eq("id", id);
 
+    if (error) toast.error("カテゴリの更新に失敗しました");
     if (!error) {
       setCategories((prev) =>
         prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
@@ -60,6 +64,7 @@ export function useCategories(householdId: string | null) {
     const supabase = createClient();
     const { error } = await supabase.from("categories").delete().eq("id", id);
 
+    if (error) toast.error("カテゴリの削除に失敗しました");
     if (!error) {
       setCategories((prev) => prev.filter((c) => c.id !== id));
     }

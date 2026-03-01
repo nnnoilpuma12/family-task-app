@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import type { Profile } from "@/types";
@@ -24,6 +25,7 @@ export function ProfileEditor({ profile, onUpdate }: ProfileEditorProps) {
       .select()
       .single();
 
+    if (error) toast.error("プロフィールの保存に失敗しました");
     if (!error && data) {
       onUpdate(data);
     }
@@ -41,6 +43,7 @@ export function ProfileEditor({ profile, onUpdate }: ProfileEditorProps) {
           id="nickname"
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
+          maxLength={30}
           className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
         />
       </div>

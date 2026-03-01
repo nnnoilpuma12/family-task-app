@@ -30,6 +30,11 @@ export function usePushNotification() {
   const subscribe = useCallback(async () => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
 
+    if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
+      console.warn("NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set. Push notifications are disabled.");
+      return false;
+    }
+
     setIsLoading(true);
     try {
       const perm = await Notification.requestPermission();

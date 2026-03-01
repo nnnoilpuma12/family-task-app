@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Copy, RefreshCw } from "lucide-react";
@@ -34,15 +35,17 @@ export function HouseholdSettings({
       .select()
       .single();
 
+    if (error) toast.error("ハウスホールド名の保存に失敗しました");
     if (!error && data) onUpdate(data);
     setSaving(false);
   };
 
   const regenerateCode = async () => {
     const supabase = createClient();
-    const { data } = await supabase.rpc("generate_invite_code", {
+    const { data, error } = await supabase.rpc("generate_invite_code", {
       p_household_id: household.id,
     });
+    if (error) toast.error("招待コードの生成に失敗しました");
     if (data) setInviteCode(data);
   };
 
@@ -66,6 +69,7 @@ export function HouseholdSettings({
             id="household-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            maxLength={50}
             className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
           />
           <Button size="sm" onClick={handleSave} disabled={saving}>

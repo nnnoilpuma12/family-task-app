@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Task } from "@/types";
 
@@ -12,7 +13,7 @@ export function useTasks(householdId: string | null) {
     if (!householdId) return;
     const supabase = createClient();
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tasks")
       .select("*")
       .eq("household_id", householdId)
@@ -20,6 +21,7 @@ export function useTasks(householdId: string | null) {
       .order("sort_order")
       .order("created_at", { ascending: false });
 
+    if (error) toast.error("タスクの取得に失敗しました");
     if (data) setTasks(data);
     setLoading(false);
   }, [householdId]);
@@ -44,6 +46,7 @@ export function useTasks(householdId: string | null) {
       .select()
       .single();
 
+    if (error) toast.error("タスクの追加に失敗しました");
     if (!error && data) {
       setTasks((prev) => {
         if (prev.some((t) => t.id === data.id)) return prev;
@@ -79,6 +82,7 @@ export function useTasks(householdId: string | null) {
       .select()
       .single();
 
+    if (error) toast.error("タスクの更新に失敗しました");
     if (!error && data) {
       setTasks((prev) => prev.map((t) => (t.id === id ? data : t)));
     }
@@ -89,6 +93,7 @@ export function useTasks(householdId: string | null) {
     const supabase = createClient();
     const { error } = await supabase.from("tasks").delete().eq("id", id);
 
+    if (error) toast.error("タスクの削除に失敗しました");
     if (!error) {
       setTasks((prev) => prev.filter((t) => t.id !== id));
     }
@@ -124,10 +129,11 @@ export function useTasks(householdId: string | null) {
     });
 
     const supabase = createClient();
-    await supabase.rpc("reorder_tasks", {
+    const { error } = await supabase.rpc("reorder_tasks", {
       p_task_ids: orderedIds,
       p_sort_orders: orderedIds.map((_, i) => i),
     });
+    if (error) toast.error("タスクの並び替えに失敗しました");
   };
 
   return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, refetch: fetchTasks };

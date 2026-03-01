@@ -54,6 +54,7 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete }: Categ
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={50}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
                 autoFocus
               />
@@ -96,6 +97,7 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete }: Categ
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="カテゴリ名"
+            maxLength={50}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
             autoFocus
           />

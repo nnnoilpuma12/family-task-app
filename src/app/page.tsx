@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Settings } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { CategoryTabs } from "@/components/category/category-tabs";
 import { TaskList } from "@/components/task/task-list";
@@ -71,11 +72,13 @@ export default function Home() {
         return;
       }
 
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
+
+      if (profileError) toast.error("プロフィールの取得に失敗しました");
 
       let profile = profileData;
       if (!profile) {
@@ -106,7 +109,10 @@ export default function Home() {
         .from("profiles")
         .select("*")
         .eq("household_id", profile.household_id)
-        .then(({ data }) => { if (data) setMembers(data); });
+        .then(({ data, error }) => {
+          if (error) toast.error("メンバーの取得に失敗しました");
+          if (data) setMembers(data);
+        });
 
       setLoading(false);
     };

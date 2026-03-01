@@ -89,6 +89,7 @@ export function TaskDetailModal({
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          maxLength={255}
           className="rounded-lg border border-gray-300 px-4 py-3 text-base font-medium outline-none focus:border-indigo-500"
         />
 
@@ -164,6 +165,7 @@ export function TaskDetailModal({
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="メモを入力..."
+            maxLength={5000}
             rows={3}
             className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none resize-none focus:border-indigo-500"
           />

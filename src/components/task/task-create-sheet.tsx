@@ -69,6 +69,7 @@ export function TaskCreateSheet({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="タスク名を入力"
+          maxLength={255}
           className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none focus:border-indigo-500"
           autoFocus
         />
@@ -127,6 +128,7 @@ export function TaskCreateSheet({
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
           placeholder="メモ（任意）"
+          maxLength={5000}
           rows={2}
           className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none resize-none focus:border-indigo-500"
         />

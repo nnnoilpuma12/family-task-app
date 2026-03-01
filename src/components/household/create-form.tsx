@@ -81,6 +81,7 @@ export function CreateHouseholdForm() {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          maxLength={50}
           className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
           placeholder="わが家"
         />
