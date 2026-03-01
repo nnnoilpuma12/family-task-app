@@ -10,7 +10,12 @@
       "Bash(git push:*)",
       "Bash(npx tsc:*)",
       "Bash(git pull:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(npx next build:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx web-push:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)"
     ]
   }
 }

@@ -31,21 +31,25 @@ export function usePushNotification() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
 
     if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
-      console.warn("NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set. Push notifications are disabled.");
-      return false;
+      throw new Error("VAPID_NOT_SET");
     }
 
     setIsLoading(true);
     try {
       const perm = await Notification.requestPermission();
       setPermission(perm);
-      if (perm !== "granted") return false;
+      if (perm !== "granted") throw new Error("PERMISSION_DENIED");
 
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-      });
+      let sub: PushSubscription;
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        });
+      } catch {
+        throw new Error("SUBSCRIBE_FAILED");
+      }
 
       const json = sub.toJSON();
       const res = await fetch("/api/push/subscribe", {
@@ -59,13 +63,11 @@ export function usePushNotification() {
 
       if (!res.ok) {
         await sub.unsubscribe();
-        return false;
+        throw new Error("API_FAILED");
       }
 
       setIsSubscribed(true);
       return true;
-    } catch {
-      return false;
     } finally {
       setIsLoading(false);
     }

@@ -12,6 +12,10 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+self.addEventListener("fetch", () => {
+  // Network-first: SW doesn't intercept, let browser handle normally
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url || "/";

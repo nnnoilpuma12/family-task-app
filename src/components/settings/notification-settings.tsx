@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, BellOff } from "lucide-react";
+import { toast } from "sonner";
 import { usePushNotification } from "@/hooks/use-push-notification";
 
 export function NotificationSettings() {
@@ -13,10 +14,30 @@ export function NotificationSettings() {
 
   const handleToggle = async () => {
     if (isLoading) return;
-    if (isSubscribed) {
-      await unsubscribe();
-    } else {
-      await subscribe();
+    try {
+      if (isSubscribed) {
+        await unsubscribe();
+      } else {
+        await subscribe();
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      switch (message) {
+        case "VAPID_NOT_SET":
+          toast.error("プッシュ通知の設定に問題があります");
+          break;
+        case "PERMISSION_DENIED":
+          toast.error("通知の許可が必要です。ブラウザの設定を確認してください");
+          break;
+        case "SUBSCRIBE_FAILED":
+          toast.error("通知の登録に失敗しました");
+          break;
+        case "API_FAILED":
+          toast.error("サーバーへの登録に失敗しました");
+          break;
+        default:
+          toast.error("通知の設定に失敗しました");
+      }
     }
   };
 
