@@ -26,6 +26,7 @@ export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [householdName, setHouseholdName] = useState("家族タスク");
   const [loading, setLoading] = useState(true);
 
   // Indicator refs for swipe ↔ tab sync
@@ -104,7 +105,7 @@ export default function Home() {
       // setProfile を先に呼ぶ → useTasks/useCategories が即座にフェッチ開始
       setProfile(profile);
 
-      // メンバー取得はバックグラウンドで並行（画面表示をブロックしない）
+      // メンバー取得・ハウスホールド名取得はバックグラウンドで並行（画面表示をブロックしない）
       supabase
         .from("profiles")
         .select("*")
@@ -112,6 +113,15 @@ export default function Home() {
         .then(({ data, error }) => {
           if (error) toast.error("メンバーの取得に失敗しました");
           if (data) setMembers(data);
+        });
+
+      supabase
+        .from("households")
+        .select("name")
+        .eq("id", profile.household_id)
+        .single()
+        .then(({ data }) => {
+          if (data?.name) setHouseholdName(data.name);
         });
 
       setLoading(false);
@@ -132,7 +142,7 @@ export default function Home() {
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-bold text-gray-900">家族タスク</h1>
+          <h1 className="text-lg font-bold text-gray-900">{householdName}</h1>
           <div className="flex items-center gap-2">
             {members.map((m) => (
               <div
