@@ -76,7 +76,7 @@ export function TaskItem({
       >
         {/* Card */}
         <div
-          className="relative flex items-center gap-2.5 bg-white px-3 py-2.5 rounded-lg shadow-sm border border-gray-100 cursor-pointer transition-colors"
+          className="relative flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100 cursor-pointer transition-colors"
           onClick={handleCardClick}
         >
           {/* Drag handle (only for sortable active tasks) */}
@@ -130,34 +130,25 @@ export function TaskItem({
             >
               {task.title}
             </p>
-            <div className="flex items-center gap-2 mt-0.5">
-              {category && (
-                <span
-                  className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-full leading-none"
-                  style={{
-                    backgroundColor: `${category.color}15`,
-                    color: category.color,
-                  }}
-                >
-                  {category.name}
-                </span>
-              )}
-              {task.due_date && (
-                <span
-                  className={`flex items-center gap-0.5 text-xs ${
-                    isOverdue ? "text-red-500 font-medium" : "text-gray-500"
-                  }`}
-                >
-                  <Calendar size={10} />
-                  {formatDueDate(task.due_date)}
-                </span>
-              )}
-              {createdBy && (
-                <span className="text-xs text-gray-400">
-                  {createdBy.nickname}
-                </span>
-              )}
-            </div>
+            {(task.due_date || createdBy) && (
+              <div className="flex items-center gap-2 mt-0.5">
+                {task.due_date && (
+                  <span
+                    className={`flex items-center gap-0.5 text-xs ${
+                      isOverdue ? "text-red-500 font-medium" : "text-gray-500"
+                    }`}
+                  >
+                    <Calendar size={10} />
+                    {formatDueDate(task.due_date)}
+                  </span>
+                )}
+                {createdBy && (
+                  <span className="text-xs text-gray-400">
+                    {createdBy.nickname}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </motion.div>

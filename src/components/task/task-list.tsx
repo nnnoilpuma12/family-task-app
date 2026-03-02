@@ -124,7 +124,7 @@ export function TaskList({
 
   return (
     <>
-      <div className="flex flex-col gap-1.5 px-4 pb-24">
+      <div className="flex flex-col gap-1 px-4 pb-24">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
