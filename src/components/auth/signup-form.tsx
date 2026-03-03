@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export function SignupForm() {
@@ -11,6 +13,7 @@ export function SignupForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<"form" | "check-email">("form");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,9 +42,45 @@ export function SignupForm() {
       return;
     }
 
-    router.push("/");
-    router.refresh();
+    // メール確認が不要な場合（ローカル開発等）はセッションが即座に発行される
+    if (data.session) {
+      router.push("/");
+      router.refresh();
+      return;
+    }
+
+    // メール確認が必要な場合 → 確認メール送信済み画面へ
+    setStep("check-email");
+    setLoading(false);
   };
+
+  if (step === "check-email") {
+    return (
+      <div className="flex flex-col items-center gap-5 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
+          <Mail className="h-8 w-8 text-indigo-600" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <p className="text-base font-semibold text-gray-900">確認メールを送信しました</p>
+          <p className="text-sm text-gray-600">
+            <span className="font-medium text-gray-800">{email}</span> に確認メールを送りました。
+          </p>
+          <p className="text-sm text-gray-600">
+            メール内のリンクをクリックすると登録が完了します。
+          </p>
+        </div>
+        <div className="w-full rounded-lg bg-amber-50 p-3 text-left text-sm text-amber-700">
+          メールが届かない場合は、迷惑メールフォルダもご確認ください。
+        </div>
+        <Link
+          href="/login"
+          className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+        >
+          ログイン画面へ戻る
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
