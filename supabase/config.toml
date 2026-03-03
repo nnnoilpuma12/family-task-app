@@ -226,16 +226,20 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# メール確認テンプレート（サインアップ時）
+[auth.email.template.confirmation]
+subject = "【家族タスクアプリ】メールアドレスの確認"
+content_path = "./templates/confirmation.html"
 
-# Uncomment to customize notification email template
-# [auth.email.notification.password_changed]
-# enabled = true
-# subject = "Your password has been changed"
-# content_path = "./templates/password_changed_notification.html"
+# パスワード再設定テンプレート
+[auth.email.template.recovery]
+subject = "【家族タスクアプリ】パスワードの再設定"
+content_path = "./templates/recovery.html"
+
+# 招待テンプレート
+[auth.email.template.invite]
+subject = "【家族タスクアプリ】招待のご案内"
+content_path = "./templates/invite.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
