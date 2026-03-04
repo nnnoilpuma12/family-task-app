@@ -60,7 +60,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const { title, body, householdId } = await request.json();
+  let reqBody;
+  try {
+    reqBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON" },
+      { status: 400 }
+    );
+  }
+  const { title, body, householdId } = reqBody;
 
   if (!title || !body || !householdId) {
     return NextResponse.json(

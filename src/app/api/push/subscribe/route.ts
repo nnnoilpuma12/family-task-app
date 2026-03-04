@@ -11,7 +11,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { endpoint, keys } = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON" },
+      { status: 400 }
+    );
+  }
+  const { endpoint, keys } = body;
 
   if (!endpoint || !keys?.p256dh || !keys?.auth) {
     return NextResponse.json(
@@ -47,7 +56,16 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { endpoint } = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON" },
+      { status: 400 }
+    );
+  }
+  const { endpoint } = body;
 
   if (!endpoint) {
     return NextResponse.json(
