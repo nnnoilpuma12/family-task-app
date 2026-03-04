@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -28,6 +29,48 @@ export function TaskItem({
   sortable: isSortable = false,
   isOverlay = false,
 }: TaskItemProps) {
+
+  // Local pending-done state for checkbox animation before optimistic update
+  const [isPendingDone, setIsPendingDone] = useState(false);
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // If task.is_done becomes true externally (Realtime), cancel pending timer
+  useEffect(() => {
+    if (task.is_done && isPendingDone) {
+      if (pendingTimerRef.current) {
+        clearTimeout(pendingTimerRef.current);
+        pendingTimerRef.current = null;
+      }
+      setIsPendingDone(false);
+    }
+  }, [task.is_done, isPendingDone]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingTimerRef.current) {
+        clearTimeout(pendingTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleToggle = useCallback(() => {
+    if (task.is_done) {
+      // Unchecking: immediate
+      onToggle(task.id);
+    } else {
+      // Checking: show animation first, then trigger toggle after delay
+      if (isPendingDone) return; // prevent double-tap
+      setIsPendingDone(true);
+      pendingTimerRef.current = setTimeout(() => {
+        pendingTimerRef.current = null;
+        onToggle(task.id);
+        setIsPendingDone(false);
+      }, 550);
+    }
+  }, [task.is_done, task.id, isPendingDone, onToggle]);
+
+  const showDone = isPendingDone || task.is_done;
 
   // dnd-kit sortable
   const {
@@ -95,21 +138,21 @@ export function TaskItem({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onToggle(task.id);
+              handleToggle();
             }}
             className="shrink-0 flex items-center justify-center p-3 -m-3 touch-manipulation"
           >
             <motion.span
               whileTap={{ scale: 0.85 }}
-              animate={task.is_done ? { scale: [1, 1.2, 1] } : {}}
+              animate={showDone ? { scale: [1, 1.2, 1] } : {}}
               transition={{ duration: 0.25 }}
               className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors ${
-                task.is_done
+                showDone
                   ? "border-green-500 bg-green-500"
                   : "border-gray-300 hover:border-indigo-400"
               }`}
             >
-              {task.is_done && (
+              {showDone && (
                 <motion.div
                   initial={{ scale: 0, rotate: -90 }}
                   animate={{ scale: 1, rotate: 0 }}
@@ -125,7 +168,7 @@ export function TaskItem({
           <div className="flex-1 min-w-0">
             <p
               className={`text-sm font-medium truncate ${
-                task.is_done ? "text-gray-400 line-through" : "text-gray-900"
+                showDone ? "text-gray-400 line-through" : "text-gray-900"
               }`}
             >
               {task.title}
