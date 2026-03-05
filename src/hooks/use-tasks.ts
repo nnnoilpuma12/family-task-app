@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { sendPushNotification } from "@/lib/push";
 import type { Task } from "@/types";
 
 export function useTasks(householdId: string | null) {
@@ -75,16 +76,11 @@ export function useTasks(householdId: string | null) {
     } else if (data) {
       // Update optimistic task with server data (ID is already the same)
       setTasks((prev) => prev.map((t) => (t.id === taskId ? data : t)));
-      // Send push notification (fire-and-forget)
-      fetch("/api/push/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "家族タスク",
-          body: `「${data.title}」が追加されました`,
-          householdId: householdId,
-        }),
-      }).catch(() => {});
+      sendPushNotification({
+        title: "家族タスク",
+        body: `「${data.title}」が追加されました`,
+        householdId,
+      });
     }
     return { data, error };
   };
@@ -142,17 +138,12 @@ export function useTasks(householdId: string | null) {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     const result = await updateTask(id, { is_done: !task.is_done });
-    // Send push notification when task is completed (fire-and-forget)
     if (!task.is_done && result?.data) {
-      fetch("/api/push/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "家族タスク",
-          body: `「${task.title}」が完了しました`,
-          householdId: householdId,
-        }),
-      }).catch(() => {});
+      sendPushNotification({
+        title: "家族タスク",
+        body: `「${task.title}」が完了しました`,
+        householdId: householdId!,
+      });
     }
     return result;
   };

@@ -6,6 +6,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Check, Calendar, GripVertical } from "lucide-react";
 import type { Task, Category, Profile } from "@/types";
+import { formatDueDate } from "@/lib/date";
 
 interface TaskItemProps {
   task: Task;
@@ -84,20 +85,6 @@ export function TaskItem({
   const sortStyle = {
     transform: CSS.Transform.toString(transform),
     transition: sortTransition,
-  };
-
-  const formatDueDate = (date: string) => {
-    const d = new Date(date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const target = new Date(d);
-    target.setHours(0, 0, 0, 0);
-
-    if (target.getTime() === today.getTime()) return "今日";
-    if (target.getTime() === tomorrow.getTime()) return "明日";
-    return `${d.getMonth() + 1}/${d.getDate()}`;
   };
 
   const isOverdue = task.due_date && !task.is_done && new Date(task.due_date) < new Date(new Date().toDateString());
