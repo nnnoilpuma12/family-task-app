@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
+import { CategoryPicker } from "@/components/task/category-picker";
+import { QuickDatePicker } from "@/components/task/quick-date-picker";
 import type { Category } from "@/types";
 
 interface TaskCreateSheetProps {
@@ -52,12 +54,6 @@ export function TaskCreateSheet({
     onClose();
   };
 
-  const setQuickDate = (offset: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + offset);
-    setDueDate(d.toISOString().split("T")[0]);
-  };
-
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="タスクを追加">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -70,54 +66,13 @@ export function TaskCreateSheet({
           autoFocus
         />
 
-        {/* Category selector */}
-        <div className="flex flex-wrap gap-1.5">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setCategoryId(categoryId === cat.id ? null : cat.id)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                categoryId === cat.id
-                  ? "text-white"
-                  : "bg-gray-100 text-gray-600"
-              }`}
-              style={
-                categoryId === cat.id
-                  ? { backgroundColor: cat.color }
-                  : undefined
-              }
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
+        <CategoryPicker
+          categories={categories}
+          selectedId={categoryId}
+          onChange={setCategoryId}
+        />
 
-        {/* Due date */}
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setQuickDate(0)}
-              className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
-            >
-              今日
-            </button>
-            <button
-              type="button"
-              onClick={() => setQuickDate(1)}
-              className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
-            >
-              明日
-            </button>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-1 text-sm outline-none focus:border-indigo-500"
-            />
-          </div>
-        </div>
+        <QuickDatePicker value={dueDate} onChange={setDueDate} />
 
         {/* Memo */}
         <textarea

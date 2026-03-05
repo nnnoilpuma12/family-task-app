@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Settings } from "lucide-react";
-import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { CategoryTabs } from "@/components/category/category-tabs";
 import { TaskList } from "@/components/task/task-list";
 import { TaskListSkeleton } from "@/components/task/task-list-skeleton";
@@ -15,19 +13,17 @@ import { Fab } from "@/components/ui/fab";
 import { useTasks } from "@/hooks/use-tasks";
 import { useCategories } from "@/hooks/use-categories";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
+import { usePageData } from "@/hooks/use-page-data";
 import type { TabMeasurements } from "@/components/category/category-tabs";
 import type { IndicatorRefs } from "@/hooks/use-swipeable-tab";
-import type { Profile, Task } from "@/types";
+import type { Task } from "@/types";
 
 export default function Home() {
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [members, setMembers] = useState<Profile[]>([]);
+  const { profile, members, householdName, loading } = usePageData();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [householdName, setHouseholdName] = useState("家族タスク");
-  const [loading, setLoading] = useState(true);
 
   // Indicator refs for swipe ↔ tab sync
   const indicatorBarRef = useRef<HTMLDivElement>(null);
@@ -59,75 +55,6 @@ export default function Home() {
     if (!selectedCategoryId) return allTasks;
     return allTasks.filter((t) => t.category_id === selectedCategoryId);
   }, [allTasks, selectedCategoryId]);
-
-  useEffect(() => {
-    const load = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push("/login");
-        setLoading(false);
-        return;
-      }
-
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (profileError) toast.error("プロフィールの取得に失敗しました");
-
-      let profile = profileData;
-      if (!profile) {
-        const { data: created } = await supabase
-          .from("profiles")
-          .upsert({ id: user.id, nickname: user.user_metadata?.nickname ?? "" })
-          .select()
-          .single();
-        profile = created;
-      }
-
-      if (!profile) {
-        setLoading(false);
-        return;
-      }
-      if (!profile.household_id) {
-        setProfile(profile);
-        router.push("/household/new");
-        setLoading(false);
-        return;
-      }
-
-      // setProfile を先に呼ぶ → useTasks/useCategories が即座にフェッチ開始
-      setProfile(profile);
-
-      // メンバー取得・ハウスホールド名取得はバックグラウンドで並行（画面表示をブロックしない）
-      supabase
-        .from("profiles")
-        .select("*")
-        .eq("household_id", profile.household_id)
-        .then(({ data, error }) => {
-          if (error) toast.error("メンバーの取得に失敗しました");
-          if (data) setMembers(data);
-        });
-
-      supabase
-        .from("households")
-        .select("name")
-        .eq("id", profile.household_id)
-        .single()
-        .then(({ data }) => {
-          if (data?.name) setHouseholdName(data.name);
-        });
-
-      setLoading(false);
-    };
-    load();
-  }, [router]);
 
   if (loading) {
     return (

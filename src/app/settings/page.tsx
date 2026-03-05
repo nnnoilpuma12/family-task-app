@@ -1,69 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, LogOut } from "lucide-react";
-import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ProfileEditor } from "@/components/settings/profile-editor";
 import { HouseholdSettings } from "@/components/settings/household-settings";
 import { CategorySettings } from "@/components/settings/category-settings";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 import { useCategories } from "@/hooks/use-categories";
-import type { Profile, Household } from "@/types";
+import { usePageData } from "@/hooks/use-page-data";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [household, setHousehold] = useState<Household | null>(null);
-  const [members, setMembers] = useState<Profile[]>([]);
+  const { profile, setProfile, members, household, setHousehold } = usePageData({
+    redirectIfNoHousehold: false,
+    fetchHousehold: true,
+  });
   const { categories, addCategory, updateCategory, deleteCategory } = useCategories(
     profile?.household_id ?? null
   );
-
-  useEffect(() => {
-    const load = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: p, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (profileError) toast.error("プロフィールの取得に失敗しました");
-      if (!p) return;
-
-      // setProfile を先に呼ぶ → useCategories が即座にフェッチ開始
-      setProfile(p);
-
-      if (p.household_id) {
-        // household と members を並列取得 (P3-4: N+1クエリ並列化)
-        const [householdResult, membersResult] = await Promise.all([
-          supabase
-            .from("households")
-            .select("*")
-            .eq("id", p.household_id)
-            .single(),
-          supabase
-            .from("profiles")
-            .select("*")
-            .eq("household_id", p.household_id)
-            .order("created_at", { ascending: true }),
-        ]);
-
-        if (householdResult.error) toast.error("ハウスホールドの取得に失敗しました");
-        if (householdResult.data) setHousehold(householdResult.data);
-
-        if (membersResult.error) toast.error("メンバーの取得に失敗しました");
-        if (membersResult.data) setMembers(membersResult.data);
-      }
-    };
-    load();
-  }, []);
 
   const handleLogout = async () => {
     const supabase = createClient();

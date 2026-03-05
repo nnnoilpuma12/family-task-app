@@ -5,6 +5,9 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Trash2 } from "lucide-react";
 import type { Task, Category, Profile } from "@/types";
+import { isValidUrl } from "@/lib/validation";
+import { CategoryPicker } from "@/components/task/category-picker";
+import { QuickDatePicker } from "@/components/task/quick-date-picker";
 
 interface TaskDetailModalProps {
   task: Task | null;
@@ -14,15 +17,6 @@ interface TaskDetailModalProps {
   members: Profile[];
   onUpdate: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-}
-
-function isValidUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return ["http:", "https:"].includes(parsed.protocol);
-  } catch {
-    return false;
-  }
 }
 
 export function TaskDetailModal({
@@ -74,12 +68,6 @@ export function TaskDetailModal({
     onClose();
   };
 
-  const setQuickDate = (offset: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + offset);
-    setDueDate(d.toISOString().split("T")[0]);
-  };
-
   const createdByMember = members.find((m) => m.id === task.created_by);
 
   return (
@@ -94,69 +82,21 @@ export function TaskDetailModal({
         />
 
         {/* Category */}
-        <div>
-          <label className="text-xs font-medium text-gray-500 mb-1.5 block">カテゴリ</label>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setCategoryId(null)}
-              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                categoryId === null ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600"
-              }`}
-            >
-              なし
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setCategoryId(cat.id)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  categoryId === cat.id ? "text-white" : "bg-gray-100 text-gray-600"
-                }`}
-                style={categoryId === cat.id ? { backgroundColor: cat.color } : undefined}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
-        </div>
+        <CategoryPicker
+          categories={categories}
+          selectedId={categoryId}
+          onChange={setCategoryId}
+          showNone
+          label="カテゴリ"
+        />
 
         {/* Due date */}
-        <div>
-          <label className="text-xs font-medium text-gray-500 mb-1.5 block">期限</label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setQuickDate(0)}
-              className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
-            >
-              今日
-            </button>
-            <button
-              type="button"
-              onClick={() => setQuickDate(1)}
-              className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
-            >
-              明日
-            </button>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-1 text-sm outline-none focus:border-indigo-500"
-            />
-            {dueDate && (
-              <button
-                type="button"
-                onClick={() => setDueDate("")}
-                className="text-xs text-gray-400 hover:text-gray-600"
-              >
-                クリア
-              </button>
-            )}
-          </div>
-        </div>
+        <QuickDatePicker
+          value={dueDate}
+          onChange={setDueDate}
+          showClear
+          label="期限"
+        />
 
         {/* Memo */}
         <div>
