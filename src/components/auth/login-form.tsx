@@ -67,9 +67,9 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          minLength={6}
+          minLength={8}
           className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-          placeholder="6文字以上"
+          placeholder="8文字以上"
         />
         <div className="flex justify-end">
           <Link href="/forgot-password" className="text-xs text-indigo-600 hover:text-indigo-500">
