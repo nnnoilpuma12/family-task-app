@@ -30,7 +30,8 @@ export function SignupForm() {
     });
 
     if (error) {
-      setError(error.message);
+      // Don't expose raw Supabase error messages to users
+      setError("アカウントの作成に失敗しました。入力内容をご確認ください。");
       setLoading(false);
       return;
     }
@@ -133,9 +134,9 @@ export function SignupForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          minLength={6}
+          minLength={8}
           className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-          placeholder="6文字以上"
+          placeholder="8文字以上"
         />
       </div>
       <button

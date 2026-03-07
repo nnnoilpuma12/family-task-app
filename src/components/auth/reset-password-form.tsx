@@ -20,8 +20,8 @@ export function ResetPasswordForm() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("パスワードは6文字以上で入力してください。");
+    if (password.length < 8) {
+      setError("パスワードは8文字以上で入力してください。");
       return;
     }
 
@@ -30,7 +30,7 @@ export function ResetPasswordForm() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setError(error.message);
+      setError("パスワードの更新に失敗しました。もう一度お試しください。");
       setLoading(false);
       return;
     }
@@ -56,9 +56,9 @@ export function ResetPasswordForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          minLength={6}
+          minLength={8}
           className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-          placeholder="6文字以上"
+          placeholder="8文字以上"
         />
       </div>
       <div className="flex flex-col gap-1.5">
@@ -71,9 +71,9 @@ export function ResetPasswordForm() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           required
-          minLength={6}
+          minLength={8}
           className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-          placeholder="6文字以上"
+          placeholder="8文字以上"
         />
       </div>
       <button

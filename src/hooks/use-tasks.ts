@@ -92,6 +92,18 @@ export function useTasks(householdId: string | null) {
       updates.completed_at = null;
     }
 
+    // Whitelist allowed fields to prevent unintended column updates
+    const allowedFields = [
+      "title", "memo", "url", "due_date", "is_done", "completed_at",
+      "category_id", "sort_order",
+    ] as const;
+    const sanitized: Record<string, unknown> = {};
+    for (const key of allowedFields) {
+      if (key in updates) {
+        sanitized[key] = updates[key as keyof Task];
+      }
+    }
+
     // Optimistic update
     const previousTasks = tasks;
     setTasks((prev) =>
@@ -100,7 +112,7 @@ export function useTasks(householdId: string | null) {
 
     const { data, error } = await supabase
       .from("tasks")
-      .update(updates)
+      .update(sanitized)
       .eq("id", id)
       .select()
       .single();

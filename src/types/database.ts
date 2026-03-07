@@ -291,6 +291,10 @@ export type Database = {
         Args: { p_task_ids: string[]; p_sort_orders: number[] };
         Returns: undefined;
       };
+      verify_invite_code: {
+        Args: { p_code: string };
+        Returns: string;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

@@ -78,6 +78,10 @@ export async function POST(request: Request) {
     );
   }
 
+  // Truncate title/body to prevent abuse
+  const sanitizedTitle = String(title).slice(0, 200);
+  const sanitizedBody = String(body).slice(0, 500);
+
   // P2-4: Verify sender belongs to the requested household
   const { data: senderProfile } = await supabase
     .from("profiles")
@@ -114,7 +118,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, sent: 0 });
   }
 
-  const payload = JSON.stringify({ title, body, url: "/" });
+  const payload = JSON.stringify({ title: sanitizedTitle, body: sanitizedBody, url: "/" });
 
   const results = await Promise.allSettled(
     subscriptions.map(async (sub) => {

@@ -26,15 +26,11 @@ export function JoinHouseholdForm() {
       return;
     }
 
-    // Find household by invite code
-    const { data: household, error: hError } = await supabase
-      .from("households")
-      .select()
-      .eq("invite_code", code.toUpperCase())
-      .gt("invite_code_expires_at", new Date().toISOString())
-      .single();
+    // Verify invite code via secure RPC (households table is no longer directly readable)
+    const { data: householdId, error: hError } = await supabase
+      .rpc("verify_invite_code", { p_code: code.toUpperCase() });
 
-    if (hError || !household) {
+    if (hError || !householdId) {
       setError("招待コードが無効か期限切れです");
       setLoading(false);
       return;
@@ -43,7 +39,7 @@ export function JoinHouseholdForm() {
     // Link profile to household
     const { error: pError } = await supabase
       .from("profiles")
-      .update({ household_id: household.id })
+      .update({ household_id: householdId })
       .eq("id", user.id);
 
     if (pError) {

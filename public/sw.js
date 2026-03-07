@@ -18,7 +18,9 @@ self.addEventListener("fetch", () => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/";
+  const rawUrl = event.notification.data?.url || "/";
+  // Only allow relative paths starting with / (prevent open redirect)
+  const url = typeof rawUrl === "string" && rawUrl.startsWith("/") && !rawUrl.startsWith("//") ? rawUrl : "/";
   event.waitUntil(
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
