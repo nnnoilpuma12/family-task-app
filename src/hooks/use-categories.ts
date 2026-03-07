@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Category } from "@/types";
 
 export function useCategories(householdId: string | null) {
+  const supabase = useMemo(() => createClient(), []);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchCategories = useCallback(async () => {
     if (!householdId) return;
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("categories")
       .select("*")
@@ -21,7 +21,7 @@ export function useCategories(householdId: string | null) {
     if (error) toast.error("カテゴリの取得に失敗しました");
     if (data) setCategories(data);
     setLoading(false);
-  }, [householdId]);
+  }, [householdId, supabase]);
 
   useEffect(() => {
     fetchCategories();
@@ -29,7 +29,6 @@ export function useCategories(householdId: string | null) {
 
   const addCategory = async (name: string, color: string) => {
     if (!householdId) return;
-    const supabase = createClient();
     const sortOrder = categories.length;
     const { data, error } = await supabase
       .from("categories")
@@ -45,7 +44,6 @@ export function useCategories(householdId: string | null) {
   };
 
   const updateCategory = async (id: string, updates: Partial<Pick<Category, "name" | "color" | "icon" | "sort_order">>) => {
-    const supabase = createClient();
     const { error } = await supabase
       .from("categories")
       .update(updates)
@@ -61,7 +59,6 @@ export function useCategories(householdId: string | null) {
   };
 
   const deleteCategory = async (id: string) => {
-    const supabase = createClient();
     const { error } = await supabase.from("categories").delete().eq("id", id);
 
     if (error) toast.error("カテゴリの削除に失敗しました");

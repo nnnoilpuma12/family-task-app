@@ -30,6 +30,7 @@ export function useSwipeableTab({
   const currentDx = useRef(0);
   const swiping = useRef(false);
   const directionLocked = useRef<"horizontal" | "vertical" | null>(null);
+  const cachedContainerWidth = useRef(375);
 
   // Keep latest values in refs to avoid stale closures in event handlers
   const activeIndexRef = useRef(activeIndex);
@@ -98,6 +99,7 @@ export function useSwipeableTab({
     const container = containerRef.current;
     if (container) {
       container.style.transition = "";
+      cachedContainerWidth.current = container.offsetWidth;
     }
   }, [containerRef]);
 
@@ -140,7 +142,7 @@ export function useSwipeableTab({
     }
 
     // Update indicator
-    const containerWidth = container?.offsetWidth ?? 375;
+    const containerWidth = cachedContainerWidth.current;
     const progress = effectiveDx / containerWidth;
     // progress > 0 means swiping right (going to prev), < 0 means swiping left (going to next)
     // For indicator: positive progress = moving toward previous tab
@@ -157,7 +159,7 @@ export function useSwipeableTab({
     const dx = currentDx.current;
     const elapsed = Date.now() - startTime.current;
     const velocity = Math.abs(dx) / elapsed; // px/ms
-    const containerWidth = container?.offsetWidth ?? 375;
+    const containerWidth = cachedContainerWidth.current;
 
     const shouldSwipe = velocity > 0.3 || Math.abs(dx) > containerWidth * 0.3;
     const idx = activeIndexRef.current;

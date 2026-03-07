@@ -56,6 +56,19 @@ export default function Home() {
     return allTasks.filter((t) => t.category_id === selectedCategoryId);
   }, [allTasks, selectedCategoryId]);
 
+  const handleTap = useCallback((task: Task) => setSelectedTask(task), []);
+  const handleDeleteTask = useCallback(async (id: string) => { await deleteTask(id); }, [deleteTask]);
+  const handleCloseCreate = useCallback(() => setIsCreateOpen(false), []);
+  const handleSubmit = useCallback(async (task: { title: string; category_id?: string | null; due_date?: string | null; memo?: string | null; url?: string | null }) => {
+    await addTask({ ...task, created_by: profile?.id ?? null });
+  }, [addTask, profile?.id]);
+  const handleCloseDetail = useCallback(() => setSelectedTask(null), []);
+  const handleUpdate = useCallback(async (id: string, updates: Partial<Task>) => { await updateTask(id, updates); }, [updateTask]);
+  const handleDeleteAllDone = useCallback(async () => {
+    const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
+    await Promise.all(doneIds.map((id) => deleteTask(id)));
+  }, [tasks, deleteTask]);
+
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -67,7 +80,7 @@ export default function Home() {
   return (
     <div className="min-h-dvh bg-gray-50">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-30 bg-white/95 border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-lg font-bold text-gray-900">{householdName}</h1>
           <div className="flex items-center gap-2">
@@ -115,13 +128,10 @@ export default function Home() {
               categories={categories}
               members={members}
               onToggle={toggleTask}
-              onTap={(task) => setSelectedTask(task)}
-              onDelete={async (id) => { await deleteTask(id); }}
+              onTap={handleTap}
+              onDelete={handleDeleteTask}
               onReorder={reorderTasks}
-              onDeleteAllDone={async () => {
-                const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
-                await Promise.all(doneIds.map((id) => deleteTask(id)));
-              }}
+              onDeleteAllDone={handleDeleteAllDone}
             />
           )}
         </SwipeableTaskContainer>
@@ -133,26 +143,21 @@ export default function Home() {
       {/* Create Sheet */}
       <TaskCreateSheet
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        onClose={handleCloseCreate}
         categories={categories}
         selectedCategoryId={selectedCategoryId}
-        onSubmit={async (task) => {
-          await addTask({
-            ...task,
-            created_by: profile?.id ?? null,
-          });
-        }}
+        onSubmit={handleSubmit}
       />
 
       {/* Detail Modal */}
       <TaskDetailModal
         task={selectedTask}
         isOpen={!!selectedTask}
-        onClose={() => setSelectedTask(null)}
+        onClose={handleCloseDetail}
         categories={categories}
         members={members}
-        onUpdate={async (id, updates) => { await updateTask(id, updates); }}
-        onDelete={async (id) => { await deleteTask(id); }}
+        onUpdate={handleUpdate}
+        onDelete={handleDeleteTask}
       />
     </div>
   );
