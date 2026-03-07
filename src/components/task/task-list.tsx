@@ -14,7 +14,6 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import confetti from "canvas-confetti";
 import { Trash2 } from "lucide-react";
 import { TaskItem } from "./task-item";
 import type { Task, Category, Profile } from "@/types";
@@ -51,7 +50,9 @@ export function TaskList({
     if (tasks.length > 0 && tasks.every((t) => t.is_done)) {
       if (!allDoneRef.current) {
         allDoneRef.current = true;
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        import("canvas-confetti").then((mod) => {
+          mod.default({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        });
       }
     } else {
       allDoneRef.current = false;

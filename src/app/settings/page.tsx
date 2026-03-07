@@ -29,7 +29,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-dvh bg-gray-50">
-      <header className="sticky top-0 z-30 flex items-center gap-3 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3">
+      <header className="sticky top-0 z-30 flex items-center gap-3 bg-white/95 border-b border-gray-100 px-4 py-3">
         <button onClick={() => router.back()} className="text-gray-600">
           <ArrowLeft size={24} />
         </button>

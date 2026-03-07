@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { motion } from "framer-motion";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -20,7 +20,7 @@ interface TaskItemProps {
   isOverlay?: boolean;
 }
 
-export function TaskItem({
+export const TaskItem = memo(function TaskItem({
   task,
   category,
   createdBy,
@@ -96,10 +96,9 @@ export function TaskItem({
   return (
     <div ref={setNodeRef} style={sortStyle} data-task-item>
       <motion.div
-        layout
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }}
-        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
         transition={{ type: "spring", damping: 20, stiffness: 300 }}
         className="relative overflow-hidden rounded-lg"
         style={isOverlay ? { opacity: 0.9, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" } : {}}
@@ -184,4 +183,4 @@ export function TaskItem({
       </motion.div>
     </div>
   );
-}
+});

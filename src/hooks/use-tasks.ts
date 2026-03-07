@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { sendPushNotification } from "@/lib/push";
 import type { Task } from "@/types";
 
 export function useTasks(householdId: string | null) {
+  const supabase = useMemo(() => createClient(), []);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = useCallback(async () => {
     if (!householdId) return;
-    const supabase = createClient();
 
     const { data, error } = await supabase
       .from("tasks")
@@ -25,7 +25,7 @@ export function useTasks(householdId: string | null) {
     if (error) toast.error("タスクの取得に失敗しました");
     if (data) setTasks(data);
     setLoading(false);
-  }, [householdId]);
+  }, [householdId, supabase]);
 
   useEffect(() => {
     fetchTasks();
@@ -62,7 +62,6 @@ export function useTasks(householdId: string | null) {
 
     setTasks((prev) => [optimisticTask, ...prev]);
 
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("tasks")
       .insert({ id: taskId, ...task, household_id: householdId })
@@ -99,7 +98,6 @@ export function useTasks(householdId: string | null) {
       prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
     );
 
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("tasks")
       .update(updates)
@@ -123,7 +121,6 @@ export function useTasks(householdId: string | null) {
     const previousTasks = tasks;
     setTasks((prev) => prev.filter((t) => t.id !== id));
 
-    const supabase = createClient();
     const { error } = await supabase.from("tasks").delete().eq("id", id);
 
     if (error) {
@@ -157,7 +154,6 @@ export function useTasks(householdId: string | null) {
       return [...reordered, ...rest];
     });
 
-    const supabase = createClient();
     const { error } = await supabase.rpc("reorder_tasks", {
       p_task_ids: orderedIds,
       p_sort_orders: orderedIds.map((_, i) => i),
