@@ -227,19 +227,20 @@ otp_expiry = 3600
 # sender_name = "Admin"
 
 # メール確認テンプレート（サインアップ時）
-[auth.email.template.confirmation]
-subject = "【家族タスクアプリ】メールアドレスの確認"
-content_path = "./templates/confirmation.html"
+# enable_confirmations = false のため不要（Supabase CLI v2.77+ でパス解決の挙動が変わったため一時コメントアウト）
+# [auth.email.template.confirmation]
+# subject = "【家族タスクアプリ】メールアドレスの確認"
+# content_path = "./templates/confirmation.html"
 
 # パスワード再設定テンプレート
-[auth.email.template.recovery]
-subject = "【家族タスクアプリ】パスワードの再設定"
-content_path = "./templates/recovery.html"
+# [auth.email.template.recovery]
+# subject = "【家族タスクアプリ】パスワードの再設定"
+# content_path = "./templates/recovery.html"
 
 # 招待テンプレート
-[auth.email.template.invite]
-subject = "【家族タスクアプリ】招待のご案内"
-content_path = "./templates/invite.html"
+# [auth.email.template.invite]
+# subject = "【家族タスクアプリ】招待のご案内"
+# content_path = "./templates/invite.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

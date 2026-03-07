@@ -10,6 +10,7 @@ import { TaskCreateSheet } from "@/components/task/task-create-sheet";
 import { TaskDetailModal } from "@/components/task/task-detail-modal";
 import { SwipeableTaskContainer } from "@/components/task/swipeable-task-container";
 import { Fab } from "@/components/ui/fab";
+import { Avatar } from "@/components/ui/avatar";
 import { useTasks } from "@/hooks/use-tasks";
 import { useCategories } from "@/hooks/use-categories";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
@@ -85,13 +86,7 @@ export default function Home() {
           <h1 className="text-lg font-bold text-gray-900">{householdName}</h1>
           <div className="flex items-center gap-2">
             {members.map((m) => (
-              <div
-                key={m.id}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700"
-                title={m.nickname}
-              >
-                {m.nickname.charAt(0) || "?"}
-              </div>
+              <Avatar key={m.id} profile={m} size="sm" />
             ))}
             <button
               onClick={() => router.push("/settings")}
