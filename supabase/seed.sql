@@ -31,6 +31,27 @@ INSERT INTO auth.users (
   NOW()
 ) ON CONFLICT DO NOTHING;
 
+-- 1b. auth.identities にメールプロバイダー用のアイデンティティを登録
+INSERT INTO auth.identities (
+  id,
+  provider_id,
+  user_id,
+  identity_data,
+  provider,
+  last_sign_in_at,
+  created_at,
+  updated_at
+) VALUES (
+  gen_random_uuid(),
+  'test@example.com',
+  'a0000000-0000-0000-0000-000000000001'::uuid,
+  '{"sub":"a0000000-0000-0000-0000-000000000001","email":"test@example.com","email_verified":true}',
+  'email',
+  NOW(),
+  NOW(),
+  NOW()
+) ON CONFLICT DO NOTHING;
+
 -- 2. テスト用世帯を作成
 INSERT INTO public.households (id, name, created_at, updated_at)
 VALUES (
