@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Copy, RefreshCw } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
 import type { Household, Profile } from "@/types";
 
 interface HouseholdSettingsProps {
@@ -112,9 +113,7 @@ export function HouseholdSettings({
         <div className="flex flex-col gap-2">
           {members.map((member) => (
             <div key={member.id} className="flex items-center gap-3 py-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
-                {member.nickname.charAt(0) || "?"}
-              </div>
+              <Avatar profile={member} size="md" />
               <span className="flex-1 text-sm text-gray-900">{member.nickname}</span>
               {member.id === currentUserId && (
                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
