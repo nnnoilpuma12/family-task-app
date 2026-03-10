@@ -18,7 +18,8 @@
       "Bash(xargs kill:*)",
       "mcp__figma__get_screenshot",
       "Bash(sudo xcodebuild -license accept)",
-      "Bash(grep -r \"sanitize\\\\|DOMPurify\\\\|dangerouslySetInnerHTML\\\\|innerHTML\" /Users/naikiwatanabe/Documents/family-task-app/src --include=\"*.tsx\" --include=\"*.ts\" 2>/dev/null | head -10)"
+      "Bash(grep -r \"sanitize\\\\|DOMPurify\\\\|dangerouslySetInnerHTML\\\\|innerHTML\" /Users/naikiwatanabe/Documents/family-task-app/src --include=\"*.tsx\" --include=\"*.ts\" 2>/dev/null | head -10)",
+      "Bash(docker exec supabase_db_family-task-app psql postgresql://postgres:postgres@localhost:5432/postgres -c \"\\\\d auth.identities\" 2>&1)"
     ]
   },
   "enableAllProjectMcpServers": true,
