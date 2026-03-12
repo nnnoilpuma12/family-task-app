@@ -1,3 +1,15 @@
+const SW_VERSION = "2";
+
+self.addEventListener("install", () => {
+  // Activate immediately without waiting for existing tabs to close
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  // Take control of all open clients right away
+  event.waitUntil(clients.claim());
+});
+
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
   const title = data.title || "家族タスク";
