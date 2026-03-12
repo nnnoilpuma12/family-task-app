@@ -241,6 +241,48 @@ export type Database = {
           },
         ];
       };
+      dismissed_recommendations: {
+        Row: {
+          id: string;
+          household_id: string;
+          normalized_title: string;
+          dismissed_by: string | null;
+          dismissed_until: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          normalized_title: string;
+          dismissed_by?: string | null;
+          dismissed_until: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          normalized_title?: string;
+          dismissed_by?: string | null;
+          dismissed_until?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dismissed_recommendations_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dismissed_recommendations_dismissed_by_fkey";
+            columns: ["dismissed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       push_subscriptions: {
         Row: {
           id: string;
@@ -294,6 +336,19 @@ export type Database = {
       verify_invite_code: {
         Args: { p_code: string };
         Returns: string;
+      };
+      get_recurring_recommendations: {
+        Args: { p_household_id: string };
+        Returns: {
+          normalized_title: string;
+          latest_title: string;
+          latest_category_id: string | null;
+          latest_memo: string | null;
+          median_interval_days: number;
+          days_since_last: number;
+          completion_count: number;
+          last_completed_at: string;
+        }[];
       };
     };
     Enums: Record<string, never>;

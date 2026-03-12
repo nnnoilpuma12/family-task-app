@@ -16,3 +16,14 @@ export type TaskWithAssignees = Task & {
 };
 
 export type HouseholdMember = Profile;
+
+export type TaskRecommendation = {
+  normalized_title: string;
+  latest_title: string;
+  latest_category_id: string | null;
+  latest_memo: string | null;
+  median_interval_days: number;
+  days_since_last: number;
+  completion_count: number;
+  last_completed_at: string;
+};
