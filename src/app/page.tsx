@@ -11,13 +11,15 @@ import { TaskDetailModal } from "@/components/task/task-detail-modal";
 import { SwipeableTaskContainer } from "@/components/task/swipeable-task-container";
 import { Fab } from "@/components/ui/fab";
 import { Avatar } from "@/components/ui/avatar";
+import { RecommendationSection } from "@/components/recommendation/recommendation-section";
 import { useTasks } from "@/hooks/use-tasks";
 import { useCategories } from "@/hooks/use-categories";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
+import { useTaskRecommendations } from "@/hooks/use-task-recommendations";
 import { usePageData } from "@/hooks/use-page-data";
 import type { TabMeasurements } from "@/components/category/category-tabs";
 import type { IndicatorRefs } from "@/hooks/use-swipeable-tab";
-import type { Task } from "@/types";
+import type { Task, TaskRecommendation } from "@/types";
 
 export default function Home() {
   const router = useRouter();
@@ -44,6 +46,8 @@ export default function Home() {
     useTasks(householdId);
 
   useRealtimeTasks(householdId, setTasks);
+  const { recommendations, dismiss: dismissRecommendation, refetch: refetchRecommendations } =
+    useTaskRecommendations(householdId);
 
   // Auto-select first category when categories load and none is selected
   useEffect(() => {
@@ -65,6 +69,16 @@ export default function Home() {
   }, [addTask, profile?.id]);
   const handleCloseDetail = useCallback(() => setSelectedTask(null), []);
   const handleUpdate = useCallback(async (id: string, updates: Partial<Task>) => { await updateTask(id, updates); }, [updateTask]);
+  const handleAcceptRecommendation = useCallback(async (rec: TaskRecommendation) => {
+    await addTask({
+      title: rec.latest_title,
+      category_id: rec.latest_category_id,
+      memo: rec.latest_memo,
+      created_by: profile?.id ?? null,
+    });
+    await refetchRecommendations();
+  }, [addTask, profile?.id, refetchRecommendations]);
+
   const handleDeleteAllDone = useCallback(async () => {
     const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
     await Promise.all(doneIds.map((id) => deleteTask(id)));
@@ -108,6 +122,14 @@ export default function Home() {
 
       {/* Task List */}
       <main className="pt-2">
+        {!tasksLoading && recommendations.length > 0 && (
+          <RecommendationSection
+            recommendations={recommendations}
+            categories={categories}
+            onAccept={handleAcceptRecommendation}
+            onDismiss={dismissRecommendation}
+          />
+        )}
         <SwipeableTaskContainer
           categories={categories}
           selectedCategoryId={selectedCategoryId}
