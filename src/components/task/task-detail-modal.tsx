@@ -86,7 +86,6 @@ export function TaskDetailModal({
           categories={categories}
           selectedId={categoryId}
           onChange={setCategoryId}
-          showNone
           label="カテゴリ"
         />
 

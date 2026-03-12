@@ -38,7 +38,7 @@ export function CategoryPicker({
           <button
             key={cat.id}
             type="button"
-            onClick={() => onChange(selectedId === cat.id && !showNone ? null : cat.id)}
+            onClick={() => onChange(cat.id)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               selectedId === cat.id ? "text-white" : "bg-gray-100 text-gray-600"
             }`}
