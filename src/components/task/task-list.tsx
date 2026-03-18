@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
@@ -41,8 +41,41 @@ export function TaskList({
 }: TaskListProps) {
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const memberMap = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
-  const activeTasks = useMemo(() => tasks.filter((t) => !t.is_done), [tasks]);
-  const doneTasks = useMemo(() => tasks.filter((t) => t.is_done), [tasks]);
+
+  // Track tasks that were just completed — keep them in the active list briefly
+  // so the done styling (green checkbox + strikethrough) is visible before they exit
+  const [pendingDoneIds, setPendingDoneIds] = useState<Set<string>>(new Set());
+
+  const activeTasks = useMemo(
+    () => tasks.filter((t) => !t.is_done || pendingDoneIds.has(t.id)),
+    [tasks, pendingDoneIds]
+  );
+  const doneTasks = useMemo(
+    () => tasks.filter((t) => t.is_done && !pendingDoneIds.has(t.id)),
+    [tasks, pendingDoneIds]
+  );
+
+  const handleToggle = useCallback(
+    (id: string) => {
+      const task = tasks.find((t) => t.id === id);
+      if (task && !task.is_done) {
+        // Becoming done: hold in active list for 300ms to show done styling
+        setPendingDoneIds((prev) => new Set([...prev, id]));
+        onToggle(id);
+        setTimeout(() => {
+          setPendingDoneIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }, 300);
+      } else {
+        // Unchecking: immediate
+        onToggle(id);
+      }
+    },
+    [tasks, onToggle]
+  );
 
   // Confetti on all tasks done
   const allDoneRef = useRef(false);
@@ -143,7 +176,7 @@ export function TaskList({
                   task={task}
                   category={categoryMap.get(task.category_id ?? "")}
                   createdBy={task.created_by ? memberMap.get(task.created_by) : undefined}
-                  onToggle={onToggle}
+                  onToggle={handleToggle}
                   onTap={onTap}
                   onDelete={onDelete}
                   isDragging={activeId === task.id}
@@ -216,7 +249,7 @@ export function TaskList({
                   task={task}
                   category={categoryMap.get(task.category_id ?? "")}
                   createdBy={task.created_by ? memberMap.get(task.created_by) : undefined}
-                  onToggle={onToggle}
+                  onToggle={handleToggle}
                   onTap={onTap}
                   onDelete={onDelete}
                   isDragging={false}
