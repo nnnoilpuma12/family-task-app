@@ -14,6 +14,7 @@ interface CategoryTabsProps {
   onSelect: (id: string | null) => void;
   indicatorRef?: RefObject<HTMLDivElement | null>;
   onTabMeasure?: (measurements: TabMeasurements) => void;
+  loading?: boolean;
 }
 
 export function CategoryTabs({
@@ -22,6 +23,7 @@ export function CategoryTabs({
   onSelect,
   indicatorRef: externalIndicatorRef,
   onTabMeasure,
+  loading = false,
 }: CategoryTabsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const internalIndicatorRef = useRef<HTMLDivElement>(null);
@@ -133,6 +135,20 @@ export function CategoryTabs({
     const cat = categories[index];
     return cat ? `${cat.color}20` : "#e0e7ff";
   };
+
+  if (loading && categories.length === 0) {
+    return (
+      <div className="flex px-4 py-2 gap-2">
+        {[56, 64, 52].map((w, i) => (
+          <div
+            key={i}
+            className="h-8 rounded-full bg-gray-200 animate-pulse"
+            style={{ width: `${w}px` }}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="relative">

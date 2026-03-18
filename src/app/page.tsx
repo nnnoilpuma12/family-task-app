@@ -84,24 +84,27 @@ export default function Home() {
     await Promise.all(doneIds.map((id) => deleteTask(id)));
   }, [tasks, deleteTask]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-dvh bg-gray-50">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/95 border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-bold text-gray-900">{householdName}</h1>
+          {loading ? (
+            <div className="h-5 w-28 rounded bg-gray-200 animate-pulse" />
+          ) : (
+            <h1 className="text-lg font-bold text-gray-900">{householdName}</h1>
+          )}
           <div className="flex items-center gap-2">
-            {members.map((m) => (
-              <Avatar key={m.id} profile={m} size="sm" />
-            ))}
+            {loading ? (
+              <>
+                <div className="h-7 w-7 rounded-full bg-gray-200 animate-pulse" />
+                <div className="h-7 w-7 rounded-full bg-gray-200 animate-pulse" />
+              </>
+            ) : (
+              members.map((m) => (
+                <Avatar key={m.id} profile={m} size="sm" />
+              ))
+            )}
             <button
               onClick={() => router.push("/settings")}
               className="ml-1 p-1.5 text-gray-500 hover:text-gray-700"
@@ -117,6 +120,7 @@ export default function Home() {
           onSelect={setSelectedCategoryId}
           indicatorRef={indicatorBarRef}
           onTabMeasure={handleTabMeasure}
+          loading={loading}
         />
       </header>
 
