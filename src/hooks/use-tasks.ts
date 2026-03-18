@@ -131,6 +131,7 @@ export function useTasks(householdId: string | null) {
   const deleteTask = async (id: string) => {
     // Optimistic update: remove task immediately
     const previousTasks = tasks;
+    const deletedTask = previousTasks.find((t) => t.id === id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
 
     const { error } = await supabase.from("tasks").delete().eq("id", id);
@@ -139,6 +140,25 @@ export function useTasks(householdId: string | null) {
       // Rollback
       setTasks(previousTasks);
       toast.error("タスクの削除に失敗しました");
+    } else if (deletedTask) {
+      toast("タスクを削除しました", {
+        action: {
+          label: "元に戻す",
+          onClick: () => {
+            supabase
+              .from("tasks")
+              .insert(deletedTask)
+              .then(({ error: insertError }) => {
+                if (!insertError) {
+                  setTasks((prev) => [deletedTask, ...prev]);
+                } else {
+                  toast.error("元に戻せませんでした");
+                }
+              });
+          },
+        },
+        duration: 4000,
+      });
     }
     return { error };
   };

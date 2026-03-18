@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, memo } from "react";
-import { motion } from "framer-motion";
+import { useCallback, memo } from "react";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Check, Calendar, GripVertical } from "lucide-react";
+import { Check, Calendar, GripVertical, Trash2 } from "lucide-react";
 import type { Task, Category, Profile } from "@/types";
 import { formatDueDate } from "@/lib/date";
 
@@ -26,52 +26,22 @@ export const TaskItem = memo(function TaskItem({
   createdBy,
   onToggle,
   onTap,
+  onDelete,
   isDragging,
   sortable: isSortable = false,
   isOverlay = false,
 }: TaskItemProps) {
 
-  // Local pending-done state for checkbox animation before optimistic update
-  const [isPendingDone, setIsPendingDone] = useState(false);
-  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // If task.is_done becomes true externally (Realtime), cancel pending timer
-  useEffect(() => {
-    if (task.is_done && isPendingDone) {
-      if (pendingTimerRef.current) {
-        clearTimeout(pendingTimerRef.current);
-        pendingTimerRef.current = null;
-      }
-      setIsPendingDone(false);
-    }
-  }, [task.is_done, isPendingDone]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pendingTimerRef.current) {
-        clearTimeout(pendingTimerRef.current);
-      }
-    };
-  }, []);
-
   const handleToggle = useCallback(() => {
-    if (task.is_done) {
-      // Unchecking: immediate
-      onToggle(task.id);
-    } else {
-      // Checking: show animation first, then trigger toggle after delay
-      if (isPendingDone) return; // prevent double-tap
-      setIsPendingDone(true);
-      pendingTimerRef.current = setTimeout(() => {
-        pendingTimerRef.current = null;
-        onToggle(task.id);
-        setIsPendingDone(false);
-      }, 550);
-    }
-  }, [task.is_done, task.id, isPendingDone, onToggle]);
+    onToggle(task.id);
+  }, [task.id, onToggle]);
 
-  const showDone = isPendingDone || task.is_done;
+  const showDone = task.is_done;
+
+  // Swipe-to-delete (done tasks only)
+  const dragX = useMotionValue(0);
+  const deleteOpacity = useTransform(dragX, [-72, -20], [1, 0]);
+  const deleteScale = useTransform(dragX, [-72, -20], [1, 0.7]);
 
   // dnd-kit sortable
   const {
@@ -93,20 +63,49 @@ export const TaskItem = memo(function TaskItem({
     onTap(task);
   };
 
+  const swipeProps = task.is_done && !isOverlay
+    ? {
+        drag: "x" as const,
+        dragConstraints: { left: -72, right: 0 },
+        dragElastic: 0.05,
+        style: { x: dragX },
+        onDragEnd: (_: unknown, info: { offset: { x: number } }) => {
+          if (info.offset.x < -60) {
+            onDelete(task.id);
+          } else {
+            dragX.set(0);
+          }
+        },
+      }
+    : {};
+
   return (
     <div ref={setNodeRef} style={sortStyle} data-task-item>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
+        exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
         transition={{ type: "spring", damping: 20, stiffness: 300 }}
         className="relative overflow-hidden rounded-lg"
         style={isOverlay ? { opacity: 0.9, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" } : {}}
       >
+        {/* Delete background (shown when swiping left on done tasks) */}
+        {task.is_done && !isOverlay && (
+          <motion.div
+            className="absolute inset-y-0 right-0 flex items-center justify-end pr-4 rounded-lg bg-red-500"
+            style={{ width: "100%", opacity: deleteOpacity }}
+          >
+            <motion.div style={{ scale: deleteScale }}>
+              <Trash2 size={20} className="text-white" />
+            </motion.div>
+          </motion.div>
+        )}
+
         {/* Card */}
-        <div
+        <motion.div
           className="relative flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100 cursor-pointer transition-colors"
           onClick={handleCardClick}
+          {...swipeProps}
         >
           {/* Drag handle (only for sortable active tasks) */}
           {isSortable && (
@@ -179,7 +178,7 @@ export const TaskItem = memo(function TaskItem({
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );
