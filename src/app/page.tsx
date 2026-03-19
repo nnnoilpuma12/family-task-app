@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Settings } from "lucide-react";
+import { Settings, ArrowUpDown, Check } from "lucide-react";
 import { CategoryTabs } from "@/components/category/category-tabs";
 import { TaskList } from "@/components/task/task-list";
 import { TaskListSkeleton } from "@/components/task/task-list-skeleton";
@@ -15,6 +15,8 @@ import { RecommendationSection } from "@/components/recommendation/recommendatio
 import { useTasks } from "@/hooks/use-tasks";
 import { useCategories } from "@/hooks/use-categories";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
+import { useSort, SORT_OPTIONS } from "@/hooks/use-sort";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useTaskRecommendations } from "@/hooks/use-task-recommendations";
 import { usePageData } from "@/hooks/use-page-data";
 import type { TabMeasurements } from "@/components/category/category-tabs";
@@ -27,6 +29,8 @@ export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const { sortOption, setSortOption } = useSort();
 
   // Indicator refs for swipe ↔ tab sync
   const indicatorBarRef = useRef<HTMLDivElement>(null);
@@ -57,9 +61,28 @@ export default function Home() {
   }, [categories, selectedCategoryId]);
 
   const tasks = useMemo(() => {
-    if (!selectedCategoryId) return allTasks;
-    return allTasks.filter((t) => t.category_id === selectedCategoryId);
-  }, [allTasks, selectedCategoryId]);
+    const filtered = selectedCategoryId
+      ? allTasks.filter((t) => t.category_id === selectedCategoryId)
+      : allTasks;
+
+    if (sortOption === "manual") return filtered;
+
+    return [...filtered].sort((a, b) => {
+      if (sortOption === "created_desc") {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      if (sortOption === "created_asc") {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      if (sortOption === "due_date") {
+        if (!a.due_date && !b.due_date) return 0;
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return a.due_date.localeCompare(b.due_date);
+      }
+      return 0;
+    });
+  }, [allTasks, selectedCategoryId, sortOption]);
 
   const handleTap = useCallback((task: Task) => setSelectedTask(task), []);
   const handleDeleteTask = useCallback(async (id: string) => { await deleteTask(id); }, [deleteTask]);
@@ -105,6 +128,13 @@ export default function Home() {
                 <Avatar key={m.id} profile={m} size="sm" />
               ))
             )}
+            <button
+              onClick={() => setIsSortOpen(true)}
+              className={`p-1.5 ${sortOption !== "manual" ? "text-indigo-500" : "text-gray-500 hover:text-gray-700"}`}
+              aria-label="並び替え"
+            >
+              <ArrowUpDown size={20} />
+            </button>
             <button
               onClick={() => router.push("/settings")}
               className="ml-1 p-1.5 text-gray-500 hover:text-gray-700"
@@ -153,6 +183,7 @@ export default function Home() {
               onDelete={handleDeleteTask}
               onReorder={reorderTasks}
               onDeleteAllDone={handleDeleteAllDone}
+              isDndEnabled={sortOption === "manual"}
             />
           )}
         </SwipeableTaskContainer>
@@ -180,6 +211,27 @@ export default function Home() {
         onUpdate={handleUpdate}
         onDelete={handleDeleteTask}
       />
+
+      {/* Sort Sheet */}
+      <BottomSheet isOpen={isSortOpen} onClose={() => setIsSortOpen(false)} title="並び替え">
+        <div className="flex flex-col gap-1 pb-2">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                setSortOption(opt.value);
+                setIsSortOpen(false);
+              }}
+              className="flex items-center justify-between rounded-lg px-4 py-3 text-left text-sm font-medium hover:bg-gray-50 active:bg-gray-100"
+            >
+              <span className={sortOption === opt.value ? "text-indigo-600" : "text-gray-800"}>
+                {opt.label}
+              </span>
+              {sortOption === opt.value && <Check size={16} className="text-indigo-600 shrink-0" />}
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
     </div>
   );
 }
