@@ -27,6 +27,7 @@ interface TaskListProps {
   onDelete: (id: string) => void;
   onReorder: (orderedIds: string[]) => void;
   onDeleteAllDone: () => void;
+  isDndEnabled?: boolean;
 }
 
 export function TaskList({
@@ -38,6 +39,7 @@ export function TaskList({
   onDelete,
   onReorder,
   onDeleteAllDone,
+  isDndEnabled = true,
 }: TaskListProps) {
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const memberMap = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
@@ -180,7 +182,7 @@ export function TaskList({
                   onTap={onTap}
                   onDelete={onDelete}
                   isDragging={activeId === task.id}
-                  sortable
+                  sortable={isDndEnabled}
                 />
               ))}
             </AnimatePresence>
