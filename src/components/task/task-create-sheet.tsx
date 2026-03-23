@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { CategoryPicker } from "@/components/task/category-picker";
@@ -12,6 +12,7 @@ interface TaskCreateSheetProps {
   onClose: () => void;
   categories: Category[];
   selectedCategoryId: string | null;
+  getSuggestions?: (query: string) => string[];
   onSubmit: (task: {
     title: string;
     category_id?: string | null;
@@ -25,10 +26,13 @@ export function TaskCreateSheet({
   onClose,
   categories,
   selectedCategoryId,
+  getSuggestions,
   onSubmit,
 }: TaskCreateSheetProps) {
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(selectedCategoryId);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -37,6 +41,24 @@ export function TaskCreateSheet({
   }, [isOpen, selectedCategoryId]);
   const [dueDate, setDueDate] = useState<string>("");
   const [memo, setMemo] = useState("");
+
+  // タイトル変更時にサジェスト候補を算出
+  const suggestions = useMemo(() => {
+    if (!getSuggestions || !title.trim()) return [];
+    const results = getSuggestions(title);
+    // 完全一致のみの場合はサジェストを表示しない
+    if (results.length === 1 && results[0].toLowerCase() === title.trim().toLowerCase()) {
+      return [];
+    }
+    return results;
+  }, [title, getSuggestions]);
+
+  const handleSelectSuggestion = (suggestion: string) => {
+    setTitle(suggestion);
+    setSuggestionDismissed(true);
+    inputRef.current?.focus();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -57,14 +79,38 @@ export function TaskCreateSheet({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="タスクを追加">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="タスク名を入力"
-          maxLength={255}
-          className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none focus:border-indigo-500"
-          autoFocus
-        />
+        <div className="relative">
+          <input
+            ref={inputRef}
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setSuggestionDismissed(false);
+            }}
+            placeholder="タスク名を入力"
+            maxLength={255}
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base outline-none focus:border-indigo-500"
+            autoFocus
+            autoComplete="off"
+          />
+
+          {!suggestionDismissed && suggestions.length > 0 && (
+            <ul className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+              {suggestions.map((s) => (
+                <li key={s}>
+                  <button
+                    type="button"
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-800 hover:bg-indigo-50 active:bg-indigo-100"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectSuggestion(s)}
+                  >
+                    <SuggestionHighlight text={s} query={title} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <CategoryPicker
           categories={categories}
@@ -89,5 +135,22 @@ export function TaskCreateSheet({
         </Button>
       </form>
     </BottomSheet>
+  );
+}
+
+/** マッチ部分をハイライト表示するコンポーネント */
+function SuggestionHighlight({ text, query }: { text: string; query: string }) {
+  const q = query.trim().toLowerCase();
+  if (!q) return <>{text}</>;
+
+  const idx = text.toLowerCase().indexOf(q);
+  if (idx === -1) return <>{text}</>;
+
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="font-semibold text-indigo-600">{text.slice(idx, idx + q.length)}</span>
+      {text.slice(idx + q.length)}
+    </>
   );
 }
