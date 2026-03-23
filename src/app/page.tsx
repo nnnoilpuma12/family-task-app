@@ -18,6 +18,7 @@ import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
 import { useSort, SORT_OPTIONS } from "@/hooks/use-sort";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useTaskRecommendations } from "@/hooks/use-task-recommendations";
+import { useTitleSuggestions } from "@/hooks/use-title-suggestions";
 import { usePageData } from "@/hooks/use-page-data";
 import type { TabMeasurements } from "@/components/category/category-tabs";
 import type { IndicatorRefs } from "@/hooks/use-swipeable-tab";
@@ -51,6 +52,7 @@ export default function Home() {
 
   const { recommendations, loading: recsLoading, dismiss: dismissRecommendation, refetch: refetchRecommendations } =
     useTaskRecommendations(householdId, profile?.id);
+  const { getSuggestions } = useTitleSuggestions(householdId);
 
   // Debounced refetch for realtime events from other household members
   const recsTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -209,6 +211,7 @@ export default function Home() {
         onClose={handleCloseCreate}
         categories={categories}
         selectedCategoryId={selectedCategoryId}
+        getSuggestions={getSuggestions}
         onSubmit={handleSubmit}
       />
 
