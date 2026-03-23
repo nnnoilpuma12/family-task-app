@@ -6,7 +6,8 @@ import type { Task } from "@/types";
 
 export function useRealtimeTasks(
   householdId: string | null,
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>,
+  onRemoteChange?: () => void
 ) {
   useEffect(() => {
     if (!householdId) return;
@@ -28,6 +29,7 @@ export function useRealtimeTasks(
             if (prev.some((t) => t.id === newTask.id)) return prev;
             return [newTask, ...prev];
           });
+          onRemoteChange?.();
         }
       )
       .on(
@@ -43,6 +45,7 @@ export function useRealtimeTasks(
           setTasks((prev) =>
             prev.map((t) => (t.id === updated.id ? updated : t))
           );
+          onRemoteChange?.();
         }
       )
       .on(
@@ -56,6 +59,7 @@ export function useRealtimeTasks(
         (payload) => {
           const deleted = payload.old as { id: string };
           setTasks((prev) => prev.filter((t) => t.id !== deleted.id));
+          onRemoteChange?.();
         }
       )
       .subscribe();
@@ -63,5 +67,5 @@ export function useRealtimeTasks(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [householdId, setTasks]);
+  }, [householdId, setTasks, onRemoteChange]);
 }

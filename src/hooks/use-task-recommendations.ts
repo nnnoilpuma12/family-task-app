@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { TaskRecommendation } from "@/types";
 
-export function useTaskRecommendations(householdId: string | null) {
+export function useTaskRecommendations(householdId: string | null, profileId?: string | null) {
   const supabase = useMemo(() => createClient(), []);
   const [recommendations, setRecommendations] = useState<TaskRecommendation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,11 +42,12 @@ export function useTaskRecommendations(householdId: string | null) {
           household_id: householdId,
           normalized_title: normalizedTitle,
           dismissed_until: dismissedUntil.toISOString(),
+          ...(profileId ? { dismissed_by: profileId } : {}),
         },
         { onConflict: "household_id,normalized_title" }
       );
     },
-    [householdId, supabase]
+    [householdId, profileId, supabase]
   );
 
   return { recommendations, loading, dismiss, refetch: fetchRecommendations };
