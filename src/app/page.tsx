@@ -49,9 +49,17 @@ export default function Home() {
   const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, toggleTask, reorderTasks } =
     useTasks(householdId);
 
-  useRealtimeTasks(householdId, setTasks);
-  const { recommendations, dismiss: dismissRecommendation, refetch: refetchRecommendations } =
-    useTaskRecommendations(householdId);
+  const { recommendations, loading: recsLoading, dismiss: dismissRecommendation, refetch: refetchRecommendations } =
+    useTaskRecommendations(householdId, profile?.id);
+
+  // Debounced refetch for realtime events from other household members
+  const recsTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const onRemoteChange = useCallback(() => {
+    if (recsTimerRef.current) clearTimeout(recsTimerRef.current);
+    recsTimerRef.current = setTimeout(() => refetchRecommendations(), 2000);
+  }, [refetchRecommendations]);
+
+  useRealtimeTasks(householdId, setTasks, onRemoteChange);
 
   // Auto-select first category when categories load and none is selected
   useEffect(() => {
@@ -84,12 +92,14 @@ export default function Home() {
     });
   }, [allTasks, selectedCategoryId, sortOption]);
 
+  const handleToggle = useCallback(async (id: string) => { await toggleTask(id); refetchRecommendations(); }, [toggleTask, refetchRecommendations]);
   const handleTap = useCallback((task: Task) => setSelectedTask(task), []);
-  const handleDeleteTask = useCallback(async (id: string) => { await deleteTask(id); }, [deleteTask]);
+  const handleDeleteTask = useCallback(async (id: string) => { await deleteTask(id); refetchRecommendations(); }, [deleteTask, refetchRecommendations]);
   const handleCloseCreate = useCallback(() => setIsCreateOpen(false), []);
   const handleSubmit = useCallback(async (task: { title: string; category_id?: string | null; due_date?: string | null; memo?: string | null; url?: string | null }) => {
     await addTask({ ...task, created_by: profile?.id ?? null });
-  }, [addTask, profile?.id]);
+    refetchRecommendations();
+  }, [addTask, profile?.id, refetchRecommendations]);
   const handleCloseDetail = useCallback(() => setSelectedTask(null), []);
   const handleUpdate = useCallback(async (id: string, updates: Partial<Task>) => { await updateTask(id, updates); }, [updateTask]);
   const handleAcceptRecommendation = useCallback(async (rec: TaskRecommendation) => {
@@ -105,7 +115,8 @@ export default function Home() {
   const handleDeleteAllDone = useCallback(async () => {
     const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
     await Promise.all(doneIds.map((id) => deleteTask(id)));
-  }, [tasks, deleteTask]);
+    refetchRecommendations();
+  }, [tasks, deleteTask, refetchRecommendations]);
 
   return (
     <div className="min-h-dvh bg-gray-50">
@@ -156,7 +167,7 @@ export default function Home() {
 
       {/* Task List */}
       <main className="pt-2">
-        {!tasksLoading && recommendations.length > 0 && (
+        {!tasksLoading && !recsLoading && recommendations.length > 0 && (
           <RecommendationSection
             recommendations={recommendations}
             categories={categories}
@@ -178,7 +189,7 @@ export default function Home() {
               tasks={tasks}
               categories={categories}
               members={members}
-              onToggle={toggleTask}
+              onToggle={handleToggle}
               onTap={handleTap}
               onDelete={handleDeleteTask}
               onReorder={reorderTasks}
