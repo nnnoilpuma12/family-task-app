@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { CategoryPicker } from "@/components/task/category-picker";
@@ -32,7 +32,6 @@ export function TaskCreateSheet({
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(selectedCategoryId);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -56,7 +55,6 @@ export function TaskCreateSheet({
   const handleSelectSuggestion = (suggestion: string) => {
     setTitle(suggestion);
     setSuggestionDismissed(true);
-    inputRef.current?.focus();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -79,9 +77,8 @@ export function TaskCreateSheet({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="タスクを追加">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="relative">
+        <div>
           <input
-            ref={inputRef}
             value={title}
             onChange={(e) => {
               setTitle(e.target.value);
@@ -95,20 +92,18 @@ export function TaskCreateSheet({
           />
 
           {!suggestionDismissed && suggestions.length > 0 && (
-            <ul className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+            <div className="mt-2 flex flex-wrap gap-2">
               {suggestions.map((s) => (
-                <li key={s}>
-                  <button
-                    type="button"
-                    className="w-full px-4 py-2.5 text-left text-sm text-gray-800 hover:bg-indigo-50 active:bg-indigo-100"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleSelectSuggestion(s)}
-                  >
-                    <SuggestionHighlight text={s} query={title} />
-                  </button>
-                </li>
+                <button
+                  key={s}
+                  type="button"
+                  className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm text-indigo-700 active:bg-indigo-100"
+                  onClick={() => handleSelectSuggestion(s)}
+                >
+                  {s}
+                </button>
               ))}
-            </ul>
+            </div>
           )}
         </div>
 
@@ -135,22 +130,5 @@ export function TaskCreateSheet({
         </Button>
       </form>
     </BottomSheet>
-  );
-}
-
-/** マッチ部分をハイライト表示するコンポーネント */
-function SuggestionHighlight({ text, query }: { text: string; query: string }) {
-  const q = query.trim().toLowerCase();
-  if (!q) return <>{text}</>;
-
-  const idx = text.toLowerCase().indexOf(q);
-  if (idx === -1) return <>{text}</>;
-
-  return (
-    <>
-      {text.slice(0, idx)}
-      <span className="font-semibold text-indigo-600">{text.slice(idx, idx + q.length)}</span>
-      {text.slice(idx + q.length)}
-    </>
   );
 }
