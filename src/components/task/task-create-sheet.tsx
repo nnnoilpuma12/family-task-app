@@ -12,7 +12,7 @@ interface TaskCreateSheetProps {
   onClose: () => void;
   categories: Category[];
   selectedCategoryId: string | null;
-  getSuggestions?: (query: string) => string[];
+  getSuggestions?: (query: string, categoryId?: string | null) => string[];
   onSubmit: (task: {
     title: string;
     category_id?: string | null;
@@ -44,13 +44,13 @@ export function TaskCreateSheet({
   // タイトル変更時にサジェスト候補を算出
   const suggestions = useMemo(() => {
     if (!getSuggestions || !title.trim()) return [];
-    const results = getSuggestions(title);
+    const results = getSuggestions(title, categoryId);
     // 完全一致のみの場合はサジェストを表示しない
     if (results.length === 1 && results[0].toLowerCase() === title.trim().toLowerCase()) {
       return [];
     }
     return results;
-  }, [title, getSuggestions]);
+  }, [title, categoryId, getSuggestions]);
 
   const handleSelectSuggestion = (suggestion: string) => {
     setTitle(suggestion);
