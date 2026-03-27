@@ -8,9 +8,10 @@ interface CategorySettingsProps {
   onAdd: (name: string, color: string) => Promise<void>;
   onUpdate: (id: string, updates: { name?: string; color?: string }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onReorder: (orderedIds: string[]) => Promise<void>;
 }
 
-export function CategorySettings({ categories, onAdd, onUpdate, onDelete }: CategorySettingsProps) {
+export function CategorySettings({ categories, onAdd, onUpdate, onDelete, onReorder }: CategorySettingsProps) {
   return (
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-semibold text-gray-900">カテゴリ管理</h3>
@@ -19,6 +20,7 @@ export function CategorySettings({ categories, onAdd, onUpdate, onDelete }: Cate
         onAdd={onAdd}
         onUpdate={onUpdate}
         onDelete={onDelete}
+        onReorder={onReorder}
       />
     </div>
   );
