@@ -68,5 +68,21 @@ export function useCategories(householdId: string | null) {
     return { error };
   };
 
-  return { categories, loading, addCategory, updateCategory, deleteCategory, refetch: fetchCategories };
+  const reorderCategories = async (orderedIds: string[]) => {
+    setCategories((prev) => {
+      const map = new Map(prev.map((c) => [c.id, c]));
+      return orderedIds.map((id, i) => ({ ...map.get(id)!, sort_order: i }));
+    });
+    const results = await Promise.all(
+      orderedIds.map((id, i) =>
+        supabase.from("categories").update({ sort_order: i }).eq("id", id)
+      )
+    );
+    if (results.some((r) => r.error)) {
+      toast.error("カテゴリの並び替えに失敗しました");
+      fetchCategories();
+    }
+  };
+
+  return { categories, loading, addCategory, updateCategory, deleteCategory, reorderCategories, refetch: fetchCategories };
 }

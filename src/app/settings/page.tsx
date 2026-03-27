@@ -16,7 +16,7 @@ export default function SettingsPage() {
     redirectIfNoHousehold: false,
     fetchHousehold: true,
   });
-  const { categories, addCategory, updateCategory, deleteCategory } = useCategories(
+  const { categories, addCategory, updateCategory, deleteCategory, reorderCategories } = useCategories(
     profile?.household_id ?? null
   );
 
@@ -64,6 +64,7 @@ export default function SettingsPage() {
             onAdd={async (name, color) => { await addCategory(name, color); }}
             onUpdate={async (id, updates) => { await updateCategory(id, updates); }}
             onDelete={async (id) => { await deleteCategory(id); }}
+            onReorder={async (ids) => { await reorderCategories(ids); }}
           />
         </div>
 
