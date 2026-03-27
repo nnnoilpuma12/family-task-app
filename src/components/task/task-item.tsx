@@ -59,6 +59,34 @@ export const TaskItem = memo(function TaskItem({
 
   const isOverdue = task.due_date && !task.is_done && new Date(task.due_date) < new Date(new Date().toDateString());
 
+  const isToday = task.due_date && !task.is_done && (() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const d = new Date(task.due_date!); d.setHours(0, 0, 0, 0);
+    return d.getTime() === today.getTime();
+  })();
+
+  const isTomorrow = task.due_date && !task.is_done && (() => {
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0, 0, 0, 0);
+    const d = new Date(task.due_date!); d.setHours(0, 0, 0, 0);
+    return d.getTime() === tomorrow.getTime();
+  })();
+
+  const urgencyBorderClass = isOverdue
+    ? "border-l-4 border-l-red-400"
+    : isToday
+    ? "border-l-4 border-l-orange-400"
+    : isTomorrow
+    ? "border-l-4 border-l-yellow-400"
+    : "border border-gray-100";
+
+  const dueDateClass = isOverdue
+    ? "text-red-500 font-medium"
+    : isToday
+    ? "text-orange-500 font-medium"
+    : isTomorrow
+    ? "text-yellow-600 font-medium"
+    : "text-gray-500";
+
   const handleCardClick = () => {
     onTap(task);
   };
@@ -103,7 +131,7 @@ export const TaskItem = memo(function TaskItem({
 
         {/* Card */}
         <motion.div
-          className="relative flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100 cursor-pointer transition-colors"
+          className={`relative flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm cursor-pointer transition-colors ${urgencyBorderClass}`}
           onClick={handleCardClick}
           {...swipeProps}
         >
@@ -162,12 +190,13 @@ export const TaskItem = memo(function TaskItem({
               <div className="flex items-center gap-2 mt-0.5">
                 {task.due_date && (
                   <span
-                    className={`flex items-center gap-0.5 text-xs ${
-                      isOverdue ? "text-red-500 font-medium" : "text-gray-500"
-                    }`}
+                    className={`flex items-center gap-0.5 text-xs ${dueDateClass}`}
                   >
                     <Calendar size={10} />
                     {formatDueDate(task.due_date)}
+                    {isToday && (
+                      <span className="ml-0.5 text-orange-500 font-bold leading-none">!</span>
+                    )}
                   </span>
                 )}
                 {createdBy && (
