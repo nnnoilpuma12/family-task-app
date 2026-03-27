@@ -15,6 +15,11 @@ export function QuickDatePicker({
   showClear = false,
   label,
 }: QuickDatePickerProps) {
+  const todayDate = getQuickDate(0);
+  const tomorrowDate = getQuickDate(1);
+  const isTodaySelected = value === todayDate;
+  const isTomorrowSelected = value === tomorrowDate;
+
   return (
     <div>
       {label && (
@@ -23,15 +28,25 @@ export function QuickDatePicker({
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => onChange(getQuickDate(0))}
-          className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
+          onClick={() => onChange(todayDate)}
+          aria-pressed={isTodaySelected}
+          className={`rounded-full px-3 py-1 text-xs font-medium ${
+            isTodaySelected
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
         >
           今日
         </button>
         <button
           type="button"
-          onClick={() => onChange(getQuickDate(1))}
-          className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
+          onClick={() => onChange(tomorrowDate)}
+          aria-pressed={isTomorrowSelected}
+          className={`rounded-full px-3 py-1 text-xs font-medium ${
+            isTomorrowSelected
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
         >
           明日
         </button>
