@@ -59,7 +59,7 @@ export function HouseholdSettings({
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-sm font-semibold text-gray-900">ハウスホールド</h3>
+      <h3 className="text-sm font-semibold text-gray-900">家族グループ</h3>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="household-name" className="text-xs text-gray-500">
