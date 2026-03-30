@@ -1,4 +1,4 @@
-const SW_VERSION = "2";
+const SW_VERSION = "3";
 
 self.addEventListener("install", () => {
   // Activate immediately without waiting for existing tabs to close
