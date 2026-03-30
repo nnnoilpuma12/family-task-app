@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
       {
         // PWA assets: always revalidate so icon/manifest changes reach users immediately
         source:
-          "/(manifest\\.json|favicon\\.png|apple-touch-icon\\.png|icon-.*\\.png|icon-badge\\.png)",
+          "/(sw\\.js|manifest\\.json|favicon\\.png|apple-touch-icon\\.png|icon-.*\\.png|icon-badge\\.png)",
         headers: [{ key: "Cache-Control", value: "no-cache" }],
       },
       {
