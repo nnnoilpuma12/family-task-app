@@ -1,373 +1,149 @@
 # CLAUDE.md — Family Task App
 
-This document describes the codebase structure, development workflows, and conventions for AI assistants working on this project.
+家族・カップル向けの家事タスク共有アプリ。モバイル中心の PWA で、世帯（household）単位でタスク・カテゴリをリアルタイム共有する。UI 言語は日本語固定。
 
 ---
 
-## Project Overview
-
-**家族タスクアプリ** is a mobile-first web application for sharing and managing tasks within a household (family/couple). It is built with Next.js 16, React 19, Supabase (PostgreSQL + Realtime + Auth), and Tailwind CSS v4.
-
-The UI language is **Japanese**. All user-visible strings should remain in Japanese.
-
----
-
-## Tech Stack
+## 技術スタック
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 16 (App Router) |
-| UI | React 19, Tailwind CSS v4, Framer Motion, dnd-kit |
+| Framework | Next.js 16.1.6 (App Router, Turbopack) |
+| UI | React 19.2.3, Tailwind CSS v4, framer-motion 12, sonner |
+| DnD | @dnd-kit/core 6 / sortable 10 / utilities 3 |
 | Icons | lucide-react |
-| Backend / DB | Supabase (PostgreSQL, Auth, Realtime, Storage) |
-| Language | TypeScript 5 (strict mode) |
-| Linting | ESLint 9 with `eslint-config-next` (Core Web Vitals + TypeScript) |
-| Package manager | npm |
+| Backend | Supabase (`@supabase/ssr` 0.8, `supabase-js` 2.95) — Postgres + Auth + Realtime + Storage |
+| Push | web-push 3.6（VAPID） |
+| Language | TypeScript 5（strict） |
+| Lint | ESLint 9 + eslint-config-next |
+| Pkg Manager | npm |
+
+自動テストは未導入（`npm test` スクリプトなし）。品質チェックは ESLint のみ。
 
 ---
 
-## Repository Structure
+## よく使うコマンド
 
+```bash
+npm run dev          # Next.js 開発サーバー（http://localhost:3000）
+npm run build        # 本番ビルド
+npm run start        # 本番サーバー
+npm run lint         # ESLint
+
+npx supabase start   # ローカル Supabase 起動（要 Docker Desktop）
+npx supabase stop    # 停止
+npx supabase db reset                           # マイグレーション全適用 + seed
+npx supabase migration new <name>               # 新規マイグレーション
+npx supabase gen types typescript --local > src/types/database.ts  # 型再生成
+npx supabase db push                            # 本番 Supabase へ反映
 ```
-family-task-app/
-├── src/
-│   ├── app/                        # Next.js App Router pages & routes
-│   │   ├── layout.tsx              # Root layout (fonts, metadata, PWA config)
-│   │   ├── page.tsx                # Main task list page (home)
-│   │   ├── globals.css             # Global CSS + Tailwind import + CSS vars
-│   │   ├── login/page.tsx          # Login page
-│   │   ├── signup/page.tsx         # Sign-up page
-│   │   ├── forgot-password/page.tsx
-│   │   ├── reset-password/page.tsx
-│   │   ├── settings/page.tsx       # Settings page (profile, household, categories)
-│   │   ├── api/
-│   │   │   └── push/
-│   │   │       ├── send/route.ts       # 他メンバーへのプッシュ通知送信
-│   │   │       └── subscribe/route.ts  # Web Push 購読登録/削除
-│   │   ├── household/
-│   │   │   ├── new/page.tsx        # Create new household
-│   │   │   └── join/page.tsx       # Join household via invite code
-│   │   └── auth/
-│   │       └── callback/route.ts   # Supabase OAuth/magic-link callback handler
-│   ├── components/
-│   │   ├── auth/                   # Auth forms (login, signup, forgot/reset password)
-│   │   ├── category/               # CategoryTabs, CategoryManager
-│   │   ├── household/              # CreateForm, JoinForm
-│   │   ├── settings/               # ProfileEditor, HouseholdSettings, CategorySettings, NotificationSettings
-│   │   ├── task/                   # TaskList, TaskItem, TaskCreateSheet, TaskDetailModal, TaskListSkeleton, SwipeableTaskContainer
-│   │   ├── ui/                     # Reusable primitives: Button, Input, BottomSheet, Modal, Fab
-│   │   └── ServiceWorkerRegister.tsx   # PWA Service Worker 登録
-│   ├── hooks/
-│   │   ├── use-tasks.ts            # CRUD + reorder for tasks (client-side)
-│   │   ├── use-categories.ts       # CRUD for categories (client-side)
-│   │   ├── use-realtime-tasks.ts   # Supabase Realtime subscription for tasks
-│   │   ├── use-swipeable-tab.ts    # カテゴリタブのタッチスワイプ操作
-│   │   └── use-push-notification.ts # Web Push 購読管理
-│   ├── lib/
-│   │   └── supabase/
-│   │       ├── client.ts           # Browser Supabase client (createBrowserClient)
-│   │       ├── server.ts           # Server Supabase client (createServerClient + cookies)
-│   │       └── middleware.ts       # Session refresh + auth redirect logic
-│   ├── types/
-│   │   ├── database.ts             # Auto-generated Supabase DB types (source of truth)
-│   │   └── index.ts                # Derived convenience types (Task, Profile, etc.)
-│   └── proxy.ts                    # Next.js middleware entry point (re-exports updateSession)
-├── supabase/
-│   ├── config.toml                 # Supabase local dev configuration
-│   └── migrations/
-│       ├── 001_initial_schema.sql              # Full DB schema, RLS policies, triggers, functions
-│       ├── 002_add_profiles_insert_policy.sql  # プロフィール自己INSERT ポリシー追加
-│       ├── 003_push_subscriptions.sql          # push_subscriptions テーブルと RLS ポリシー
-│       └── 004_reorder_tasks_rpc.sql           # reorder_tasks RPC 関数
-├── public/                         # Static assets
-├── next.config.ts                  # Next.js configuration (currently minimal)
-├── tsconfig.json                   # TypeScript configuration
-├── eslint.config.mjs               # ESLint flat config
-├── postcss.config.mjs              # PostCSS config (Tailwind v4)
-└── package.json
-```
+
+ローカル Supabase の URL：
+- API: `http://127.0.0.1:54321`
+- Studio: `http://127.0.0.1:54323`
+- Inbucket（メール確認）: `http://127.0.0.1:54324`
+
+ローカル seed 投入後のテストアカウント：`test@example.com` / `password`
 
 ---
 
-## Database Schema
+## ディレクトリ構成の補足
 
-All data is scoped to a **household** (group of users).
+コードから自明でないものだけ：
 
-### Tables
+- `src/proxy.ts` — **Next.js 16 で `middleware.ts` から改名されたエントリポイント**。`async function proxy(request)` を export する（`middleware` ではない）。中身は `src/lib/supabase/middleware.ts` の `updateSession` に委譲し、セッション更新と未認証リダイレクトを担当。
+- `src/lib/supabase/` — レンダリング文脈ごとにクライアントを使い分ける：
+  - `client.ts` — Client Component 用（`createBrowserClient`）
+  - `server.ts` — Server Component / Route Handler 用（`createServerClient` + cookies）
+  - `middleware.ts` — proxy 専用のセッション更新ロジック
+- `src/app/api/push/` — Web Push の Route Handler。`subscribe/` は購読登録/削除、`send/` は他メンバーへの通知送信。`useTasks` のタスク追加・完了時に呼ばれる。
+- `src/app/auth/callback/route.ts` — Supabase OAuth / マジックリンクの code→session 交換。
+- `supabase/templates/`, `supabase/snippets/` — Supabase のメール / SQL テンプレート置き場（手動編集対象）。
+- `scripts/` — 補助スクリプト用ディレクトリ。
+- `.claude/worktrees/` — Claude Code の git worktree 作業領域（gitignore 対象）。
 
-| Table | Purpose |
+その他の主要ディレクトリ（`src/app`, `src/components`, `src/hooks`, `src/types`）は名前どおり。
+
+---
+
+## Supabase 構成
+
+### 環境切り替え
+
+`.env.local` の `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` を差し替えることでローカル⇄本番を切り替える。
+
+- **ローカル**: `npx supabase start` 出力の anon key を `.env.local` に入れる（URL は `http://127.0.0.1:54321`）。
+- **本番**: 本番プロジェクトの URL / anon key を入れる。マイグレーション反映は `npx supabase db push`。
+
+Web Push を扱うため `.env.local` に以下も必要：
+```
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...        # サーバーサイドのみ
+VAPID_SUBJECT=mailto:...
+```
+
+### スキーマ概要
+
+すべて `household_id` でスコープされ、RLS でアクセス制御される。
+
+| Table | 役割 |
 |---|---|
-| `households` | A family/couple group. Has an optional 24-hour invite code. |
-| `profiles` | One per `auth.users` row. Linked to a `household_id`. Has `nickname` and `avatar_url`. |
-| `categories` | Household-scoped task categories with `name`, `color`, `icon`, `sort_order`. |
-| `tasks` | Core entity: `title`, `memo`, `url`, `due_date`, `is_done`, `sort_order`, `created_by`, `completed_at`. |
-| `task_assignees` | Many-to-many join between `tasks` and `profiles`. |
-| `task_images` | Storage paths for images attached to tasks. |
-| `push_subscriptions` | Web Push 購読情報 (`profile_id`, `endpoint`, `p256dh`, `auth`)。プロフィールに紐づく。 |
+| `households` | 世帯グループ。24時間有効の招待コードを持つ |
+| `profiles` | `auth.users` と 1:1。`household_id`, `nickname`, `avatar_url` |
+| `categories` | 世帯ごとのカテゴリ（name/color/icon/sort_order） |
+| `tasks` | タスク本体（title/memo/url/due_date/is_done/sort_order/completed_at） |
+| `task_assignees` | tasks ↔ profiles の N:N |
+| `task_images` | タスク画像の Storage パス |
+| `push_subscriptions` | Web Push 購読情報（profile に紐づく） |
 
-### Key Database Functions (callable via `supabase.rpc()`)
+主要な DB 関数（`supabase.rpc()` で呼べる）：
+- `get_my_household_id()` — RLS の無限再帰回避用 SECURITY DEFINER ヘルパ
+- `create_default_categories(p_household_id)` — 世帯作成時のデフォルトカテゴリ投入
+- `generate_invite_code(p_household_id)` — 6 文字招待コード生成
+- `reorder_tasks(p_task_ids, p_sort_orders)` — タスク並び順の一括更新（RLS 対応）
+- `handle_new_user()` / `handle_updated_at()` — トリガ関数
 
-- `create_default_categories(p_household_id)` — inserts default categories when a household is created.
-- `generate_invite_code(p_household_id)` — generates a 6-character uppercase invite code valid for 24 hours.
-- `get_my_household_id()` — security-definer helper used in RLS policies to avoid infinite recursion.
-- `handle_new_user()` — trigger function: auto-creates a `profiles` row on `auth.users` insert.
-- `handle_updated_at()` — trigger function: keeps `updated_at` current on row updates.
-- `reorder_tasks(p_task_ids uuid[], p_sort_orders int[])` — security-definer でタスクの並び順を一括更新 (RLS 対応)。`useTasks` の `reorderTasks` から呼ばれる。
+`tasks` と `categories` は `supabase_realtime` に publish されており、`useRealtimeTasks` が世帯単位で購読する。
 
-### RLS Summary
+### マイグレーション一覧
 
-Row Level Security is enabled on all tables. Access is scoped using `get_my_household_id()`:
-- Users can only read/write data belonging to their own household.
-- The `households` table has a broad `select` policy (read-all) to support joining via invite code.
+`supabase/migrations/` 配下に 9 ファイル：
 
-### Realtime
-
-`tasks` and `categories` tables are published to `supabase_realtime`. The `useRealtimeTasks` hook subscribes to INSERT/UPDATE/DELETE events filtered by `household_id`.
-
----
-
-## Authentication Flow
-
-1. User registers via `/signup` → Supabase creates `auth.users` row → trigger auto-creates `profiles` row.
-2. User logs in via `/login` → session stored in cookies via `@supabase/ssr`.
-3. Middleware (`src/proxy.ts` → `src/lib/supabase/middleware.ts`) refreshes sessions and enforces redirects:
-   - Unauthenticated users → `/login`
-   - Authenticated users on auth pages → `/`
-4. Public paths exempt from redirect: `/login`, `/signup`, `/auth/callback`, `/forgot-password`.
-5. OAuth/magic-link callback handled by `src/app/auth/callback/route.ts` (exchanges code for session).
-
-After login, `src/app/page.tsx` checks:
-- If user has no profile → redirect to `/login`
-- If profile has no `household_id` → redirect to `/household/new`
+1. `001_initial_schema.sql` — 全スキーマ + RLS + トリガ + 関数
+2. `002_add_profiles_insert_policy.sql`
+3. `003_push_subscriptions.sql`
+4. `004_reorder_tasks_rpc.sql`
+5. `005_strengthen_invite_code.sql`
+6. `006_add_length_constraints.sql`
+7. `007_security_hardening.sql`
+8. `008_security_and_performance_fixes.sql`
+9. `009_tasks_replica_identity_full.sql`
 
 ---
 
-## Supabase Client Usage
+## 認証フロー（要点）
 
-**Always use the correct client for the rendering context:**
-
-| Context | Import |
-|---|---|
-| Client Components (`"use client"`) | `import { createClient } from "@/lib/supabase/client"` |
-| Server Components / Route Handlers | `import { createClient } from "@/lib/supabase/server"` |
-| Middleware | `createServerClient` directly in `src/lib/supabase/middleware.ts` |
-
-Do **not** use `createBrowserClient` in Server Components or vice versa.
+1. `/signup` → `auth.users` 作成 → トリガで `profiles` 自動生成
+2. ログイン後、`src/app/page.tsx` は profile 未作成なら `/login`、`household_id` 未設定なら `/household/new` にリダイレクト
+3. proxy（middleware）の認証必須対象外パス：`/login`, `/signup`, `/auth/callback`, `/forgot-password`
 
 ---
 
-## Custom Hooks
+## docs/ の中身
 
-### `useTasks(householdId)`
-Manages task state with full CRUD and optimistic reordering:
-- `tasks` — current task array
-- `setTasks` — raw state setter (used by `useRealtimeTasks`)
-- `refetch` — タスクを再フェッチする関数
-- `addTask(task)`, `updateTask(id, updates)`, `deleteTask(id)`, `toggleTask(id)`, `reorderTasks(orderedIds)`
-- Automatically sets `completed_at` when `is_done` transitions.
-- Tasks are ordered: `is_done ASC`, `sort_order ASC`, `created_at DESC`.
-- タスク追加・完了時に `/api/push/send` で他メンバーへプッシュ通知を送信する。
-- **注意**: `categoryId` パラメータは存在しない。カテゴリフィルタリングはコンポーネント側で行う。
+- `docs/incident-profiles-403.md` — profiles テーブルへの 403 エラーに関する過去インシデント記録（RLS 設計の経緯把握に有用）
+- `docs/nonfunctional-roadmap.md` — 非機能要件（パフォーマンス・セキュリティ・運用）のロードマップ
 
-### `useCategories(householdId)`
-Manages category state with CRUD:
-- `categories`, `refetch`, `addCategory(name, color)`, `updateCategory(id, updates)`, `deleteCategory(id)`
-- **注意**: `setCategories` はエクスポートされない。
-
-### `useRealtimeTasks(householdId, setTasks)`
-Opens a Supabase Realtime channel scoped to the household. Handles INSERT, UPDATE, DELETE events and merges them into local task state. Deduplicates inserts to avoid conflicts with optimistic updates.
-
-### `useSwipeableTab(options)`
-カテゴリタブのタッチスワイプ操作を管理。
-- パラメータ: `containerRef`, `tabCount`, `activeIndex`, `onChangeIndex`, `indicatorRefs`
-- 戻り値: `{ snapIndicator }`
-- 方向ロック・速度ベースのスワイプ判定・端での抵抗・iOS バックジェスチャー回避を実装。
-
-### `usePushNotification()`
-Web Push 通知の購読を管理。
-- 戻り値: `{ permission, isSubscribed, isSupported, isLoading, subscribe, unsubscribe }`
-- `/api/push/subscribe` エンドポイントと連携して購読登録/削除を行う。
-- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` 環境変数を使用。
+ルートにある `plan.md` は機能開発の計画メモ。
 
 ---
 
-## Component Conventions
+## ルール参照
 
-### UI Primitives (`src/components/ui/`)
+詳細なコーディング規約・Supabase 運用ルール・Git ルールは `.claude/rules/` 配下に分割：
 
-- **`BottomSheet`** — animated slide-up sheet (Framer Motion). Closes on backdrop tap or drag-down (>100px). Locks `document.body` scroll while open.
-- **`Modal`** — centered overlay modal.
-- **`Fab`** — floating action button (fixed bottom-right) for creating tasks.
-- **`Button`** — standard button with `size` prop (`sm` | default).
-- **`Input`** — styled input component.
+- `.claude/rules/coding-rules.md` — TypeScript / コンポーネント設計 / 命名規則
+- `.claude/rules/supabase-rules.md` — RLS / マイグレーション / 型生成
+- `.claude/rules/git-rules.md` — コミットメッセージ / ブランチ命名
 
-### Task Components (`src/components/task/`)
-
-- **`TaskList`** — renders active tasks (drag-and-drop sortable via dnd-kit) and completed tasks. Handles bulk selection mode (long-press activates), bulk complete/delete, and confetti on all-tasks-done.
-- **`TaskItem`** — individual task card. Supports swipe-left-to-delete (Framer Motion pan gesture), drag handle (dnd-kit), long-press for selection mode.
-- **`TaskCreateSheet`** — bottom sheet form for creating tasks. Has quick-date buttons (today/tomorrow).
-- **`TaskDetailModal`** — modal for editing task details (title, memo, URL, due date, category, assignees).
-- **`TaskListSkeleton`** — ロード中に表示するスケルトン UI。
-- **`SwipeableTaskContainer`** — カテゴリ間をスワイプで切り替えるコンテナ。`useSwipeableTab` を使用。
-
-### All components use `"use client"` directive
-
-This project is entirely client-rendered (no RSC data fetching). Server components are only used for the auth callback route handler.
-
----
-
-## Styling Conventions
-
-- **Tailwind CSS v4** — imported via `@import "tailwindcss"` in `globals.css` (not `@tailwind` directives).
-- **CSS variables** defined in `:root` in `globals.css`: `--primary` (#6366f1 indigo), `--primary-light`, `--primary-dark`, `--background`, `--foreground`. Referenced via `@theme inline` block.
-- **Color palette**: Indigo-600 (`#6366f1`) is the primary brand color (buttons, focus rings, active states).
-- **`min-h-dvh`** is used instead of `min-h-screen` for mobile-safe viewport height.
-- **`no-scrollbar`** utility class (defined in globals.css) hides scrollbars for the category tab strip.
-- Category colors are applied inline via `style` prop (dynamic hex colors from DB).
-
----
-
-## Path Aliases
-
-`@/*` maps to `./src/*` (configured in `tsconfig.json`). Always use `@/` imports rather than relative paths.
-
-```ts
-import { createClient } from "@/lib/supabase/client";
-import type { Task } from "@/types";
-```
-
----
-
-## Available Scripts
-
-```bash
-npm run dev      # Start Next.js development server (http://localhost:3000)
-npm run build    # Production build
-npm run start    # Start production server
-npm run lint     # Run ESLint
-```
-
----
-
-## Local Development Setup
-
-### Prerequisites
-- Docker Desktop (required for Supabase local)
-- Node.js 20+
-- npm
-
-### First-time setup
-
-```bash
-npm install
-
-# Start Docker Desktop (via GUI), then:
-npx supabase start
-
-# Copy anon key from supabase start output to .env.local:
-# NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-# NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key from supabase start>
-
-npx supabase db reset   # Apply migrations + seed data
-
-npm run dev
-```
-
-### Daily workflow
-
-```bash
-npx supabase start   # Start Supabase (Docker must be running)
-npm run dev          # Start dev server
-# ... develop ...
-npx supabase stop    # Stop Supabase when done
-```
-
-### Supabase local services
-
-| Service | URL |
-|---|---|
-| API | http://127.0.0.1:54321 |
-| Studio (DB admin) | http://127.0.0.1:54323 |
-| Inbucket (email testing) | http://127.0.0.1:54324 |
-| DB (direct) | postgresql://postgres:postgres@127.0.0.1:54322/postgres |
-
-### Test account (local only)
-
-After `npx supabase db reset`, seed data is loaded. Use:
-- Email: `test@example.com`
-- Password: `password`
-
-### Environment Variables
-
-`.env.local` is gitignored. Required variables:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<from npx supabase status>
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=<VAPID公開鍵>
-VAPID_PRIVATE_KEY=<VAPID秘密鍵 (サーバーサイドのみ)>
-VAPID_SUBJECT=mailto:<メールアドレス>
-```
-
----
-
-## Database Migrations
-
-Migration files live in `supabase/migrations/`. 現在4ファイルある：
-
-- `001_initial_schema.sql` — Full DB schema, RLS policies, triggers, functions
-- `002_add_profiles_insert_policy.sql` — プロフィール自己INSERT ポリシー追加
-- `003_push_subscriptions.sql` — `push_subscriptions` テーブルと RLS ポリシー
-- `004_reorder_tasks_rpc.sql` — `reorder_tasks` RPC 関数
-- `005_strengthen_invite_code.sql` — 招待コードのセキュリティ強化
-
-```bash
-npx supabase db reset          # Reset DB and re-run all migrations + seed
-npx supabase migration new <name>   # Create a new migration file
-npx supabase db push           # Push migrations to remote Supabase project
-```
-
-When modifying the DB schema:
-1. Create a new migration file via `npx supabase migration new <name>`.
-2. Write SQL in the generated file.
-3. Run `npx supabase db reset` locally to apply.
-4. Update `src/types/database.ts` to reflect schema changes (can be regenerated with `npx supabase gen types typescript --local > src/types/database.ts`).
-
----
-
-## Type System
-
-`src/types/database.ts` — the **source of truth** for all DB types. This file mirrors the Supabase schema exactly (Row, Insert, Update, Relationships for each table, plus Functions).
-
-`src/types/index.ts` — exports convenience aliases and composite types:
-- `Task`, `Profile`, `Category`, `Household`, `TaskAssignee`, `TaskImage` — aliases for `Row` types.
-- `PushSubscription` — alias for `push_subscriptions` Row type.
-- `TaskWithAssignees` — `Task & { assignees: Profile[]; category: Category | null }`.
-- `HouseholdMember` — alias for `Profile`.
-
-Always import types from `@/types` in components and hooks, not from `@/types/database` directly.
-
----
-
-## Key Patterns & Conventions
-
-### Optimistic updates
-`useTasks` and `useCategories` apply optimistic state updates immediately before awaiting the Supabase call, for a snappy UI. `reorderTasks` is fully optimistic.
-
-### Realtime deduplication
-`useRealtimeTasks` deduplicates INSERT events: if a task with the same `id` already exists in local state (from an optimistic insert), the realtime event is ignored.
-
-### Error handling
-Supabase calls return `{ data, error }`. Components generally ignore errors silently in the current implementation — errors are not displayed to users. When adding new features, follow this existing pattern unless explicitly improving error handling.
-
-### No tests
-There are currently no automated tests in this project. ESLint is the only automated code quality check.
-
-### PWA
-The app is configured as a PWA (`manifest.json`, `appleWebApp` metadata). The theme color is `#6366f1`. `userScalable: false` prevents pinch-zoom.
-
-### Japanese strings
-All UI text is in Japanese. Do not change language. New UI text must also be in Japanese.
-
-### `"use client"` directive
-All components and hooks require `"use client"` since they use browser APIs or React hooks. Only `src/app/auth/callback/route.ts` and `src/lib/supabase/server.ts` run server-side.
+該当する作業時に都度参照すること。
