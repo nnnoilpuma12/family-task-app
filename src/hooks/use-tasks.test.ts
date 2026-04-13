@@ -161,6 +161,44 @@ describe("useTasks", () => {
         expect.not.objectContaining({ household_id: "evil-household" })
       );
     });
+
+    it("更新成功時にプッシュ通知が送信される", async () => {
+      const { sendPushNotification } = await import("@/lib/push");
+      const task = makeTask({ id: "t-1", title: "掃除" });
+      chain._result = { data: [task], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      const updatedTask = makeTask({ id: "t-1", title: "新しいタイトル" });
+      chain.single.mockResolvedValueOnce({ data: updatedTask, error: null });
+
+      await act(async () => {
+        await result.current.updateTask("t-1", { title: "新しいタイトル" });
+      });
+
+      expect(sendPushNotification).toHaveBeenCalledWith({
+        title: "家族タスク",
+        body: "「新しいタイトル」が更新されました",
+        householdId: HOUSEHOLD_ID,
+      });
+    });
+
+    it("skipNotification: true の場合は通知が送信されない", async () => {
+      const { sendPushNotification } = await import("@/lib/push");
+      vi.mocked(sendPushNotification).mockClear();
+      const task = makeTask({ id: "t-1" });
+      chain._result = { data: [task], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      chain.single.mockResolvedValueOnce({ data: task, error: null });
+
+      await act(async () => {
+        await result.current.updateTask("t-1", { is_done: true }, { skipNotification: true });
+      });
+
+      expect(sendPushNotification).not.toHaveBeenCalled();
+    });
   });
 
   describe("deleteTask", () => {

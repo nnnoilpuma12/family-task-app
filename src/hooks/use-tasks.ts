@@ -84,7 +84,7 @@ export function useTasks(householdId: string | null) {
     return { data, error };
   };
 
-  const updateTask = async (id: string, updates: Partial<Task>) => {
+  const updateTask = async (id: string, updates: Partial<Task>, options?: { skipNotification?: boolean }) => {
     // If marking as done, set completed_at
     if (updates.is_done === true) {
       updates.completed_at = new Date().toISOString();
@@ -124,6 +124,13 @@ export function useTasks(householdId: string | null) {
     } else if (data) {
       // Sync with server data
       setTasks((prev) => prev.map((t) => (t.id === id ? data : t)));
+      if (!options?.skipNotification && householdId) {
+        sendPushNotification({
+          title: "家族タスク",
+          body: `「${data.title}」が更新されました`,
+          householdId,
+        });
+      }
     }
     return { data, error };
   };
@@ -166,7 +173,7 @@ export function useTasks(householdId: string | null) {
   const toggleTask = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
-    const result = await updateTask(id, { is_done: !task.is_done });
+    const result = await updateTask(id, { is_done: !task.is_done }, { skipNotification: true });
     if (!task.is_done && result?.data) {
       sendPushNotification({
         title: "家族タスク",
