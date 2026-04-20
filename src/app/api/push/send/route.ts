@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 let vapidConfigured = false;
 
@@ -96,8 +97,20 @@ export async function POST(request: Request) {
     );
   }
 
+  // push_subscriptions の SELECT は RLS で self のみ許可されているため、
+  // 他メンバーの購読を取得するにはサーバー側で service_role を使う必要がある。
+  let admin: ReturnType<typeof createServiceRoleClient>;
+  try {
+    admin = createServiceRoleClient();
+  } catch {
+    return NextResponse.json(
+      { error: "Push notifications not configured" },
+      { status: 500 }
+    );
+  }
+
   // Get push subscriptions for household members (excluding sender), filtered by household
-  const { data: householdMembers } = await supabase
+  const { data: householdMembers } = await admin
     .from("profiles")
     .select("id")
     .eq("household_id", householdId)
@@ -109,7 +122,7 @@ export async function POST(request: Request) {
 
   const memberIds = householdMembers.map((m) => m.id);
 
-  const { data: subscriptions } = await supabase
+  const { data: subscriptions } = await admin
     .from("push_subscriptions")
     .select("endpoint, p256dh, auth, profile_id")
     .in("profile_id", memberIds);
@@ -138,7 +151,7 @@ export async function POST(request: Request) {
           "statusCode" in err &&
           (err as { statusCode: number }).statusCode === 410
         ) {
-          await supabase
+          await admin
             .from("push_subscriptions")
             .delete()
             .eq("endpoint", sub.endpoint);
