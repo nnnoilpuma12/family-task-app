@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import {
   DndContext,
   DragEndEvent,
@@ -16,6 +16,7 @@ import {
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { Trash2 } from "lucide-react";
 import { TaskItem } from "./task-item";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Task, Category, Profile } from "@/types";
 
 interface TaskListProps {
@@ -211,39 +212,23 @@ export function TaskList({
                 完了 ({doneTasks.length})
               </p>
               <button
+                type="button"
                 onClick={() => setShowConfirm(true)}
-                className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600"
+                className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
               >
-                <Trash2 size={14} />
+                <Trash2 size={16} />
                 すべて削除
               </button>
             </div>
-            <AnimatePresence>
-              {showConfirm && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className="flex items-center justify-between rounded-lg bg-red-50 px-3 py-2 text-sm"
-                >
-                  <span className="text-red-700">完了済み {doneTasks.length}件を削除しますか？</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleConfirmDelete}
-                      className="rounded bg-red-500 px-2 py-1 text-xs font-medium text-white hover:bg-red-600"
-                    >
-                      削除
-                    </button>
-                    <button
-                      onClick={() => setShowConfirm(false)}
-                      className="text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      キャンセル
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <ConfirmDialog
+              isOpen={showConfirm}
+              title="完了済みタスクを削除"
+              description={`${doneTasks.length}件の完了済みタスクを削除します。削除後は「元に戻す」から復元できます。`}
+              confirmLabel="削除する"
+              variant="destructive"
+              onConfirm={handleConfirmDelete}
+              onCancel={() => setShowConfirm(false)}
+            />
             <AnimatePresence mode="popLayout" initial={false}>
               {doneTasks.map((task) => (
                 <TaskItem

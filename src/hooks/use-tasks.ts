@@ -135,7 +135,7 @@ export function useTasks(householdId: string | null) {
     return { data, error };
   };
 
-  const deleteTask = async (id: string) => {
+  const deleteTask = async (id: string, options?: { skipToast?: boolean }) => {
     // Optimistic update: remove task immediately
     const previousTasks = tasks;
     const deletedTask = previousTasks.find((t) => t.id === id);
@@ -146,8 +146,10 @@ export function useTasks(householdId: string | null) {
     if (error) {
       // Rollback
       setTasks(previousTasks);
-      toast.error("タスクの削除に失敗しました");
-    } else if (deletedTask) {
+      if (!options?.skipToast) {
+        toast.error("タスクの削除に失敗しました");
+      }
+    } else if (deletedTask && !options?.skipToast) {
       toast("タスクを削除しました", {
         action: {
           label: "元に戻す",
