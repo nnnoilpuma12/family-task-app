@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Settings, ArrowUpDown, Check } from "lucide-react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 import { CategoryTabs } from "@/components/category/category-tabs";
 import { TaskList } from "@/components/task/task-list";
 import { TaskListSkeleton } from "@/components/task/task-list-skeleton";
@@ -46,6 +48,7 @@ export default function Home() {
   }, []);
 
   const householdId = profile?.household_id ?? null;
+  const supabase = useMemo(() => createClient(), []);
   const { categories } = useCategories(householdId);
   const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, toggleTask, reorderTasks } =
     useTasks(householdId);
@@ -115,10 +118,44 @@ export default function Home() {
   }, [addTask, profile?.id, refetchRecommendations]);
 
   const handleDeleteAllDone = useCallback(async () => {
-    const doneIds = tasks.filter((t) => t.is_done).map((t) => t.id);
-    await Promise.all(doneIds.map((id) => deleteTask(id)));
+    const doneSnapshot = tasks.filter((t) => t.is_done);
+    if (doneSnapshot.length === 0) return;
+
+    const results = await Promise.all(
+      doneSnapshot.map((task) =>
+        deleteTask(task.id, { skipToast: true }).then((r) => ({ task, error: r?.error }))
+      )
+    );
+    const succeeded = results.filter((r) => !r.error).map((r) => r.task);
+    const failedCount = results.length - succeeded.length;
+
+    if (failedCount > 0) {
+      toast.error(`${failedCount}件の削除に失敗しました`);
+    }
+
+    if (succeeded.length > 0) {
+      toast(`完了済み${succeeded.length}件を削除しました`, {
+        action: {
+          label: "元に戻す",
+          onClick: () => {
+            supabase
+              .from("tasks")
+              .insert(succeeded)
+              .then(({ error }) => {
+                if (!error) {
+                  setTasks((prev) => [...succeeded, ...prev]);
+                } else {
+                  toast.error("元に戻せませんでした");
+                }
+              });
+          },
+        },
+        duration: 4000,
+      });
+    }
+
     refetchRecommendations();
-  }, [tasks, deleteTask, refetchRecommendations]);
+  }, [tasks, deleteTask, supabase, setTasks, refetchRecommendations]);
 
   return (
     <div className="min-h-dvh bg-gray-50">
