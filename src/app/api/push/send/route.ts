@@ -39,6 +39,11 @@ export async function POST(request: Request) {
   try {
     ensureVapidConfigured();
   } catch {
+    console.error("[push:send] vapid_missing", {
+      subject: !!process.env.VAPID_SUBJECT,
+      pub: !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      priv: !!process.env.VAPID_PRIVATE_KEY,
+    });
     return NextResponse.json(
       { error: "Push notifications not configured" },
       { status: 500 }
@@ -55,6 +60,7 @@ export async function POST(request: Request) {
 
   // P2-4: Rate limiting
   if (isRateLimited(user.id)) {
+    console.warn("[push:send] rate_limited", { userId: user.id });
     return NextResponse.json(
       { error: "Too many requests" },
       { status: 429 }
@@ -103,6 +109,7 @@ export async function POST(request: Request) {
   try {
     admin = createServiceRoleClient();
   } catch {
+    console.error("[push:send] service_role_missing");
     return NextResponse.json(
       { error: "Push notifications not configured" },
       { status: 500 }
@@ -110,11 +117,17 @@ export async function POST(request: Request) {
   }
 
   // Get push subscriptions for household members (excluding sender), filtered by household
-  const { data: householdMembers } = await admin
+  const { data: householdMembers, error: membersError } = await admin
     .from("profiles")
     .select("id")
     .eq("household_id", householdId)
     .neq("id", user.id);
+
+  console.log("[push:send] members", {
+    householdId,
+    count: householdMembers?.length ?? 0,
+    error: membersError?.message,
+  });
 
   if (!householdMembers || householdMembers.length === 0) {
     return NextResponse.json({ success: true, sent: 0 });
@@ -122,10 +135,16 @@ export async function POST(request: Request) {
 
   const memberIds = householdMembers.map((m) => m.id);
 
-  const { data: subscriptions } = await admin
+  const { data: subscriptions, error: subsError } = await admin
     .from("push_subscriptions")
     .select("endpoint, p256dh, auth, profile_id")
     .in("profile_id", memberIds);
+
+  console.log("[push:send] subs", {
+    memberIds: memberIds.length,
+    count: subscriptions?.length ?? 0,
+    error: subsError?.message,
+  });
 
   if (!subscriptions || subscriptions.length === 0) {
     return NextResponse.json({ success: true, sent: 0 });
@@ -144,13 +163,14 @@ export async function POST(request: Request) {
           payload
         );
       } catch (err: unknown) {
+        const errObj = err as { statusCode?: number; body?: string } | null;
+        console.error("[push:send] webpush_failed", {
+          endpointPrefix: sub.endpoint.slice(0, 40),
+          statusCode: errObj?.statusCode,
+          body: errObj?.body?.slice(0, 200),
+        });
         // Remove expired/invalid subscriptions
-        if (
-          err &&
-          typeof err === "object" &&
-          "statusCode" in err &&
-          (err as { statusCode: number }).statusCode === 410
-        ) {
+        if (errObj && errObj.statusCode === 410) {
           await admin
             .from("push_subscriptions")
             .delete()
@@ -162,6 +182,13 @@ export async function POST(request: Request) {
   );
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
+  const rejected = results.length - sent;
+
+  console.log("[push:send] done", {
+    sent,
+    total: subscriptions.length,
+    rejected,
+  });
 
   return NextResponse.json({ success: true, sent });
 }
