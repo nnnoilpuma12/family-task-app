@@ -16,34 +16,13 @@ export function JoinHouseholdForm() {
     setLoading(true);
 
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
-    if (!user) {
-      setError("ログインが必要です");
-      setLoading(false);
-      return;
-    }
+    // 招待コード検証と profile.household_id 更新をサーバ側で atomic に実行
+    const { data: householdId, error: joinError } = await supabase
+      .rpc("join_household_with_code", { p_code: code.toUpperCase() });
 
-    // Verify invite code via secure RPC (households table is no longer directly readable)
-    const { data: householdId, error: hError } = await supabase
-      .rpc("verify_invite_code", { p_code: code.toUpperCase() });
-
-    if (hError || !householdId) {
+    if (joinError || !householdId) {
       setError("招待コードが無効か期限切れです");
-      setLoading(false);
-      return;
-    }
-
-    // Link profile to household
-    const { error: pError } = await supabase
-      .from("profiles")
-      .update({ household_id: householdId })
-      .eq("id", user.id);
-
-    if (pError) {
-      setError("参加に失敗しました");
       setLoading(false);
       return;
     }

@@ -11,9 +11,7 @@ export function useTaskRecommendations(householdId: string | null, profileId?: s
 
   const fetchRecommendations = useCallback(async () => {
     if (!householdId) return;
-    const { data, error } = await supabase.rpc("get_recurring_recommendations", {
-      p_household_id: householdId,
-    });
+    const { data, error } = await supabase.rpc("get_recurring_recommendations");
 
     if (!error && data) {
       setRecommendations(data);

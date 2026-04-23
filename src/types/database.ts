@@ -338,7 +338,7 @@ export type Database = {
         Returns: string;
       };
       get_recurring_recommendations: {
-        Args: { p_household_id: string };
+        Args: Record<string, never>;
         Returns: {
           normalized_title: string;
           latest_title: string;
@@ -349,6 +349,10 @@ export type Database = {
           completion_count: number;
           last_completed_at: string;
         }[];
+      };
+      join_household_with_code: {
+        Args: { p_code: string };
+        Returns: string;
       };
     };
     Enums: Record<string, never>;
