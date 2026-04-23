@@ -16,50 +16,19 @@ export function CreateHouseholdForm() {
     setLoading(true);
 
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
-    if (!user) {
-      setError("ログインが必要です");
-      setLoading(false);
-      return;
-    }
+    // 世帯作成・プロフィール紐付け・デフォルトカテゴリ投入・招待コード発行を
+    // サーバ側で atomic に実行する
+    const { error: rpcError } = await supabase.rpc(
+      "create_household_with_defaults",
+      { p_name: name }
+    );
 
-    // Create household
-    const { data: household, error: hError } = await supabase
-      .from("households")
-      .insert({ name: name || "わが家" })
-      .select()
-      .single();
-
-    if (hError || !household) {
+    if (rpcError) {
       setError("ハウスホールドの作成に失敗しました");
       setLoading(false);
       return;
     }
-
-    // Link profile to household
-    const { error: pError } = await supabase
-      .from("profiles")
-      .update({ household_id: household.id })
-      .eq("id", user.id);
-
-    if (pError) {
-      setError("プロフィールの更新に失敗しました");
-      setLoading(false);
-      return;
-    }
-
-    // Create default categories
-    await supabase.rpc("create_default_categories", {
-      p_household_id: household.id,
-    });
-
-    // Generate invite code
-    await supabase.rpc("generate_invite_code", {
-      p_household_id: household.id,
-    });
 
     router.push("/");
     router.refresh();

@@ -325,6 +325,10 @@ export type Database = {
         Args: { p_household_id: string };
         Returns: undefined;
       };
+      create_household_with_defaults: {
+        Args: { p_name: string };
+        Returns: string;
+      };
       generate_invite_code: {
         Args: { p_household_id: string };
         Returns: string;
