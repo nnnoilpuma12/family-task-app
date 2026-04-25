@@ -36,12 +36,12 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+        <div className="rounded border border-border bg-danger/10 p-3 text-sm text-danger">
           {error}
         </div>
       )}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="text-sm font-medium text-foreground">
           メールアドレス
         </label>
         <input
@@ -50,14 +50,14 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          className="rounded border border-border-strong bg-surface px-4 py-3 text-base text-foreground placeholder:text-subtle outline-none transition-colors focus:border-focus focus:ring-2 focus:ring-focus/15"
           placeholder="mail@example.com"
         />
       </div>
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="password"
-          className="text-sm font-medium text-gray-700"
+          className="text-sm font-medium text-foreground"
         >
           パスワード
         </label>
@@ -68,11 +68,11 @@ export function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={8}
-          className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          className="rounded border border-border-strong bg-surface px-4 py-3 text-base text-foreground placeholder:text-subtle outline-none transition-colors focus:border-focus focus:ring-2 focus:ring-focus/15"
           placeholder="8文字以上"
         />
         <div className="flex justify-end">
-          <Link href="/forgot-password" className="text-xs text-indigo-600 hover:text-indigo-500">
+          <Link href="/forgot-password" className="text-xs text-primary hover:text-primary-dark">
             パスワードをお忘れですか？
           </Link>
         </div>
@@ -80,7 +80,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="mt-2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+        className="mt-2 rounded bg-primary px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
       >
         {loading ? "ログイン中..." : "ログイン"}
       </button>

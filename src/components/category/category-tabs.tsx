@@ -130,10 +130,10 @@ export function CategoryTabs({
     onSelect(id);
   };
 
-  // Get background color for active tab
+  // Get background color for active tab — Notion-style soft tinted pill
   const getActiveBg = (index: number): string => {
     const cat = categories[index];
-    return cat ? `${cat.color}20` : "#e0e7ff";
+    return cat ? `${cat.color}1a` : "#ebeae8";
   };
 
   if (loading && categories.length === 0) {
@@ -142,7 +142,7 @@ export function CategoryTabs({
         {[56, 64, 52].map((w, i) => (
           <div
             key={i}
-            className="h-8 rounded-full bg-gray-200 animate-pulse"
+            className="h-8 rounded-full bg-surface-strong animate-pulse"
             style={{ width: `${w}px` }}
           />
         ))}
@@ -171,7 +171,7 @@ export function CategoryTabs({
             onClick={() => handleSelect(cat.id, i)}
             className="relative z-10 flex-1 flex items-center justify-center rounded-full py-1.5 text-sm font-medium transition-colors"
           >
-            <span style={{ color: selectedId === cat.id ? cat.color : "#6b7280" }}>
+            <span style={{ color: selectedId === cat.id ? cat.color : "var(--text-muted)" }}>
               {cat.name}
             </span>
           </button>

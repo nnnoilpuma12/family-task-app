@@ -72,20 +72,20 @@ export const TaskItem = memo(function TaskItem({
   })();
 
   const urgencyBorderClass = isOverdue
-    ? "border-l-4 border-l-red-400"
+    ? "border border-border border-l-2 border-l-danger"
     : isToday
-    ? "border-l-4 border-l-orange-400"
+    ? "border border-border border-l-2 border-l-warning"
     : isTomorrow
-    ? "border-l-4 border-l-yellow-400"
-    : "border border-gray-100";
+    ? "border border-border border-l-2 border-l-caution"
+    : "border border-border";
 
   const dueDateClass = isOverdue
-    ? "text-red-500 font-medium"
+    ? "text-danger font-medium"
     : isToday
-    ? "text-orange-500 font-medium"
+    ? "text-warning font-medium"
     : isTomorrow
-    ? "text-yellow-600 font-medium"
-    : "text-gray-500";
+    ? "text-caution font-medium"
+    : "text-muted";
 
   const handleCardClick = () => {
     onTap(task);
@@ -120,7 +120,7 @@ export const TaskItem = memo(function TaskItem({
         {/* Delete background (shown when swiping left on done tasks) */}
         {task.is_done && !isOverlay && (
           <motion.div
-            className="absolute inset-y-0 right-0 flex items-center justify-end pr-4 rounded-lg bg-red-500"
+            className="absolute inset-y-0 right-0 flex items-center justify-end pr-4 rounded-lg bg-danger"
             style={{ width: "100%", opacity: deleteOpacity }}
           >
             <motion.div style={{ scale: deleteScale }}>
@@ -131,7 +131,7 @@ export const TaskItem = memo(function TaskItem({
 
         {/* Card */}
         <motion.div
-          className={`relative flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm cursor-pointer transition-colors ${urgencyBorderClass}`}
+          className={`relative flex items-center gap-2 bg-surface px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${urgencyBorderClass}`}
           onClick={handleCardClick}
           {...swipeProps}
         >
@@ -140,7 +140,7 @@ export const TaskItem = memo(function TaskItem({
             <div
               {...attributes}
               {...listeners}
-              className="touch-none text-gray-300 cursor-grab active:cursor-grabbing"
+              className="touch-none text-subtle cursor-grab active:cursor-grabbing"
               onClick={(e) => e.stopPropagation()}
             >
               <GripVertical size={14} />
@@ -161,8 +161,8 @@ export const TaskItem = memo(function TaskItem({
               transition={{ duration: 0.25 }}
               className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors ${
                 showDone
-                  ? "border-green-500 bg-green-500"
-                  : "border-gray-300 hover:border-indigo-400"
+                  ? "border-success bg-success"
+                  : "border-border-strong hover:border-primary"
               }`}
             >
               {showDone && (
@@ -181,7 +181,7 @@ export const TaskItem = memo(function TaskItem({
           <div className="flex-1 min-w-0">
             <p
               className={`text-sm font-medium truncate ${
-                showDone ? "text-gray-400 line-through" : "text-gray-900"
+                showDone ? "text-subtle line-through" : "text-foreground"
               }`}
             >
               {task.title}
@@ -195,12 +195,12 @@ export const TaskItem = memo(function TaskItem({
                     <Calendar size={10} />
                     {formatDueDate(task.due_date)}
                     {isToday && (
-                      <span className="ml-0.5 text-orange-500 font-bold leading-none">!</span>
+                      <span className="ml-0.5 text-warning font-bold leading-none">!</span>
                     )}
                   </span>
                 )}
                 {createdBy && (
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-subtle">
                     {createdBy.nickname}
                   </span>
                 )}

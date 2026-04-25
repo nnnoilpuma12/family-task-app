@@ -24,12 +24,12 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <div className="rounded-lg bg-green-50 p-4 text-sm text-green-700">
+      <div className="rounded border border-border bg-success/10 p-4 text-sm text-success">
         メールを送信しました。メールボックスをご確認ください。
         {process.env.NODE_ENV === "development" && (
           <>
             <br />
-            <span className="text-xs text-green-600">
+            <span className="text-xs text-muted">
               （ローカル開発時は localhost:54324 の Inbucket で確認できます）
             </span>
           </>
@@ -41,7 +41,7 @@ export function ForgotPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="text-sm font-medium text-foreground">
           メールアドレス
         </label>
         <input
@@ -50,14 +50,14 @@ export function ForgotPasswordForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="rounded-lg border border-gray-300 px-4 py-3 text-base outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          className="rounded border border-border-strong bg-surface px-4 py-3 text-base text-foreground placeholder:text-subtle outline-none transition-colors focus:border-focus focus:ring-2 focus:ring-focus/15"
           placeholder="mail@example.com"
         />
       </div>
       <button
         type="submit"
         disabled={loading}
-        className="mt-2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+        className="mt-2 rounded bg-primary px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
       >
         {loading ? "送信中..." : "リセットメールを送信"}
       </button>

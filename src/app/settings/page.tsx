@@ -28,23 +28,23 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-gray-50">
-      <header className="sticky top-0 z-30 flex items-center gap-3 bg-white/95 border-b border-gray-100 px-4 py-3">
-        <button onClick={() => router.back()} className="text-gray-600">
+    <div className="min-h-dvh bg-background">
+      <header className="sticky top-0 z-30 flex items-center gap-3 bg-surface/95 backdrop-blur border-b border-border px-4 py-3">
+        <button onClick={() => router.back()} className="text-muted hover:text-foreground">
           <ArrowLeft size={24} />
         </button>
-        <h1 className="text-lg font-bold text-gray-900">設定</h1>
+        <h1 className="text-lg font-bold tracking-tight text-foreground">設定</h1>
       </header>
 
       <div className="mx-auto max-w-lg p-4 flex flex-col gap-6">
         {profile && (
-          <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
+          <div className="rounded-xl bg-surface p-4 border border-border">
             <ProfileEditor profile={profile} onUpdate={setProfile} />
           </div>
         )}
 
         {household && profile && (
-          <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
+          <div className="rounded-xl bg-surface p-4 border border-border">
             <HouseholdSettings
               household={household}
               onUpdate={setHousehold}
@@ -54,11 +54,11 @@ export default function SettingsPage() {
           </div>
         )}
 
-        <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
+        <div className="rounded-xl bg-surface p-4 border border-border">
           <NotificationSettings />
         </div>
 
-        <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
+        <div className="rounded-xl bg-surface p-4 border border-border">
           <CategorySettings
             categories={categories}
             onAdd={async (name, color) => { await addCategory(name, color); }}
@@ -70,7 +70,7 @@ export default function SettingsPage() {
 
         <button
           onClick={handleLogout}
-          className="flex items-center justify-center gap-2 rounded-xl bg-white p-4 text-red-600 font-medium shadow-sm border border-gray-100 hover:bg-red-50"
+          className="flex items-center justify-center gap-2 rounded-xl bg-surface p-4 text-danger font-medium border border-border hover:bg-surface-strong"
         >
           <LogOut size={18} />
           ログアウト

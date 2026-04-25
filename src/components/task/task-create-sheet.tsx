@@ -86,7 +86,7 @@ export function TaskCreateSheet({
             }}
             placeholder="タスク名を入力"
             maxLength={255}
-            className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base outline-none focus:border-indigo-500"
+            className="w-full rounded border border-border-strong bg-surface px-4 py-3 text-base text-foreground placeholder:text-subtle outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
             autoFocus
             autoComplete="off"
           />
@@ -97,7 +97,7 @@ export function TaskCreateSheet({
                 <button
                   key={s}
                   type="button"
-                  className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm text-indigo-700 active:bg-indigo-100"
+                  className="rounded-full border border-border bg-primary-soft px-3 py-1.5 text-sm text-primary active:bg-primary-soft/70"
                   onClick={() => handleSelectSuggestion(s)}
                 >
                   {s}
@@ -122,7 +122,7 @@ export function TaskCreateSheet({
           placeholder="メモ（任意）"
           maxLength={5000}
           rows={2}
-          className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none resize-none focus:border-indigo-500"
+          className="rounded border border-border-strong bg-surface px-4 py-3 text-sm text-foreground placeholder:text-subtle outline-none resize-none focus:border-focus focus:ring-2 focus:ring-focus/15"
         />
 
         <Button type="submit" disabled={!title.trim()}>

@@ -33,17 +33,17 @@ export function RecommendationCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: 80 }}
       transition={{ duration: 0.2 }}
-      className="bg-white rounded-lg shadow-sm border border-indigo-100 p-3 flex flex-col gap-2"
+      className="bg-surface rounded-lg border border-border p-3 flex flex-col gap-2"
       style={{
         borderLeftWidth: categoryColor ? 3 : undefined,
         borderLeftColor: categoryColor ?? undefined,
       }}
     >
       <div>
-        <p className="text-sm font-medium text-gray-900">
+        <p className="text-sm font-medium text-foreground">
           {recommendation.latest_title}
         </p>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-xs text-muted mt-0.5">
           前回から{recommendation.days_since_last}日経過 ・ 約
           {formatInterval(recommendation.median_interval_days)}ごと
         </p>

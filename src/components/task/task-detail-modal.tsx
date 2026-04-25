@@ -78,7 +78,7 @@ export function TaskDetailModal({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={255}
-          className="rounded-lg border border-gray-300 px-4 py-3 text-base font-medium outline-none focus:border-indigo-500"
+          className="rounded border border-border-strong bg-surface px-4 py-3 text-base font-medium text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
         />
 
         {/* Category */}
@@ -99,45 +99,45 @@ export function TaskDetailModal({
 
         {/* Memo */}
         <div>
-          <label className="text-xs font-medium text-gray-500 mb-1.5 block">メモ</label>
+          <label className="text-xs font-medium text-muted mb-1.5 block">メモ</label>
           <textarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="メモを入力..."
             maxLength={5000}
             rows={3}
-            className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none resize-none focus:border-indigo-500"
+            className="w-full rounded border border-border-strong bg-surface px-4 py-3 text-sm text-foreground placeholder:text-subtle outline-none resize-none focus:border-focus focus:ring-2 focus:ring-focus/15"
           />
         </div>
 
         {/* URL */}
         <div>
-          <label className="text-xs font-medium text-gray-500 mb-1.5 block">URL</label>
+          <label className="text-xs font-medium text-muted mb-1.5 block">URL</label>
           <div className="flex gap-2">
             <input
               value={url}
               onChange={(e) => { setUrl(e.target.value); setUrlError(""); }}
               placeholder="https://..."
-              className={`flex-1 rounded-lg border px-4 py-2 text-sm outline-none focus:border-indigo-500 ${urlError ? "border-red-400" : "border-gray-300"}`}
+              className={`flex-1 rounded border bg-surface px-4 py-2 text-sm text-foreground placeholder:text-subtle outline-none focus:border-focus focus:ring-2 focus:ring-focus/15 ${urlError ? "border-danger" : "border-border-strong"}`}
             />
             {url && !urlError && isValidUrl(url) && (
               <a
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center rounded-lg bg-gray-100 px-3 text-gray-600 hover:bg-gray-200"
+                className="flex items-center justify-center rounded bg-surface-strong px-3 text-muted hover:bg-border-strong"
               >
                 <ExternalLink size={16} />
               </a>
             )}
           </div>
           {urlError && (
-            <p className="mt-1 text-xs text-red-500">{urlError}</p>
+            <p className="mt-1 text-xs text-danger">{urlError}</p>
           )}
         </div>
 
         {/* Meta info */}
-        <div className="flex items-center gap-2 text-xs text-gray-400 border-t border-gray-100 pt-3">
+        <div className="flex items-center gap-2 text-xs text-subtle border-t border-border pt-3">
           {createdByMember && (
             <span>作成: {createdByMember.nickname || "不明"}</span>
           )}

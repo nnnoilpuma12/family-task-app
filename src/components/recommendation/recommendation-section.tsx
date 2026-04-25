@@ -25,10 +25,10 @@ export function RecommendationSection({
   );
 
   return (
-    <div className="bg-indigo-50/50 rounded-xl p-3 mx-4 mb-3">
+    <div className="bg-primary-soft rounded-xl p-3 mx-4 mb-3 border border-border">
       <div className="flex items-center gap-1.5 mb-2">
-        <Lightbulb className="w-4 h-4 text-indigo-600" />
-        <span className="text-xs font-semibold text-indigo-600">
+        <Lightbulb className="w-4 h-4 text-primary" />
+        <span className="text-xs font-semibold text-primary">
           そろそろやる時期かも
         </span>
       </div>

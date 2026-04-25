@@ -158,20 +158,20 @@ export default function Home() {
   }, [tasks, deleteTask, supabase, setTasks, refetchRecommendations]);
 
   return (
-    <div className="min-h-dvh bg-gray-50">
+    <div className="min-h-dvh bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/95 border-b border-gray-100">
+      <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur border-b border-border">
         <div className="flex items-center justify-between px-4 py-3">
           {loading ? (
-            <div className="h-5 w-28 rounded bg-gray-200 animate-pulse" />
+            <div className="h-5 w-28 rounded bg-surface-strong animate-pulse" />
           ) : (
-            <h1 className="text-lg font-bold text-gray-900">{householdName}</h1>
+            <h1 className="text-lg font-bold tracking-tight text-foreground">{householdName}</h1>
           )}
           <div className="flex items-center gap-2">
             {loading ? (
               <>
-                <div className="h-7 w-7 rounded-full bg-gray-200 animate-pulse" />
-                <div className="h-7 w-7 rounded-full bg-gray-200 animate-pulse" />
+                <div className="h-7 w-7 rounded-full bg-surface-strong animate-pulse" />
+                <div className="h-7 w-7 rounded-full bg-surface-strong animate-pulse" />
               </>
             ) : (
               members.map((m) => (
@@ -180,14 +180,14 @@ export default function Home() {
             )}
             <button
               onClick={() => setIsSortOpen(true)}
-              className={`p-1.5 ${sortOption !== "manual" ? "text-indigo-500" : "text-gray-500 hover:text-gray-700"}`}
+              className={`p-1.5 ${sortOption !== "manual" ? "text-primary" : "text-muted hover:text-foreground"}`}
               aria-label="並び替え"
             >
               <ArrowUpDown size={20} />
             </button>
             <button
               onClick={() => router.push("/settings")}
-              className="ml-1 p-1.5 text-gray-500 hover:text-gray-700"
+              className="ml-1 p-1.5 text-muted hover:text-foreground"
             >
               <Settings size={20} />
             </button>
@@ -273,12 +273,12 @@ export default function Home() {
                 setSortOption(opt.value);
                 setIsSortOpen(false);
               }}
-              className="flex items-center justify-between rounded-lg px-4 py-3 text-left text-sm font-medium hover:bg-gray-50 active:bg-gray-100"
+              className="flex items-center justify-between rounded px-4 py-3 text-left text-sm font-medium hover:bg-surface-strong active:bg-border-strong"
             >
-              <span className={sortOption === opt.value ? "text-indigo-600" : "text-gray-800"}>
+              <span className={sortOption === opt.value ? "text-primary" : "text-foreground"}>
                 {opt.label}
               </span>
-              {sortOption === opt.value && <Check size={16} className="text-indigo-600 shrink-0" />}
+              {sortOption === opt.value && <Check size={16} className="text-primary shrink-0" />}
             </button>
           ))}
         </div>
