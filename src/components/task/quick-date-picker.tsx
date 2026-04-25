@@ -23,7 +23,7 @@ export function QuickDatePicker({
   return (
     <div>
       {label && (
-        <label className="text-xs font-medium text-gray-500 mb-1.5 block">{label}</label>
+        <label className="text-xs font-medium text-muted mb-1.5 block">{label}</label>
       )}
       <div className="flex gap-2">
         <button
@@ -32,8 +32,8 @@ export function QuickDatePicker({
           aria-pressed={isTodaySelected}
           className={`rounded-full px-3 py-1 text-xs font-medium ${
             isTodaySelected
-              ? "bg-indigo-600 text-white"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              ? "bg-primary text-white"
+              : "bg-surface-strong text-muted hover:bg-border-strong"
           }`}
         >
           今日
@@ -44,8 +44,8 @@ export function QuickDatePicker({
           aria-pressed={isTomorrowSelected}
           className={`rounded-full px-3 py-1 text-xs font-medium ${
             isTomorrowSelected
-              ? "bg-indigo-600 text-white"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              ? "bg-primary text-white"
+              : "bg-surface-strong text-muted hover:bg-border-strong"
           }`}
         >
           明日
@@ -54,13 +54,13 @@ export function QuickDatePicker({
           type="date"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-1 text-sm outline-none focus:border-indigo-500"
+          className="flex-1 rounded border border-border-strong bg-surface px-3 py-1 text-sm text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
         />
         {showClear && value && (
           <button
             type="button"
             onClick={() => onChange("")}
-            className="text-xs text-gray-400 hover:text-gray-600"
+            className="text-xs text-subtle hover:text-foreground"
           >
             クリア
           </button>

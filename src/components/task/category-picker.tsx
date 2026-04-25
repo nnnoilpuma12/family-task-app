@@ -20,7 +20,7 @@ export function CategoryPicker({
   return (
     <div>
       {label && (
-        <label className="text-xs font-medium text-gray-500 mb-1.5 block">{label}</label>
+        <label className="text-xs font-medium text-muted mb-1.5 block">{label}</label>
       )}
       <div className="flex flex-wrap gap-1.5">
         {showNone && (
@@ -28,7 +28,7 @@ export function CategoryPicker({
             type="button"
             onClick={() => onChange(null)}
             className={`rounded-full px-3 py-1 text-xs font-medium ${
-              selectedId === null ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600"
+              selectedId === null ? "bg-foreground text-white" : "bg-surface-strong text-muted"
             }`}
           >
             なし
@@ -40,7 +40,7 @@ export function CategoryPicker({
             type="button"
             onClick={() => onChange(cat.id)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              selectedId === cat.id ? "text-white" : "bg-gray-100 text-gray-600"
+              selectedId === cat.id ? "text-white" : "bg-surface-strong text-muted"
             }`}
             style={selectedId === cat.id ? { backgroundColor: cat.color } : undefined}
           >

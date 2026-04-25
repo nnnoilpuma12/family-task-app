@@ -45,19 +45,19 @@ export function NotificationSettings() {
 
   return (
     <div>
-      <h2 className="text-sm font-semibold text-gray-500 mb-3">プッシュ通知</h2>
+      <h2 className="text-sm font-semibold text-foreground mb-3">プッシュ通知</h2>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {isSubscribed ? (
             <Bell size={20} className="text-primary" />
           ) : (
-            <BellOff size={20} className="text-gray-400" />
+            <BellOff size={20} className="text-subtle" />
           )}
           <div>
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm font-medium text-foreground">
               {isSubscribed ? "通知ON" : "通知OFF"}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted">
               {permission === "denied"
                 ? "ブラウザの設定で通知がブロックされています"
                 : "タスクの追加・完了時に通知を受け取ります"}
@@ -68,7 +68,7 @@ export function NotificationSettings() {
           onClick={handleToggle}
           disabled={isDisabled}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            isSubscribed ? "bg-primary" : "bg-gray-300"
+            isSubscribed ? "bg-primary" : "bg-border-strong"
           } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <span

@@ -47,7 +47,7 @@ export function ProfileEditor({ profile, onUpdate }: ProfileEditorProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-gray-900">プロフィール</h3>
+      <h3 className="text-sm font-semibold text-foreground">プロフィール</h3>
 
       <div className="flex justify-center">
         <button
@@ -58,14 +58,14 @@ export function ProfileEditor({ profile, onUpdate }: ProfileEditorProps) {
             profile={{ nickname, avatar_url: previewAvatarUrl }}
             size="lg"
           />
-          <div className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm group-hover:bg-indigo-700 transition-colors">
+          <div className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white group-hover:bg-primary-dark transition-colors">
             <Pencil size={12} />
           </div>
         </button>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="nickname" className="text-xs text-gray-500">
+        <label htmlFor="nickname" className="text-xs text-muted">
           ニックネーム
         </label>
         <input
@@ -73,7 +73,7 @@ export function ProfileEditor({ profile, onUpdate }: ProfileEditorProps) {
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
           maxLength={30}
-          className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
+          className="rounded border border-border-strong bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
         />
       </div>
       <Button size="sm" onClick={handleSave} disabled={saving}>

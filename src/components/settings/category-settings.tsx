@@ -14,7 +14,7 @@ interface CategorySettingsProps {
 export function CategorySettings({ categories, onAdd, onUpdate, onDelete, onReorder }: CategorySettingsProps) {
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-gray-900">カテゴリ管理</h3>
+      <h3 className="text-sm font-semibold text-foreground">カテゴリ管理</h3>
       <CategoryManager
         categories={categories}
         onAdd={onAdd}

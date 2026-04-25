@@ -59,10 +59,10 @@ export function HouseholdSettings({
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-sm font-semibold text-gray-900">家族グループ</h3>
+      <h3 className="text-sm font-semibold text-foreground">家族グループ</h3>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="household-name" className="text-xs text-gray-500">
+        <label htmlFor="household-name" className="text-xs text-muted">
           家族の名前
         </label>
         <div className="flex gap-2">
@@ -71,7 +71,7 @@ export function HouseholdSettings({
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={50}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
+            className="flex-1 rounded border border-border-strong bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
           />
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving ? "..." : "保存"}
@@ -80,43 +80,43 @@ export function HouseholdSettings({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs text-gray-500">招待コード</label>
+        <label className="text-xs text-muted">招待コード</label>
         <div className="flex items-center gap-2">
-          <div className="flex-1 rounded-lg bg-gray-50 px-4 py-2.5 font-mono text-lg tracking-widest text-center">
+          <div className="flex-1 rounded border border-border bg-background px-4 py-2.5 font-mono text-lg tracking-widest text-center text-foreground">
             {inviteCode || "---"}
           </div>
           <button
             onClick={copyCode}
-            className="rounded-lg bg-gray-100 p-2.5 text-gray-600 hover:bg-gray-200"
+            className="rounded bg-surface-strong p-2.5 text-muted hover:bg-border-strong"
             title="コピー"
           >
             <Copy size={18} />
           </button>
           <button
             onClick={regenerateCode}
-            className="rounded-lg bg-gray-100 p-2.5 text-gray-600 hover:bg-gray-200"
+            className="rounded bg-surface-strong p-2.5 text-muted hover:bg-border-strong"
             title="再発行"
           >
             <RefreshCw size={18} />
           </button>
         </div>
         {copied && (
-          <p className="text-xs text-green-600">コピーしました</p>
+          <p className="text-xs text-success">コピーしました</p>
         )}
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-subtle">
           招待コードは24時間有効です
         </p>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs text-gray-500">メンバー</label>
+        <label className="text-xs text-muted">メンバー</label>
         <div className="flex flex-col gap-2">
           {members.map((member) => (
             <div key={member.id} className="flex items-center gap-3 py-2">
               <Avatar profile={member} size="md" />
-              <span className="flex-1 text-sm text-gray-900">{member.nickname}</span>
+              <span className="flex-1 text-sm text-foreground">{member.nickname}</span>
               {member.id === currentUserId && (
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                <span className="text-xs text-muted bg-surface-strong px-2 py-1 rounded">
                   あなた
                 </span>
               )}
@@ -124,7 +124,7 @@ export function HouseholdSettings({
           ))}
         </div>
         {members.length === 0 && (
-          <p className="text-sm text-gray-400">メンバーがいません</p>
+          <p className="text-sm text-subtle">メンバーがいません</p>
         )}
       </div>
     </div>

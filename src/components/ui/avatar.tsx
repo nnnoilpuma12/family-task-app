@@ -24,7 +24,7 @@ export function Avatar({ profile, size = "md" }: AvatarProps) {
 
   return (
     <div
-      className={`flex items-center justify-center rounded-full bg-indigo-100 font-bold text-indigo-700 ${sizeClasses[size]}`}
+      className={`flex items-center justify-center rounded-full bg-surface-strong font-bold text-foreground ${sizeClasses[size]}`}
       title={profile.nickname}
     >
       {emoji ? (

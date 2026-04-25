@@ -16,7 +16,7 @@ export function Fab({ onClick }: FabProps) {
       whileHover={{ scale: 1.1 }}
       whileTap={{ rotate: 45, scale: 0.9 }}
       transition={{ type: "spring", damping: 20, stiffness: 300 }}
-      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg"
+      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-md"
       aria-label="タスクを追加"
     >
       <Plus size={28} />

@@ -85,7 +85,7 @@ function SortableCategoryRow({
             value={name}
             onChange={(e) => onNameChange(e.target.value)}
             maxLength={50}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            className="rounded border border-border-strong bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
             autoFocus
           />
           <div className="flex gap-1.5">
@@ -93,7 +93,7 @@ function SortableCategoryRow({
               <button
                 key={c}
                 onClick={() => onColorChange(c)}
-                className={`h-6 w-6 rounded-full border-2 ${color === c ? "border-gray-800" : "border-transparent"}`}
+                className={`h-6 w-6 rounded-full border-2 ${color === c ? "border-foreground" : "border-transparent"}`}
                 style={{ backgroundColor: c }}
               />
             ))}
@@ -108,7 +108,7 @@ function SortableCategoryRow({
           <button
             {...attributes}
             {...listeners}
-            className="touch-none cursor-grab p-1 text-gray-300 hover:text-gray-500 active:cursor-grabbing shrink-0"
+            className="touch-none cursor-grab p-1 text-subtle hover:text-muted active:cursor-grabbing shrink-0"
             tabIndex={-1}
           >
             <GripVertical size={16} />
@@ -117,11 +117,11 @@ function SortableCategoryRow({
             className="h-4 w-4 rounded-full shrink-0"
             style={{ backgroundColor: cat.color }}
           />
-          <span className="flex-1 text-sm text-gray-900">{cat.name}</span>
-          <button onClick={() => onStartEdit(cat)} className="p-1 text-gray-400 hover:text-gray-600">
+          <span className="flex-1 text-sm text-foreground">{cat.name}</span>
+          <button onClick={() => onStartEdit(cat)} className="p-1 text-subtle hover:text-foreground">
             <Pencil size={16} />
           </button>
-          <button onClick={() => onDelete(cat.id)} className="p-1 text-gray-400 hover:text-red-600">
+          <button onClick={() => onDelete(cat.id)} className="p-1 text-subtle hover:text-danger">
             <Trash2 size={16} />
           </button>
         </>
@@ -132,10 +132,10 @@ function SortableCategoryRow({
 
 function CategoryRowOverlay({ cat }: { cat: Category }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-white px-2 py-1 shadow-lg opacity-90 border border-gray-100">
-      <GripVertical size={16} className="text-gray-400 shrink-0" />
+    <div className="flex items-center gap-2 rounded-lg bg-surface px-2 py-1 shadow-md opacity-90 border border-border">
+      <GripVertical size={16} className="text-subtle shrink-0" />
       <div className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-      <span className="flex-1 text-sm text-gray-900">{cat.name}</span>
+      <span className="flex-1 text-sm text-foreground">{cat.name}</span>
     </div>
   );
 }
@@ -221,13 +221,13 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete, onReord
       </DndContext>
 
       {isAdding ? (
-        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-gray-300 p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border-strong p-3">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="カテゴリ名"
             maxLength={50}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            className="rounded border border-border-strong bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
             autoFocus
           />
           <div className="flex gap-1.5">
@@ -235,7 +235,7 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete, onReord
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className={`h-6 w-6 rounded-full border-2 ${color === c ? "border-gray-800" : "border-transparent"}`}
+                className={`h-6 w-6 rounded-full border-2 ${color === c ? "border-foreground" : "border-transparent"}`}
                 style={{ backgroundColor: c }}
               />
             ))}
@@ -248,7 +248,7 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete, onReord
       ) : (
         <button
           onClick={() => { setIsAdding(true); setEditingId(null); }}
-          className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700"
+          className="flex items-center gap-2 rounded-lg border border-dashed border-border-strong p-3 text-sm text-muted hover:border-foreground hover:text-foreground"
         >
           <Plus size={16} />
           カテゴリを追加

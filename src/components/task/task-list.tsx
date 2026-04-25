@@ -152,7 +152,7 @@ export function TaskList({
 
   if (tasks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+      <div className="flex flex-col items-center justify-center py-20 text-subtle">
         <p className="text-lg">タスクがありません</p>
         <p className="mt-1 text-sm">右下の＋ボタンで追加しましょう</p>
       </div>
@@ -208,13 +208,13 @@ export function TaskList({
         {doneTasks.length > 0 && (
           <>
             <div className="mt-4 flex items-center justify-between px-1">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <p className="text-xs font-medium text-subtle uppercase tracking-wider">
                 完了 ({doneTasks.length})
               </p>
               <button
                 type="button"
                 onClick={() => setShowConfirm(true)}
-                className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+                className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-danger/10 px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/15"
               >
                 <Trash2 size={16} />
                 すべて削除

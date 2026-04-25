@@ -65,7 +65,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             onClick={onClose}
           />
           <motion.div
-            className="relative w-full max-w-lg bg-white rounded-t-2xl overflow-y-auto"
+            className="relative w-full max-w-lg bg-surface rounded-t-xl border border-border overflow-y-auto"
             style={{
               maxHeight: effectiveKeyboardHeight > 0
                 ? `calc(100dvh - ${effectiveKeyboardHeight}px - 40px)`
@@ -83,10 +83,10 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
               if (info.offset.y > 100) onClose();
             }}
           >
-            <div className="sticky top-0 z-10 bg-white rounded-t-2xl pt-3 pb-2 px-4">
-              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-gray-300" />
+            <div className="sticky top-0 z-10 bg-surface rounded-t-xl pt-3 pb-2 px-4">
+              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-border-strong" />
               {title && (
-                <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+                <h2 className="text-lg font-bold text-foreground">{title}</h2>
               )}
             </div>
             <div className="px-4 pb-8">{children}</div>

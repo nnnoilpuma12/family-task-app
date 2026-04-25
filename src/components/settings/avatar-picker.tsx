@@ -15,13 +15,13 @@ export function AvatarPicker({ isOpen, onClose, selectedKey, onSelect }: AvatarP
     <BottomSheet isOpen={isOpen} onClose={onClose}>
       <div className="flex flex-col gap-4 pb-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">アイコンを選ぶ</h3>
+          <h3 className="text-sm font-semibold text-foreground">アイコンを選ぶ</h3>
           <button
             onClick={() => {
               onSelect(null);
               onClose();
             }}
-            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded bg-gray-100"
+            className="text-xs text-muted hover:text-foreground px-2 py-1 rounded bg-surface-strong"
           >
             リセット
           </button>
@@ -34,15 +34,15 @@ export function AvatarPicker({ isOpen, onClose, selectedKey, onSelect }: AvatarP
                 onSelect(preset.key);
                 onClose();
               }}
-              className={`flex flex-col items-center gap-1 rounded-xl p-2 transition-colors ${
+              className={`flex flex-col items-center gap-1 rounded-lg p-2 transition-colors ${
                 selectedKey === preset.key
-                  ? "bg-indigo-50 ring-2 ring-indigo-500"
-                  : "hover:bg-gray-50"
+                  ? "bg-primary-soft ring-2 ring-focus"
+                  : "hover:bg-surface-strong"
               }`}
               title={preset.label}
             >
               <span className="text-2xl">{preset.emoji}</span>
-              <span className="text-[10px] text-gray-500 leading-tight">{preset.label}</span>
+              <span className="text-[10px] text-muted leading-tight">{preset.label}</span>
             </button>
           ))}
         </div>

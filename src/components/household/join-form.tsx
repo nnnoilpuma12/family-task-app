@@ -34,12 +34,12 @@ export function JoinHouseholdForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+        <div className="rounded border border-border bg-danger/10 p-3 text-sm text-danger">
           {error}
         </div>
       )}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="code" className="text-sm font-medium text-gray-700">
+        <label htmlFor="code" className="text-sm font-medium text-foreground">
           招待コード
         </label>
         <input
@@ -49,14 +49,14 @@ export function JoinHouseholdForm() {
           onChange={(e) => setCode(e.target.value)}
           required
           maxLength={16}
-          className="rounded-lg border border-gray-300 px-4 py-3 text-center text-2xl font-mono tracking-widest uppercase outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          className="rounded border border-border-strong bg-surface px-4 py-3 text-center text-2xl font-mono tracking-widest uppercase text-foreground placeholder:text-subtle outline-none transition-colors focus:border-focus focus:ring-2 focus:ring-focus/15"
           placeholder="XXXXXXXXXXXXXXXX"
         />
       </div>
       <button
         type="submit"
         disabled={loading || code.length < 16}
-        className="mt-2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+        className="mt-2 rounded bg-primary px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
       >
         {loading ? "参加中..." : "ハウスホールドに参加"}
       </button>
