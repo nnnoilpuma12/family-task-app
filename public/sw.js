@@ -1,4 +1,4 @@
-const SW_VERSION = "3";
+const SW_VERSION = "4";
 
 self.addEventListener("install", () => {
   // Activate immediately without waiting for existing tabs to close
@@ -15,8 +15,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "家族タスク";
   const options = {
     body: data.body || "",
-    icon: "/icon-192x192.png",
-    badge: "/icon-badge.png",
+    icon: "/icon-192x192.png?v=3",
+    badge: "/icon-badge.png?v=3",
     data: {
       url: data.url || "/",
     },
