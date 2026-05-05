@@ -35,6 +35,12 @@ export default function Home() {
   const [isSortOpen, setIsSortOpen] = useState(false);
   const { sortOption, setSortOption } = useSort();
 
+  const SORT_SHORT_LABELS: Record<string, string> = {
+    created_desc: "新しい順",
+    created_asc:  "古い順",
+    due_date:     "期日順",
+  };
+
   // Indicator refs for swipe ↔ tab sync
   const indicatorBarRef = useRef<HTMLDivElement>(null);
   const tabMeasurementsRef = useRef<TabMeasurements>({ tabWidths: [], tabOffsets: [] });
@@ -178,30 +184,45 @@ export default function Home() {
                 <Avatar key={m.id} profile={m} size="sm" />
               ))
             )}
-            <button
-              onClick={() => setIsSortOpen(true)}
-              className={`p-1.5 ${sortOption !== "manual" ? "text-primary" : "text-muted hover:text-foreground"}`}
-              aria-label="並び替え"
-            >
-              <ArrowUpDown size={20} />
-            </button>
+            <div className="h-5 w-px bg-border mx-1" />
             <button
               onClick={() => router.push("/settings")}
-              className="ml-1 p-1.5 text-muted hover:text-foreground"
+              className="p-1.5 text-muted hover:text-foreground"
+              aria-label="設定"
             >
               <Settings size={20} />
             </button>
           </div>
         </div>
 
-        <CategoryTabs
-          categories={categories}
-          selectedId={selectedCategoryId}
-          onSelect={setSelectedCategoryId}
-          indicatorRef={indicatorBarRef}
-          onTabMeasure={handleTabMeasure}
-          loading={loading}
-        />
+        <div className="flex items-center">
+          <div className="flex-1 min-w-0">
+            <CategoryTabs
+              categories={categories}
+              selectedId={selectedCategoryId}
+              onSelect={setSelectedCategoryId}
+              indicatorRef={indicatorBarRef}
+              onTabMeasure={handleTabMeasure}
+              loading={loading}
+            />
+          </div>
+          <div className="shrink-0 pr-3">
+            <button
+              onClick={() => setIsSortOpen(true)}
+              aria-label="並び替え"
+              className={
+                sortOption !== "manual"
+                  ? "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-primary/10 text-primary"
+                  : "p-1.5 text-muted hover:text-foreground"
+              }
+            >
+              <ArrowUpDown size={14} />
+              {sortOption !== "manual" && (
+                <span>{SORT_SHORT_LABELS[sortOption]}</span>
+              )}
+            </button>
+          </div>
+        </div>
       </header>
 
       {/* Task List */}
