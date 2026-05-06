@@ -12,6 +12,15 @@ interface BottomSheetProps {
 
 export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetProps) {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isTablet, setIsTablet] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsTablet(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsTablet(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -56,7 +65,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
           <motion.div
             className="absolute inset-0 bg-black/40"
             initial={{ opacity: 0 }}
@@ -65,26 +74,28 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             onClick={onClose}
           />
           <motion.div
-            className="relative w-full max-w-lg bg-surface rounded-t-xl border border-border overflow-y-auto"
+            className="relative w-full max-w-lg bg-surface rounded-t-xl md:rounded-xl border border-border overflow-y-auto"
             style={{
-              maxHeight: effectiveKeyboardHeight > 0
+              maxHeight: !isTablet && effectiveKeyboardHeight > 0
                 ? `calc(100dvh - ${effectiveKeyboardHeight}px - 40px)`
                 : "80dvh",
-              marginBottom: effectiveKeyboardHeight > 0 ? `${effectiveKeyboardHeight}px` : 0,
+              marginBottom: !isTablet && effectiveKeyboardHeight > 0
+                ? `${effectiveKeyboardHeight}px`
+                : 0,
             }}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            drag="y"
-            dragConstraints={{ top: 0 }}
-            dragElastic={0.2}
-            onDragEnd={(_, info) => {
+            drag={isTablet ? false : "y"}
+            dragConstraints={isTablet ? undefined : { top: 0 }}
+            dragElastic={isTablet ? undefined : 0.2}
+            onDragEnd={isTablet ? undefined : (_, info) => {
               if (info.offset.y > 100) onClose();
             }}
           >
             <div className="sticky top-0 z-10 bg-surface rounded-t-xl pt-3 pb-2 px-4">
-              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-border-strong" />
+              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-border-strong md:hidden" />
               {title && (
                 <h2 className="text-lg font-bold text-foreground">{title}</h2>
               )}
