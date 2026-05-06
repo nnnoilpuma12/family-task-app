@@ -1,4 +1,6 @@
-# CLAUDE.md — Family Task App
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 家族・カップル向けの家事タスク共有アプリ。モバイル中心の PWA で、世帯（household）単位でタスク・カテゴリをリアルタイム共有する。UI 言語は日本語固定。
 
@@ -16,10 +18,8 @@
 | Push | web-push 3.6（VAPID） |
 | Language | TypeScript 5（strict） |
 | Lint | ESLint 9 + eslint-config-next |
-| Test | Vitest 2 |
+| Test | Vitest 2 + React Testing Library（happy-dom 環境） |
 | Pkg Manager | npm |
-
-品質チェックは ESLint および Vitest による自動テスト。テストファイルは `src/hooks/` および `src/components/` 配下に配置。
 
 ---
 
@@ -32,6 +32,10 @@ npm run start        # 本番サーバー
 npm run lint         # ESLint
 npm test             # Vitest（watch モード）
 npm run test:run     # Vitest（単発実行・CI 用）
+npm run test:ui      # Vitest UI ダッシュボード（ブラウザで結果確認）
+
+# 特定ファイルのみテスト実行
+npx vitest run src/hooks/use-tasks.test.ts
 
 npx supabase start   # ローカル Supabase 起動（要 Docker Desktop）
 npx supabase stop    # 停止
@@ -60,6 +64,10 @@ npx supabase db push                            # 本番 Supabase へ反映
   - `server.ts` — Server Component / Route Handler 用（`createServerClient` + cookies）
   - `middleware.ts` — proxy 専用のセッション更新ロジック
   - `service-role.ts` — サービスロールキー用クライアント。`src/app/api/push/send/route.ts` でのみ使用
+- `src/lib/date.ts` — `formatDueDate` / `getQuickDate` などの日付ユーティリティ
+- `src/lib/validation.ts` — `isValidUrl`（タスク URL の XSS/フィッシング対策バリデーション）
+- `src/lib/avatar.ts` — 24 種類の絵文字アバタープリセット（動物・花・食べ物・感情）
+- `src/lib/push.ts` — fire-and-forget な Web Push 送信ヘルパ
 - `src/app/api/push/` — Web Push の Route Handler。`subscribe/` は購読登録/削除、`send/` は他メンバーへの通知送信。`useTasks` のタスク追加・完了時に呼ばれる。
 - `src/app/auth/callback/route.ts` — Supabase OAuth / マジックリンクの code→session 交換。
 - `supabase/templates/`, `supabase/snippets/` — Supabase のメール / SQL テンプレート置き場（手動編集対象）。
@@ -67,6 +75,59 @@ npx supabase db push                            # 本番 Supabase へ反映
 - `.claude/worktrees/` — Claude Code の git worktree 作業領域（gitignore 対象）。
 
 その他の主要ディレクトリ（`src/app`, `src/components`, `src/hooks`, `src/types`）は名前どおり。
+
+---
+
+## アーキテクチャ概要
+
+### データフロー
+
+```
+src/app/page.tsx（Client Component）
+  ├─ usePageData()        — ユーザー・世帯情報の初期ロード
+  ├─ useTasks()           — タスク CRUD + 楽観的更新
+  ├─ useCategories()      — カテゴリ CRUD + 並び順管理
+  ├─ useRealtimeTasks()   — Supabase Realtime 購読（id dedupe）
+  ├─ useSort()            — ソート設定（localStorage 永続化）
+  └─ useTaskRecommendations() — 定期タスクレコメンド（RPC）
+```
+
+- **楽観的更新**：state を先に更新 → Supabase 呼び出し。エラー時のロールバックは現状未実装（既存パターンに合わせる）。
+- **Realtime と楽観的更新の競合**は id ベースの dedupe で解決（`useRealtimeTasks` 参照）。
+- **タスク完了時**は `canvas-confetti` でアニメーションを再生し、他メンバーへ Web Push 通知を送信。
+- このプロジェクトはほぼ全面 Client Rendering。Server で動くのは `src/app/auth/callback/route.ts`、`src/app/api/push/**/route.ts`、`src/lib/supabase/server.ts`、`src/lib/supabase/middleware.ts`、`src/proxy.ts` のみ。
+
+### 型定義
+
+- `src/types/database.ts` — **手書き禁止・自動生成のみ**（`npx supabase gen types typescript --local`）。
+- `src/types/index.ts` — `database.ts` から派生した便利型（`Task`, `TaskWithAssignees`, `TaskRecommendation` など）を export。コード全体はこちら経由でインポートする（`database.ts` を直接 import しない）。
+
+---
+
+## テストインフラ
+
+テストファイルは `src/hooks/*.test.ts` / `src/components/**/*.test.tsx` に配置。
+
+| ファイル | 役割 |
+|---|---|
+| `src/test/setup.ts` | Vitest グローバルセットアップ。`next/navigation` を自動モック |
+| `src/test/mocks/supabase.ts` | `MockQueryChain`（thenable な Supabase クエリチェーンのモック）と `createMockSupabase()` を提供 |
+
+**テスト作成パターン：**
+
+```typescript
+// Supabase クライアントはモジュールレベルで vi.mock()
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => createMockSupabase({ /* テーブルごとの返却値 */ }),
+}));
+
+// framer-motion, sonner, next/navigation も vi.mock() で差し替える
+vi.mock("framer-motion", () => ({ motion: { div: "div" }, AnimatePresence: ({ children }) => children }));
+
+// フックのテストは renderHook + act + waitFor
+const { result } = renderHook(() => useCategories("household-id"));
+await waitFor(() => expect(result.current.loading).toBe(false));
+```
 
 ---
 
@@ -143,7 +204,7 @@ VAPID_SUBJECT=mailto:...
 
 - `docs/incident-profiles-403.md` — profiles テーブルへの 403 エラーに関する過去インシデント記録（RLS 設計の経緯把握に有用）
 - `docs/nonfunctional-roadmap.md` — 非機能要件（パフォーマンス・セキュリティ・運用）のロードマップ
-- `docs/performance-analysis.md` — パフォーマンス分析記録
+- `docs/performance-analysis.md` — パフォーマンス分析記録（直列クエリ・未ページネーション・バンドルサイズの課題を記録）
 
 ルートにある `plan.md` は機能開発の計画メモ。
 
