@@ -226,7 +226,7 @@ export default function Home() {
       </header>
 
       {/* Task List */}
-      <main className="pt-2">
+      <main className="pt-2 mx-auto w-full md:max-w-2xl">
         {!tasksLoading && !recsLoading && recommendations.length > 0 && (
           <RecommendationSection
             recommendations={recommendations}
