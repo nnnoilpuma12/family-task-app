@@ -105,10 +105,11 @@ export function useTasks(householdId: string | null) {
     }
 
     // Optimistic update
-    const previousTasks = tasks;
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
-    );
+    let snapshot = tasks;
+    setTasks((prev) => {
+      snapshot = prev;
+      return prev.map((t) => (t.id === id ? { ...t, ...updates } : t));
+    });
 
     const { data, error } = await supabase
       .from("tasks")
@@ -119,7 +120,7 @@ export function useTasks(householdId: string | null) {
 
     if (error) {
       // Rollback
-      setTasks(previousTasks);
+      setTasks(snapshot);
       toast.error("タスクの更新に失敗しました");
     } else if (data) {
       // Sync with server data
@@ -188,7 +189,9 @@ export function useTasks(householdId: string | null) {
 
   const reorderTasks = async (orderedIds: string[]) => {
     // Optimistic update
+    let snapshot = tasks;
     setTasks((prev) => {
+      snapshot = prev;
       const idToTask = new Map(prev.map((t) => [t.id, t]));
       const reordered = orderedIds.map((id, i) => ({ ...idToTask.get(id)!, sort_order: i }));
       const rest = prev.filter((t) => !orderedIds.includes(t.id));
@@ -199,7 +202,10 @@ export function useTasks(householdId: string | null) {
       p_task_ids: orderedIds,
       p_sort_orders: orderedIds.map((_, i) => i),
     });
-    if (error) toast.error("タスクの並び替えに失敗しました");
+    if (error) {
+      setTasks(snapshot);
+      toast.error("タスクの並び替えに失敗しました");
+    }
   };
 
   return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, refetch: fetchTasks };

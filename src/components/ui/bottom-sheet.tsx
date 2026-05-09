@@ -84,9 +84,8 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
                 : 0,
             }}
             initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            animate={{ y: 0, transition: { type: "spring", damping: 25, stiffness: 300 } }}
+            exit={{ y: "100%", transition: { type: "tween", duration: 0.18, ease: "easeIn" } }}
             drag={isTablet ? false : "y"}
             dragConstraints={isTablet ? undefined : { top: 0 }}
             dragElastic={isTablet ? undefined : 0.2}
