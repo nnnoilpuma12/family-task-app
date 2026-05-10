@@ -45,7 +45,7 @@ function SortableStapleCard(props: SortableStapleCardProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...(props.isEditMode ? { ...attributes, ...listeners } : {})}>
+    <div ref={setNodeRef} style={style} className="h-full" {...(props.isEditMode ? { ...attributes, ...listeners } : {})}>
       <StapleItemCard {...props} isDragging={isDragging} />
     </div>
   );
