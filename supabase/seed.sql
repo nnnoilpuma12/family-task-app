@@ -70,7 +70,14 @@ VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- 3. デフォルトカテゴリを作成
-SELECT create_default_categories('b0000000-0000-0000-0000-000000000001'::uuid);
+-- create_default_categories() は auth.uid() チェックがあり未認証シードから呼べないため直接 INSERT する
+INSERT INTO public.categories (household_id, name, color, icon, sort_order) VALUES
+  ('b0000000-0000-0000-0000-000000000001'::uuid, '買い物', '#ef4444', 'shopping-cart', 0),
+  ('b0000000-0000-0000-0000-000000000001'::uuid, '料理',   '#f97316', 'chef-hat',      1),
+  ('b0000000-0000-0000-0000-000000000001'::uuid, '掃除',   '#22c55e', 'sparkles',      2),
+  ('b0000000-0000-0000-0000-000000000001'::uuid, '洗濯',   '#3b82f6', 'shirt',         3),
+  ('b0000000-0000-0000-0000-000000000001'::uuid, 'その他', '#6366f1', 'list',          4)
+ON CONFLICT DO NOTHING;
 
 -- 4. トリガーで作成されたプロフィールを世帯に紐付け
 UPDATE public.profiles
