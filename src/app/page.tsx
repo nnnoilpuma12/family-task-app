@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, ArrowUpDown, Check } from "lucide-react";
+import { Settings, ArrowUpDown, Check, BookMarked } from "lucide-react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { CategoryTabs } from "@/components/category/category-tabs";
@@ -19,9 +20,12 @@ import { useCategories } from "@/hooks/use-categories";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
 import { useSort, SORT_OPTIONS } from "@/hooks/use-sort";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { StapleItemsSheet } from "@/components/staple/staple-items-sheet";
 import { useTaskRecommendations } from "@/hooks/use-task-recommendations";
 import { useTitleSuggestions } from "@/hooks/use-title-suggestions";
 import { usePageData } from "@/hooks/use-page-data";
+import { useStapleItems } from "@/hooks/use-staple-items";
+import { useRealtimeStapleItems } from "@/hooks/use-realtime-staple-items";
 import type { TabMeasurements } from "@/components/category/category-tabs";
 import type { IndicatorRefs } from "@/hooks/use-swipeable-tab";
 import type { Task, TaskRecommendation } from "@/types";
@@ -31,6 +35,7 @@ export default function Home() {
   const { profile, members, householdName, loading } = usePageData();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isStapleOpen, setIsStapleOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const { sortOption, setSortOption } = useSort();
@@ -62,6 +67,18 @@ export default function Home() {
   const { recommendations, loading: recsLoading, dismiss: dismissRecommendation, refetch: refetchRecommendations } =
     useTaskRecommendations(householdId, profile?.id);
   const { getSuggestions } = useTitleSuggestions(householdId);
+
+  const {
+    stapleItems,
+    setStapleItems,
+    loading: stapleLoading,
+    addStapleItem,
+    updateStapleItem,
+    deleteStapleItem,
+    reorderStapleItems,
+    recordUsage,
+  } = useStapleItems(householdId);
+  useRealtimeStapleItems(householdId, setStapleItems);
 
   // Debounced refetch for realtime events from other household members
   const recsTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -260,6 +277,20 @@ export default function Home() {
         </SwipeableTaskContainer>
       </main>
 
+      {/* 定番品ボタン */}
+      <motion.button
+        onClick={() => setIsStapleOpen(true)}
+        initial={{ y: 64, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        transition={{ type: "spring", damping: 20, stiffness: 300 }}
+        className="fixed bottom-6 right-24 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-surface border border-border text-foreground shadow-md"
+        aria-label="定番品"
+      >
+        <BookMarked size={20} />
+      </motion.button>
+
       {/* FAB */}
       <Fab onClick={() => setIsCreateOpen(true)} />
 
@@ -282,6 +313,23 @@ export default function Home() {
         members={members}
         onUpdate={handleUpdate}
         onDelete={handleDeleteTask}
+      />
+
+      {/* Staple Items Sheet */}
+      <StapleItemsSheet
+        isOpen={isStapleOpen}
+        onClose={() => setIsStapleOpen(false)}
+        stapleItems={stapleItems}
+        loading={stapleLoading}
+        categories={categories}
+        selectedCategoryId={selectedCategoryId}
+        profileId={profile?.id ?? null}
+        onAddToTask={(task) => addTask({ ...task, created_by: profile?.id ?? null })}
+        onAddStapleItem={addStapleItem}
+        onUpdateStapleItem={updateStapleItem}
+        onDeleteStapleItem={deleteStapleItem}
+        onReorderStapleItems={reorderStapleItems}
+        onRecordUsage={recordUsage}
       />
 
       {/* Sort Sheet */}
