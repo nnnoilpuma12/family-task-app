@@ -131,7 +131,7 @@ interface StapleItemsSheetProps {
   onAddToTask: (task: {
     title: string;
     category_id: string | null;
-    note: string | null;
+    memo: string | null;
   }) => void;
   onAddStapleItem: (data: {
     name: string;
@@ -205,7 +205,7 @@ export function StapleItemsSheet({
       onAddToTask({
         title,
         category_id: item.category_id,
-        note: item.note,
+        memo: item.note,
       });
       onRecordUsage(item.id);
       toast.success(`「${item.name}」をリストに追加しました`);
@@ -229,7 +229,7 @@ export function StapleItemsSheet({
         const unit = item.default_unit ?? "";
         title = `${item.name} ${q}${unit}`.trim();
       }
-      onAddToTask({ title, category_id: item.category_id, note });
+      onAddToTask({ title, category_id: item.category_id, memo: note });
       onRecordUsage(item.id);
       toast.success(`「${item.name}」をリストに追加しました`);
     },
