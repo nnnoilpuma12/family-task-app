@@ -62,7 +62,7 @@ export function StapleItemCard({
 
   return (
     <motion.div
-      className="relative"
+      className="relative h-full"
       animate={
         isEditMode
           ? { rotate: [-1, 1, -1, 1, 0] }
@@ -92,7 +92,7 @@ export function StapleItemCard({
         onClick={isEditMode ? () => onLongPress(item) : undefined}
         disabled={isDragging}
         className={[
-          "flex w-full flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors",
+          "flex w-full h-full flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors",
           "bg-surface border-border active:bg-surface-strong",
           isEditMode ? "cursor-default" : "cursor-pointer",
           isDragging ? "opacity-50 shadow-lg" : "",
