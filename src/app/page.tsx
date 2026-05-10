@@ -36,6 +36,7 @@ export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isStapleOpen, setIsStapleOpen] = useState(false);
+  const [stapleEverOpened, setStapleEverOpened] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const { sortOption, setSortOption } = useSort();
@@ -77,7 +78,7 @@ export default function Home() {
     deleteStapleItem,
     reorderStapleItems,
     recordUsage,
-  } = useStapleItems(householdId);
+  } = useStapleItems(householdId, stapleEverOpened);
   useRealtimeStapleItems(householdId, setStapleItems);
 
   // Debounced refetch for realtime events from other household members
@@ -279,7 +280,7 @@ export default function Home() {
 
       {/* 定番品ボタン */}
       <motion.button
-        onClick={() => setIsStapleOpen(true)}
+        onClick={() => { setStapleEverOpened(true); setIsStapleOpen(true); }}
         initial={{ y: 64, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         whileHover={{ scale: 1.1 }}

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { StapleItem } from "@/types";
 
-export function useStapleItems(householdId: string | null) {
+export function useStapleItems(householdId: string | null, enabled: boolean = true) {
   const supabase = useMemo(() => createClient(), []);
   const [stapleItems, setStapleItems] = useState<StapleItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,8 +25,9 @@ export function useStapleItems(householdId: string | null) {
   }, [householdId, supabase]);
 
   useEffect(() => {
+    if (!enabled) return;
     fetchStapleItems();
-  }, [fetchStapleItems]);
+  }, [fetchStapleItems, enabled]);
 
   const addStapleItem = async (item: {
     name: string;
