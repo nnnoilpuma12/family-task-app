@@ -32,6 +32,7 @@ describe("useCategories", () => {
     vi.clearAllMocks();
     chain = new MockQueryChain();
     mockClient = createMockSupabase(chain);
+    // @ts-expect-error - モックオブジェクトは SupabaseClient の全インターフェースを実装しない
     vi.mocked(createClient).mockReturnValue(mockClient as ReturnType<typeof createClient>);
   });
 

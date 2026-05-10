@@ -318,6 +318,79 @@ export type Database = {
           },
         ];
       };
+      staple_items: {
+        Row: {
+          id: string;
+          household_id: string;
+          name: string;
+          category_id: string | null;
+          default_quantity: number | null;
+          default_unit: string | null;
+          note: string | null;
+          icon: string | null;
+          sort_order: number;
+          use_count: number;
+          last_used_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          name: string;
+          category_id?: string | null;
+          default_quantity?: number | null;
+          default_unit?: string | null;
+          note?: string | null;
+          icon?: string | null;
+          sort_order?: number;
+          use_count?: number;
+          last_used_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          name?: string;
+          category_id?: string | null;
+          default_quantity?: number | null;
+          default_unit?: string | null;
+          note?: string | null;
+          icon?: string | null;
+          sort_order?: number;
+          use_count?: number;
+          last_used_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "staple_items_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "staple_items_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "staple_items_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -353,6 +426,10 @@ export type Database = {
       join_household_with_code: {
         Args: { p_code: string };
         Returns: string;
+      };
+      reorder_staple_items: {
+        Args: { p_item_ids: string[]; p_sort_orders: number[] };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

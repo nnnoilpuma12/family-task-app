@@ -8,9 +8,10 @@ interface BottomSheetProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  elevated?: boolean;
 }
 
-export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetProps) {
+export function BottomSheet({ isOpen, onClose, title, children, elevated = false }: BottomSheetProps) {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isTablet, setIsTablet] = useState(false);
 
@@ -65,7 +66,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+        <div className={`fixed inset-0 flex items-end md:items-center justify-center ${elevated ? "z-[60]" : "z-50"}`}>
           <motion.div
             className="absolute inset-0 bg-black/40"
             initial={{ opacity: 0 }}
