@@ -294,7 +294,7 @@ export function StapleItemsSheet({
     <>
       <BottomSheet isOpen={isOpen} onClose={handleClose}>
         {/* カスタムヘッダー */}
-        <div className="-mx-4 -mt-2 mb-3 px-4">
+        <div className="mb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShoppingBag size={18} className="text-primary" />
