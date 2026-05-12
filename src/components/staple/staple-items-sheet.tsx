@@ -208,9 +208,10 @@ export function StapleItemsSheet({
         memo: item.note,
       });
       onRecordUsage(item.id);
-      toast.success(`「${item.name}」をリストに追加しました`);
+      const cat = categories.find((c) => c.id === item.category_id);
+      toast.success(`「${item.name}」を${cat?.name ?? "リスト"}に追加しました`);
     },
-    [onAddToTask, onRecordUsage]
+    [onAddToTask, onRecordUsage, categories]
   );
 
   const handleLongPress = useCallback((item: StapleItem) => {
@@ -231,9 +232,10 @@ export function StapleItemsSheet({
       }
       onAddToTask({ title, category_id: item.category_id, memo: note });
       onRecordUsage(item.id);
-      toast.success(`「${item.name}」をリストに追加しました`);
+      const cat = categories.find((c) => c.id === item.category_id);
+      toast.success(`「${item.name}」を${cat?.name ?? "リスト"}に追加しました`);
     },
-    [onAddToTask, onRecordUsage]
+    [onAddToTask, onRecordUsage, categories]
   );
 
   const handleEditItem = useCallback((item: StapleItem) => {
