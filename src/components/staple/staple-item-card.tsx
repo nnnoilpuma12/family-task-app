@@ -15,6 +15,17 @@ interface StapleItemCardProps {
   isDragging?: boolean;
 }
 
+function CategoryPill({ cat }: { cat: Category }) {
+  return (
+    <span
+      className="mt-0.5 max-w-full truncate rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none"
+      style={{ color: cat.color, backgroundColor: `${cat.color}20` }}
+    >
+      {cat.name}
+    </span>
+  );
+}
+
 function formatQuantity(quantity: number | null, unit: string | null): string {
   if (quantity === null) return "";
   const q = Number.isInteger(quantity) ? quantity.toString() : quantity.toString();
@@ -23,12 +34,14 @@ function formatQuantity(quantity: number | null, unit: string | null): string {
 
 export function StapleItemCard({
   item,
+  categories,
   isEditMode,
   onAddToTask,
   onLongPress,
   onDelete,
   isDragging = false,
 }: StapleItemCardProps) {
+  const cat = categories.find((c) => c.id === item.category_id);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
 
@@ -91,12 +104,17 @@ export function StapleItemCard({
         onContextMenu={(e) => e.preventDefault()}
         onClick={isEditMode ? () => onLongPress(item) : undefined}
         disabled={isDragging}
+        aria-label={`${item.name}${cat ? `（${cat.name}に追加）` : ""}をタップして追加`}
         className={[
-          "flex w-full h-full flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors",
-          "bg-surface border-border active:bg-surface-strong",
+          "flex w-full h-full flex-col items-center gap-1.5 rounded-xl border border-border px-2 py-3 text-center transition-colors",
+          "bg-surface active:bg-surface-strong",
           isEditMode ? "cursor-default" : "cursor-pointer",
           isDragging ? "opacity-50 shadow-lg" : "",
         ].join(" ")}
+        style={{
+          borderLeftColor: cat?.color,
+          borderLeftWidth: cat ? "3px" : undefined,
+        }}
       >
         <span className="text-2xl leading-none" aria-hidden>
           {item.icon ?? <ShoppingCart size={20} className="text-muted" />}
@@ -112,6 +130,7 @@ export function StapleItemCard({
             {item.use_count}回
           </span>
         )}
+        {cat && <CategoryPill cat={cat} />}
       </button>
     </motion.div>
   );
