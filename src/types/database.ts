@@ -431,6 +431,10 @@ export type Database = {
         Args: { p_item_ids: string[]; p_sort_orders: number[] };
         Returns: undefined;
       };
+      create_household_with_defaults: {
+        Args: { p_name: string };
+        Returns: string;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
