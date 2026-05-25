@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { runWhenIdle } from "@/lib/idle";
 
 type PastTask = { title: string; category_id: string | null };
 
@@ -12,31 +13,34 @@ export function useTitleSuggestions(householdId: string | null) {
   const supabase = useMemo(() => createClient(), []);
   const [pastTasks, setPastTasks] = useState<PastTask[]>([]);
 
+  // 作成シートを開くまで不要な500件取得のため、起動クリティカルパスから外してアイドル時に実行
   useEffect(() => {
     if (!householdId) return;
 
-    (async () => {
-      const { data } = await supabase
-        .from("tasks")
-        .select("title, category_id")
-        .eq("household_id", householdId)
-        .order("created_at", { ascending: false })
-        .limit(500);
+    return runWhenIdle(() => {
+      (async () => {
+        const { data } = await supabase
+          .from("tasks")
+          .select("title, category_id")
+          .eq("household_id", householdId)
+          .order("created_at", { ascending: false })
+          .limit(500);
 
-      if (data) {
-        // 重複を除去し、最新の表記を優先（最初に出現したものを残す）
-        const seen = new Set<string>();
-        const unique: PastTask[] = [];
-        for (const row of data) {
-          const lower = row.title.toLowerCase();
-          if (!seen.has(lower)) {
-            seen.add(lower);
-            unique.push({ title: row.title, category_id: row.category_id });
+        if (data) {
+          // 重複を除去し、最新の表記を優先（最初に出現したものを残す）
+          const seen = new Set<string>();
+          const unique: PastTask[] = [];
+          for (const row of data) {
+            const lower = row.title.toLowerCase();
+            if (!seen.has(lower)) {
+              seen.add(lower);
+              unique.push({ title: row.title, category_id: row.category_id });
+            }
           }
+          setPastTasks(unique);
         }
-        setPastTasks(unique);
-      }
-    })();
+      })();
+    });
   }, [householdId, supabase]);
 
   const getSuggestions = useCallback(

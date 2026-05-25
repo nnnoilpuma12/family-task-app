@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Settings, ArrowUpDown, Check, BookMarked } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -9,18 +10,29 @@ import { createClient } from "@/lib/supabase/client";
 import { CategoryTabs } from "@/components/category/category-tabs";
 import { TaskList } from "@/components/task/task-list";
 import { TaskListSkeleton } from "@/components/task/task-list-skeleton";
-import { TaskCreateSheet } from "@/components/task/task-create-sheet";
-import { TaskDetailModal } from "@/components/task/task-detail-modal";
 import { SwipeableTaskContainer } from "@/components/task/swipeable-task-container";
 import { Fab } from "@/components/ui/fab";
 import { Avatar } from "@/components/ui/avatar";
 import { RecommendationSection } from "@/components/recommendation/recommendation-section";
+
+// 初期表示に不要な重いシート/モーダルは初回オープン時に遅延ロードする（起動バンドル削減）
+const TaskCreateSheet = dynamic(
+  () => import("@/components/task/task-create-sheet").then((m) => m.TaskCreateSheet),
+  { ssr: false }
+);
+const TaskDetailModal = dynamic(
+  () => import("@/components/task/task-detail-modal").then((m) => m.TaskDetailModal),
+  { ssr: false }
+);
+const StapleItemsSheet = dynamic(
+  () => import("@/components/staple/staple-items-sheet").then((m) => m.StapleItemsSheet),
+  { ssr: false }
+);
 import { useTasks } from "@/hooks/use-tasks";
 import { useCategories } from "@/hooks/use-categories";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
 import { useSort, SORT_OPTIONS } from "@/hooks/use-sort";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { StapleItemsSheet } from "@/components/staple/staple-items-sheet";
 import { useTaskRecommendations } from "@/hooks/use-task-recommendations";
 import { useTitleSuggestions } from "@/hooks/use-title-suggestions";
 import { usePageData } from "@/hooks/use-page-data";
@@ -38,6 +50,10 @@ export default function Home() {
   const [isStapleOpen, setIsStapleOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  // 遅延ロードしたシート/モーダルは初回オープン後はマウントを維持し、閉じるアニメを保つ
+  const [isCreateMounted, setIsCreateMounted] = useState(false);
+  const [isStapleMounted, setIsStapleMounted] = useState(false);
+  const [isDetailMounted, setIsDetailMounted] = useState(false);
   const { sortOption, setSortOption } = useSort();
 
   const SORT_SHORT_LABELS: Record<string, string> = {
@@ -121,7 +137,18 @@ export default function Home() {
   }, [allTasks, selectedCategoryId, sortOption]);
 
   const handleToggle = useCallback(async (id: string) => { await toggleTask(id); refetchRecommendations(); }, [toggleTask, refetchRecommendations]);
-  const handleTap = useCallback((task: Task) => setSelectedTask(task), []);
+  const handleTap = useCallback((task: Task) => {
+    setIsDetailMounted(true);
+    setSelectedTask(task);
+  }, []);
+  const handleOpenCreate = useCallback(() => {
+    setIsCreateMounted(true);
+    setIsCreateOpen(true);
+  }, []);
+  const handleOpenStaple = useCallback(() => {
+    setIsStapleMounted(true);
+    setIsStapleOpen(true);
+  }, []);
   const handleDeleteTask = useCallback(async (id: string) => { await deleteTask(id); refetchRecommendations(); }, [deleteTask, refetchRecommendations]);
   const handleCloseCreate = useCallback(() => setIsCreateOpen(false), []);
   const handleSubmit = useCallback(async (task: { title: string; category_id?: string | null; due_date?: string | null; memo?: string | null; url?: string | null }) => {
@@ -279,7 +306,7 @@ export default function Home() {
 
       {/* 定番品ボタン */}
       <motion.button
-        onClick={() => setIsStapleOpen(true)}
+        onClick={handleOpenStaple}
         initial={{ y: 64, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         whileHover={{ scale: 1.1 }}
@@ -292,45 +319,51 @@ export default function Home() {
       </motion.button>
 
       {/* FAB */}
-      <Fab onClick={() => setIsCreateOpen(true)} />
+      <Fab onClick={handleOpenCreate} />
 
       {/* Create Sheet */}
-      <TaskCreateSheet
-        isOpen={isCreateOpen}
-        onClose={handleCloseCreate}
-        categories={categories}
-        selectedCategoryId={selectedCategoryId}
-        getSuggestions={getSuggestions}
-        onSubmit={handleSubmit}
-      />
+      {isCreateMounted && (
+        <TaskCreateSheet
+          isOpen={isCreateOpen}
+          onClose={handleCloseCreate}
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          getSuggestions={getSuggestions}
+          onSubmit={handleSubmit}
+        />
+      )}
 
       {/* Detail Modal */}
-      <TaskDetailModal
-        task={selectedTask}
-        isOpen={!!selectedTask}
-        onClose={handleCloseDetail}
-        categories={categories}
-        members={members}
-        onUpdate={handleUpdate}
-        onDelete={handleDeleteTask}
-      />
+      {isDetailMounted && (
+        <TaskDetailModal
+          task={selectedTask}
+          isOpen={!!selectedTask}
+          onClose={handleCloseDetail}
+          categories={categories}
+          members={members}
+          onUpdate={handleUpdate}
+          onDelete={handleDeleteTask}
+        />
+      )}
 
       {/* Staple Items Sheet */}
-      <StapleItemsSheet
-        isOpen={isStapleOpen}
-        onClose={() => setIsStapleOpen(false)}
-        stapleItems={stapleItems}
-        loading={stapleLoading}
-        categories={categories}
-        selectedCategoryId={selectedCategoryId}
-        profileId={profile?.id ?? null}
-        onAddToTask={(task) => addTask({ ...task, created_by: profile?.id ?? null })}
-        onAddStapleItem={addStapleItem}
-        onUpdateStapleItem={updateStapleItem}
-        onDeleteStapleItem={deleteStapleItem}
-        onReorderStapleItems={reorderStapleItems}
-        onRecordUsage={recordUsage}
-      />
+      {isStapleMounted && (
+        <StapleItemsSheet
+          isOpen={isStapleOpen}
+          onClose={() => setIsStapleOpen(false)}
+          stapleItems={stapleItems}
+          loading={stapleLoading}
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          profileId={profile?.id ?? null}
+          onAddToTask={(task) => addTask({ ...task, created_by: profile?.id ?? null })}
+          onAddStapleItem={addStapleItem}
+          onUpdateStapleItem={updateStapleItem}
+          onDeleteStapleItem={deleteStapleItem}
+          onReorderStapleItems={reorderStapleItems}
+          onRecordUsage={recordUsage}
+        />
+      )}
 
       {/* Sort Sheet */}
       <BottomSheet isOpen={isSortOpen} onClose={() => setIsSortOpen(false)} title="並び替え">

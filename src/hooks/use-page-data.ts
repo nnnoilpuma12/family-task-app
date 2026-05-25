@@ -33,9 +33,12 @@ export function usePageData(options: UsePageDataOptions = {}): PageData {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
+      // middleware が全リクエストでサーバ側セッション検証を済ませているため、
+      // ここはネットワーク往復のない getSession() で十分（認証往復の二重化を回避）
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
 
       if (!user) {
         router.push("/login");
