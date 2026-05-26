@@ -6,6 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { sendPushNotification } from "@/lib/push";
 import type { Task } from "@/types";
 
+// 未完了タスクは全件、完了済みはこの日数以内のものだけ初期ロードする（蓄積による起動遅延を防ぐ）
+const COMPLETED_TASKS_WINDOW_DAYS = 30;
+
 export function useTasks(householdId: string | null) {
   const supabase = useMemo(() => createClient(), []);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -14,10 +17,15 @@ export function useTasks(householdId: string | null) {
   const fetchTasks = useCallback(async () => {
     if (!householdId) return;
 
+    const completedCutoff = new Date(
+      Date.now() - COMPLETED_TASKS_WINDOW_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
       .eq("household_id", householdId)
+      .or(`is_done.eq.false,completed_at.gte.${completedCutoff}`)
       .order("is_done")
       .order("sort_order")
       .order("created_at", { ascending: false });

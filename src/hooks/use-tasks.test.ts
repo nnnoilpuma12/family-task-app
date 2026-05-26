@@ -62,6 +62,16 @@ describe("useTasks", () => {
       expect(chain.order).toHaveBeenNthCalledWith(2, "sort_order");
       expect(chain.order).toHaveBeenNthCalledWith(3, "created_at", { ascending: false });
     });
+
+    it("完了済みは直近のみ: 未完了 OR 直近完了に絞る or フィルタを呼ぶ", async () => {
+      chain._result = { data: [], error: null };
+      renderHook(() => useTasks(HOUSEHOLD_ID));
+
+      await waitFor(() => expect(chain.or).toHaveBeenCalled());
+      expect(chain.or).toHaveBeenCalledWith(
+        expect.stringMatching(/^is_done\.eq\.false,completed_at\.gte\./)
+      );
+    });
   });
 
   describe("addTask", () => {

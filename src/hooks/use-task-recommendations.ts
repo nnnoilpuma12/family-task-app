@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { runWhenIdle } from "@/lib/idle";
 import type { TaskRecommendation } from "@/types";
 
 export function useTaskRecommendations(householdId: string | null, profileId?: string | null) {
@@ -19,9 +20,11 @@ export function useTaskRecommendations(householdId: string | null, profileId?: s
     setLoading(false);
   }, [householdId, supabase]);
 
+  // 完了タスク全走査で重い RPC のため、起動クリティカルパスから外してアイドル時に実行
   useEffect(() => {
-    fetchRecommendations();
-  }, [fetchRecommendations]);
+    if (!householdId) return;
+    return runWhenIdle(() => fetchRecommendations());
+  }, [householdId, fetchRecommendations]);
 
   const dismiss = useCallback(
     async (normalizedTitle: string, medianDays: number) => {

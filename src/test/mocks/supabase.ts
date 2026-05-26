@@ -14,7 +14,9 @@ export class MockQueryChain {
   update = vi.fn().mockReturnThis();
   delete = vi.fn().mockReturnThis();
   eq = vi.fn().mockReturnThis();
+  or = vi.fn().mockReturnThis();
   order = vi.fn().mockReturnThis();
+  limit = vi.fn().mockReturnThis();
   single = vi.fn().mockResolvedValue({ data: null, error: null });
 
   // Thenable interface — `await chain` でここが呼ばれる
