@@ -1,31 +1,52 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { queryKeys } from "@/lib/query-keys";
 import type { Category } from "@/types";
 
 export function useCategories(householdId: string | null) {
   const supabase = useMemo(() => createClient(), []);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchCategories = useCallback(async () => {
-    if (!householdId) return;
+  const fetchCategories = useCallback(async (): Promise<Category[]> => {
+    if (!householdId) return [];
     const { data, error } = await supabase
       .from("categories")
       .select("*")
       .eq("household_id", householdId)
       .order("sort_order");
 
-    if (error) toast.error("カテゴリの取得に失敗しました");
-    if (data) setCategories(data);
-    setLoading(false);
+    if (error) throw error;
+    return data ?? [];
   }, [householdId, supabase]);
 
+  const query = useQuery({
+    queryKey: queryKeys.categories(householdId),
+    queryFn: fetchCategories,
+    enabled: !!householdId,
+  });
+
+  const categories = useMemo(() => query.data ?? [], [query.data]);
+  const loading = !householdId || query.isLoading;
+
   useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+    if (query.isError) toast.error("カテゴリの取得に失敗しました");
+  }, [query.isError]);
+
+  const setCategories = useCallback<React.Dispatch<React.SetStateAction<Category[]>>>(
+    (update) => {
+      queryClient.setQueryData<Category[]>(queryKeys.categories(householdId), (old) => {
+        const prev = old ?? [];
+        return typeof update === "function"
+          ? (update as (p: Category[]) => Category[])(prev)
+          : update;
+      });
+    },
+    [queryClient, householdId]
+  );
 
   const addCategory = async (name: string, color: string) => {
     if (!householdId) return;
@@ -80,9 +101,9 @@ export function useCategories(householdId: string | null) {
     );
     if (results.some((r) => r.error)) {
       toast.error("カテゴリの並び替えに失敗しました");
-      fetchCategories();
+      query.refetch();
     }
   };
 
-  return { categories, loading, addCategory, updateCategory, deleteCategory, reorderCategories, refetch: fetchCategories };
+  return { categories, loading, addCategory, updateCategory, deleteCategory, reorderCategories, refetch: query.refetch };
 }

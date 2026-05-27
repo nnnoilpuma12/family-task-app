@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { queryKeys } from "@/lib/query-keys";
 import type { StapleItem } from "@/types";
 
 export function useStapleItems(householdId: string | null) {
   const supabase = useMemo(() => createClient(), []);
-  const [stapleItems, setStapleItems] = useState<StapleItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchStapleItems = useCallback(async () => {
-    if (!householdId) return;
+  const fetchStapleItems = useCallback(async (): Promise<StapleItem[]> => {
+    if (!householdId) return [];
     const { data, error } = await supabase
       .from("staple_items")
       .select("*")
@@ -19,14 +20,34 @@ export function useStapleItems(householdId: string | null) {
       .order("sort_order")
       .order("created_at", { ascending: true });
 
-    if (error) toast.error("定番品の取得に失敗しました");
-    if (data) setStapleItems(data);
-    setLoading(false);
+    if (error) throw error;
+    return data ?? [];
   }, [householdId, supabase]);
 
+  const query = useQuery({
+    queryKey: queryKeys.stapleItems(householdId),
+    queryFn: fetchStapleItems,
+    enabled: !!householdId,
+  });
+
+  const stapleItems = useMemo(() => query.data ?? [], [query.data]);
+  const loading = !householdId || query.isLoading;
+
   useEffect(() => {
-    fetchStapleItems();
-  }, [fetchStapleItems]);
+    if (query.isError) toast.error("定番品の取得に失敗しました");
+  }, [query.isError]);
+
+  const setStapleItems = useCallback<React.Dispatch<React.SetStateAction<StapleItem[]>>>(
+    (update) => {
+      queryClient.setQueryData<StapleItem[]>(queryKeys.stapleItems(householdId), (old) => {
+        const prev = old ?? [];
+        return typeof update === "function"
+          ? (update as (p: StapleItem[]) => StapleItem[])(prev)
+          : update;
+      });
+    },
+    [queryClient, householdId]
+  );
 
   const addStapleItem = async (item: {
     name: string;
@@ -162,6 +183,6 @@ export function useStapleItems(householdId: string | null) {
     deleteStapleItem,
     reorderStapleItems,
     recordUsage,
-    refetch: fetchStapleItems,
+    refetch: query.refetch,
   };
 }

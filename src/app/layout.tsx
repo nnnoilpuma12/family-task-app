@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { Toaster } from "@/components/ui/toaster";
+import { Providers } from "@/app/providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -56,7 +57,7 @@ export default function RootLayout({
       >
         <ServiceWorkerRegister />
         <Toaster />
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
