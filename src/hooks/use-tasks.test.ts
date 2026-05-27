@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useTasks } from "@/hooks/use-tasks";
 import { createClient } from "@/lib/supabase/client";
 import { MockQueryChain, createMockSupabase } from "@/test/mocks/supabase";
+import { createQueryWrapper } from "@/test/query-wrapper";
 import type { Task } from "@/types";
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
 vi.mock("@/lib/push", () => ({ sendPushNotification: vi.fn() }));
 vi.mock("@/lib/supabase/client");
 
@@ -47,7 +48,7 @@ describe("useTasks", () => {
       const task = makeTask();
       chain._result = { data: [task], error: null };
 
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
       expect(result.current.tasks).toEqual([task]);
@@ -55,7 +56,7 @@ describe("useTasks", () => {
 
     it("ソート順: is_done, sort_order, created_at DESC で order を呼ぶ", async () => {
       chain._result = { data: [], error: null };
-      renderHook(() => useTasks(HOUSEHOLD_ID));
+      renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
 
       await waitFor(() => expect(chain.order).toHaveBeenCalled());
       expect(chain.order).toHaveBeenNthCalledWith(1, "is_done");
@@ -65,7 +66,7 @@ describe("useTasks", () => {
 
     it("完了済みは直近のみ: 未完了 OR 直近完了に絞る or フィルタを呼ぶ", async () => {
       chain._result = { data: [], error: null };
-      renderHook(() => useTasks(HOUSEHOLD_ID));
+      renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
 
       await waitFor(() => expect(chain.or).toHaveBeenCalled());
       expect(chain.or).toHaveBeenCalledWith(
@@ -77,7 +78,7 @@ describe("useTasks", () => {
   describe("addTask", () => {
     it("正常系: tasks にタスクを追加する", async () => {
       chain._result = { data: [], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       const serverTask = makeTask({ title: "買い物" });
@@ -87,12 +88,12 @@ describe("useTasks", () => {
         await result.current.addTask({ title: "買い物" });
       });
 
-      expect(result.current.tasks).toContainEqual(serverTask);
+      await waitFor(() => expect(result.current.tasks).toContainEqual(serverTask));
     });
 
     it("エラー時: optimistic update をロールバックする", async () => {
       chain._result = { data: [], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       chain.single.mockResolvedValueOnce({ data: null, error: { message: "DB error" } });
@@ -109,7 +110,7 @@ describe("useTasks", () => {
     it("未完了→完了: is_done=true, completed_at がセットされる", async () => {
       const task = makeTask({ id: "t-1", is_done: false, completed_at: null });
       chain._result = { data: [task], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.tasks).toHaveLength(1));
 
       const updatedTask = makeTask({
@@ -123,7 +124,7 @@ describe("useTasks", () => {
         await result.current.toggleTask("t-1");
       });
 
-      expect(result.current.tasks[0].is_done).toBe(true);
+      await waitFor(() => expect(result.current.tasks[0].is_done).toBe(true));
       expect(result.current.tasks[0].completed_at).not.toBeNull();
     });
 
@@ -134,7 +135,7 @@ describe("useTasks", () => {
         completed_at: "2024-01-01T12:00:00Z",
       });
       chain._result = { data: [task], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.tasks).toHaveLength(1));
 
       const updatedTask = makeTask({ id: "t-1", is_done: false, completed_at: null });
@@ -144,7 +145,7 @@ describe("useTasks", () => {
         await result.current.toggleTask("t-1");
       });
 
-      expect(result.current.tasks[0].is_done).toBe(false);
+      await waitFor(() => expect(result.current.tasks[0].is_done).toBe(false));
       expect(result.current.tasks[0].completed_at).toBeNull();
     });
   });
@@ -153,7 +154,7 @@ describe("useTasks", () => {
     it("ホワイトリスト外のフィールドは update 呼び出しに含まれない", async () => {
       const task = makeTask({ id: "t-1" });
       chain._result = { data: [task], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.tasks).toHaveLength(1));
 
       chain.single.mockResolvedValueOnce({ data: task, error: null });
@@ -177,7 +178,7 @@ describe("useTasks", () => {
       const { sendPushNotification } = await import("@/lib/push");
       const task = makeTask({ id: "t-1", title: "掃除" });
       chain._result = { data: [task], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.tasks).toHaveLength(1));
 
       const updatedTask = makeTask({ id: "t-1", title: "新しいタイトル" });
@@ -199,7 +200,7 @@ describe("useTasks", () => {
       vi.mocked(sendPushNotification).mockClear();
       const task = makeTask({ id: "t-1" });
       chain._result = { data: [task], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.tasks).toHaveLength(1));
 
       chain.single.mockResolvedValueOnce({ data: task, error: null });
@@ -216,21 +217,21 @@ describe("useTasks", () => {
     it("正常系: tasks からタスクが削除される", async () => {
       const task = makeTask({ id: "t-1" });
       chain._result = { data: [task], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.tasks).toHaveLength(1));
 
       await act(async () => {
         await result.current.deleteTask("t-1");
       });
 
-      expect(result.current.tasks).toHaveLength(0);
+      await waitFor(() => expect(result.current.tasks).toHaveLength(0));
     });
   });
 
   describe("reorderTasks", () => {
     it("reorder_tasks RPC が正しい引数で呼ばれる", async () => {
       chain._result = { data: [], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       await act(async () => {

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useCategories } from "@/hooks/use-categories";
 import { createClient } from "@/lib/supabase/client";
 import { MockQueryChain, createMockSupabase } from "@/test/mocks/supabase";
+import { createQueryWrapper } from "@/test/query-wrapper";
 import type { Category } from "@/types";
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -41,7 +42,7 @@ describe("useCategories", () => {
       const existing = [makeCategory({ sort_order: 0 }), makeCategory({ sort_order: 1 })];
       chain._result = { data: existing, error: null };
 
-      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.categories).toHaveLength(2));
 
       const newCat = makeCategory({ name: "新カテゴリ", sort_order: 2 });
@@ -54,7 +55,7 @@ describe("useCategories", () => {
       expect(chain.insert).toHaveBeenCalledWith(
         expect.objectContaining({ sort_order: 2 })
       );
-      expect(result.current.categories).toHaveLength(3);
+      await waitFor(() => expect(result.current.categories).toHaveLength(3));
     });
   });
 
@@ -63,14 +64,14 @@ describe("useCategories", () => {
       const cat = makeCategory({ id: "c-1" });
       chain._result = { data: [cat], error: null };
 
-      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.categories).toHaveLength(1));
 
       await act(async () => {
         await result.current.deleteCategory("c-1");
       });
 
-      expect(result.current.categories).toHaveLength(0);
+      await waitFor(() => expect(result.current.categories).toHaveLength(0));
     });
   });
 
@@ -79,14 +80,14 @@ describe("useCategories", () => {
       const cat = makeCategory({ id: "c-1", name: "旧名前", color: "#0000ff" });
       chain._result = { data: [cat], error: null };
 
-      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID));
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.categories).toHaveLength(1));
 
       await act(async () => {
         await result.current.updateCategory("c-1", { name: "新名前" });
       });
 
-      expect(result.current.categories[0].name).toBe("新名前");
+      await waitFor(() => expect(result.current.categories[0].name).toBe("新名前"));
       expect(result.current.categories[0].color).toBe("#0000ff");
     });
   });

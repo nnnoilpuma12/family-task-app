@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { queryKeys } from "@/lib/query-keys";
 import { sendPushNotification } from "@/lib/push";
 import type { Task } from "@/types";
 
@@ -11,11 +13,10 @@ const COMPLETED_TASKS_WINDOW_DAYS = 30;
 
 export function useTasks(householdId: string | null) {
   const supabase = useMemo(() => createClient(), []);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchTasks = useCallback(async () => {
-    if (!householdId) return;
+  const fetchTasks = useCallback(async (): Promise<Task[]> => {
+    if (!householdId) return [];
 
     const completedCutoff = new Date(
       Date.now() - COMPLETED_TASKS_WINDOW_DAYS * 24 * 60 * 60 * 1000
@@ -30,14 +31,37 @@ export function useTasks(householdId: string | null) {
       .order("sort_order")
       .order("created_at", { ascending: false });
 
-    if (error) toast.error("タスクの取得に失敗しました");
-    if (data) setTasks(data);
-    setLoading(false);
+    if (error) throw error;
+    return data ?? [];
   }, [householdId, supabase]);
 
+  const query = useQuery({
+    queryKey: queryKeys.tasks(householdId),
+    queryFn: fetchTasks,
+    enabled: !!householdId,
+  });
+
+  const tasks = useMemo(() => query.data ?? [], [query.data]);
+  // householdId 確定前は skeleton を維持する（query は disabled で isLoading=false になるため）
+  const loading = !householdId || query.isLoading;
+
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    if (query.isError) toast.error("タスクの取得に失敗しました");
+  }, [query.isError]);
+
+  // 既存の setTasks 互換 API。Realtime フックや楽観的更新はこの関数経由で
+  // React Query キャッシュを更新する（ページ遷移をまたいで状態が永続する）
+  const setTasks = useCallback<React.Dispatch<React.SetStateAction<Task[]>>>(
+    (update) => {
+      queryClient.setQueryData<Task[]>(queryKeys.tasks(householdId), (old) => {
+        const prev = old ?? [];
+        return typeof update === "function"
+          ? (update as (p: Task[]) => Task[])(prev)
+          : update;
+      });
+    },
+    [queryClient, householdId]
+  );
 
   const addTask = async (task: {
     title: string;
@@ -216,5 +240,5 @@ export function useTasks(householdId: string | null) {
     }
   };
 
-  return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, refetch: fetchTasks };
+  return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, refetch: query.refetch };
 }
