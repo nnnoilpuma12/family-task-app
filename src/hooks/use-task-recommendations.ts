@@ -1,38 +1,44 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { queryKeys } from "@/lib/query-keys";
 import { runWhenIdle } from "@/lib/idle";
 import type { TaskRecommendation } from "@/types";
 
 export function useTaskRecommendations(householdId: string | null, profileId?: string | null) {
   const supabase = useMemo(() => createClient(), []);
-  const [recommendations, setRecommendations] = useState<TaskRecommendation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  // 完了タスク全走査で重い RPC のため、起動クリティカルパスから外してアイドル後に有効化する
+  const [idle, setIdle] = useState(false);
 
-  const fetchRecommendations = useCallback(async () => {
-    if (!householdId) return;
-    const { data, error } = await supabase.rpc("get_recurring_recommendations");
-
-    if (!error && data) {
-      setRecommendations(data);
-    }
-    setLoading(false);
-  }, [householdId, supabase]);
-
-  // 完了タスク全走査で重い RPC のため、起動クリティカルパスから外してアイドル時に実行
   useEffect(() => {
     if (!householdId) return;
-    return runWhenIdle(() => fetchRecommendations());
-  }, [householdId, fetchRecommendations]);
+    return runWhenIdle(() => setIdle(true));
+  }, [householdId]);
+
+  const query = useQuery({
+    queryKey: queryKeys.recommendations(householdId),
+    queryFn: async (): Promise<TaskRecommendation[]> => {
+      const { data, error } = await supabase.rpc("get_recurring_recommendations");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!householdId && idle,
+  });
+
+  const recommendations = useMemo(() => query.data ?? [], [query.data]);
+  const loading = !householdId || !idle || query.isLoading;
 
   const dismiss = useCallback(
     async (normalizedTitle: string, medianDays: number) => {
       if (!householdId) return;
 
-      // 楽観的にローカルstateから削除
-      setRecommendations((prev) =>
-        prev.filter((r) => r.normalized_title !== normalizedTitle)
+      // 楽観的にローカルキャッシュから削除
+      queryClient.setQueryData<TaskRecommendation[]>(
+        queryKeys.recommendations(householdId),
+        (old) => (old ?? []).filter((r) => r.normalized_title !== normalizedTitle)
       );
 
       const dismissedUntil = new Date();
@@ -48,8 +54,8 @@ export function useTaskRecommendations(householdId: string | null, profileId?: s
         { onConflict: "household_id,normalized_title" }
       );
     },
-    [householdId, profileId, supabase]
+    [householdId, profileId, supabase, queryClient]
   );
 
-  return { recommendations, loading, dismiss, refetch: fetchRecommendations };
+  return { recommendations, loading, dismiss, refetch: query.refetch };
 }
