@@ -28,6 +28,9 @@ interface TaskListProps {
   onDelete: (id: string) => void;
   onReorder: (orderedIds: string[]) => void;
   onDeleteAllDone: () => void;
+  onLoadMoreCompleted?: () => void;
+  hasMoreCompleted?: boolean;
+  loadingMoreCompleted?: boolean;
   isDndEnabled?: boolean;
 }
 
@@ -40,6 +43,9 @@ export function TaskList({
   onDelete,
   onReorder,
   onDeleteAllDone,
+  onLoadMoreCompleted,
+  hasMoreCompleted = false,
+  loadingMoreCompleted = false,
   isDndEnabled = true,
 }: TaskListProps) {
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
@@ -243,6 +249,16 @@ export function TaskList({
                 />
               ))}
             </AnimatePresence>
+            {onLoadMoreCompleted && hasMoreCompleted && (
+              <button
+                type="button"
+                onClick={onLoadMoreCompleted}
+                disabled={loadingMoreCompleted}
+                className="mx-auto mt-2 inline-flex min-h-[44px] items-center justify-center rounded-full bg-surface-strong px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-border-strong disabled:opacity-50"
+              >
+                {loadingMoreCompleted ? "読み込み中..." : "完了済みをもっと見る"}
+              </button>
+            )}
           </>
         )}
       </div>

@@ -12,6 +12,8 @@ export function CreateHouseholdForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
     setError("");
     setLoading(true);
 
@@ -19,7 +21,7 @@ export function CreateHouseholdForm() {
 
     const { data: householdId, error: rpcError } = await supabase.rpc(
       "create_household_with_defaults",
-      { p_name: name }
+      { p_name: trimmedName }
     );
 
     if (rpcError || !householdId) {
@@ -55,7 +57,7 @@ export function CreateHouseholdForm() {
       </div>
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || !name.trim()}
         className="mt-2 rounded bg-primary px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
       >
         {loading ? "作成中..." : "ハウスホールドを作成"}

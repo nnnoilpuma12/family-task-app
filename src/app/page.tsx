@@ -77,7 +77,7 @@ export default function Home() {
   const householdId = profile?.household_id ?? null;
   const supabase = useMemo(() => createClient(), []);
   const { categories } = useCategories(householdId);
-  const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, toggleTask, reorderTasks } =
+  const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted } =
     useTasks(householdId);
 
   const { recommendations, loading: recsLoading, dismiss: dismissRecommendation, refetch: refetchRecommendations } =
@@ -298,6 +298,9 @@ export default function Home() {
               onDelete={handleDeleteTask}
               onReorder={reorderTasks}
               onDeleteAllDone={handleDeleteAllDone}
+              onLoadMoreCompleted={loadMoreCompleted}
+              hasMoreCompleted={hasMoreCompleted}
+              loadingMoreCompleted={loadingMoreCompleted}
               isDndEnabled={sortOption === "manual"}
             />
           )}

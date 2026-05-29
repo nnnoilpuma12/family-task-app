@@ -244,4 +244,84 @@ describe("useTasks", () => {
       });
     });
   });
+
+  describe("loadMoreCompleted", () => {
+    it("取得した古い完了済みタスクをキャッシュ末尾に追記する", async () => {
+      const recent = makeTask({
+        id: "recent",
+        is_done: true,
+        completed_at: "2024-02-01T00:00:00Z",
+      });
+      chain._result = { data: [recent], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      const older = makeTask({
+        id: "older",
+        is_done: true,
+        completed_at: "2023-12-01T00:00:00Z",
+      });
+      chain._result = { data: [older], error: null };
+
+      await act(async () => {
+        await result.current.loadMoreCompleted();
+      });
+
+      await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+      // 古いタスクは末尾に追記される
+      expect(result.current.tasks[1].id).toBe("older");
+    });
+
+    it("最古の completed_at をカーソルに lt で絞り込む", async () => {
+      const recent = makeTask({
+        id: "recent",
+        is_done: true,
+        completed_at: "2024-02-01T00:00:00Z",
+      });
+      chain._result = { data: [recent], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      chain._result = { data: [], error: null };
+
+      await act(async () => {
+        await result.current.loadMoreCompleted();
+      });
+
+      expect(chain.lt).toHaveBeenCalledWith("completed_at", "2024-02-01T00:00:00Z");
+    });
+
+    it("ページサイズ未満の取得で hasMoreCompleted が false になる", async () => {
+      chain._result = { data: [], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.hasMoreCompleted).toBe(true);
+
+      await act(async () => {
+        await result.current.loadMoreCompleted();
+      });
+
+      expect(result.current.hasMoreCompleted).toBe(false);
+    });
+
+    it("重複 id は追記されない", async () => {
+      const dup = makeTask({
+        id: "dup",
+        is_done: true,
+        completed_at: "2024-02-01T00:00:00Z",
+      });
+      chain._result = { data: [dup], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      // 同じ id を返しても二重に追加されない
+      chain._result = { data: [dup], error: null };
+
+      await act(async () => {
+        await result.current.loadMoreCompleted();
+      });
+
+      expect(result.current.tasks).toHaveLength(1);
+    });
+  });
 });

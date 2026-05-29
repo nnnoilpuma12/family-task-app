@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -10,10 +10,14 @@ import type { Task } from "@/types";
 
 // 未完了タスクは全件、完了済みはこの日数以内のものだけ初期ロードする（蓄積による起動遅延を防ぐ）
 const COMPLETED_TASKS_WINDOW_DAYS = 30;
+// 「もっと見る」で追加取得する古い完了済みタスクの 1 ページ件数
+const COMPLETED_PAGE_SIZE = 30;
 
 export function useTasks(householdId: string | null) {
   const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
+  const [hasMoreCompleted, setHasMoreCompleted] = useState(true);
+  const [loadingMoreCompleted, setLoadingMoreCompleted] = useState(false);
 
   const fetchTasks = useCallback(async (): Promise<Task[]> => {
     if (!householdId) return [];
@@ -62,6 +66,62 @@ export function useTasks(householdId: string | null) {
     },
     [queryClient, householdId]
   );
+
+  // 世帯が切り替わったら古い完了済みの追加ロード状態をリセットする
+  // （render 中に前回値と比較して調整する React 推奨パターン。TaskList と同じ）
+  const [prevHouseholdId, setPrevHouseholdId] = useState(householdId);
+  if (prevHouseholdId !== householdId) {
+    setPrevHouseholdId(householdId);
+    setHasMoreCompleted(true);
+    setLoadingMoreCompleted(false);
+  }
+
+  // 初期ロードの 30 日ウィンドウより古い完了済みタスクを段階的に取得する。
+  // 取得済みの最古 completed_at をカーソルにして completed_at 降順でページングし、
+  // id dedupe したうえでキャッシュ末尾へ追記する（並び替え・Realtime には影響しない）。
+  const loadMoreCompleted = useCallback(async () => {
+    if (!householdId) return;
+    setLoadingMoreCompleted(true);
+
+    const current = queryClient.getQueryData<Task[]>(queryKeys.tasks(householdId)) ?? [];
+    const oldestCompletedAt = current.reduce<string | null>((min, t) => {
+      if (!t.is_done || !t.completed_at) return min;
+      return min === null || t.completed_at < min ? t.completed_at : min;
+    }, null);
+
+    let builder = supabase
+      .from("tasks")
+      .select("*")
+      .eq("household_id", householdId)
+      .eq("is_done", true)
+      .not("completed_at", "is", null);
+    if (oldestCompletedAt) {
+      builder = builder.lt("completed_at", oldestCompletedAt);
+    }
+
+    const { data, error } = await builder
+      .order("completed_at", { ascending: false })
+      .limit(COMPLETED_PAGE_SIZE);
+
+    if (error) {
+      toast.error("完了済みタスクの取得に失敗しました");
+      setLoadingMoreCompleted(false);
+      return;
+    }
+
+    const batch = data ?? [];
+    if (batch.length < COMPLETED_PAGE_SIZE) {
+      setHasMoreCompleted(false);
+    }
+    if (batch.length > 0) {
+      setTasks((prev) => {
+        const existingIds = new Set(prev.map((t) => t.id));
+        const additions = batch.filter((t) => !existingIds.has(t.id));
+        return [...prev, ...additions];
+      });
+    }
+    setLoadingMoreCompleted(false);
+  }, [householdId, supabase, queryClient, setTasks]);
 
   const addTask = async (task: {
     title: string;
@@ -240,5 +300,5 @@ export function useTasks(householdId: string | null) {
     }
   };
 
-  return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, refetch: query.refetch };
+  return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted, refetch: query.refetch };
 }

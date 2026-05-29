@@ -48,6 +48,7 @@ export function TaskDetailModal({
   if (!task) return null;
 
   const handleSave = () => {
+    if (!title.trim()) return;
     if (url && !isValidUrl(url)) {
       setUrlError("URLはhttpまたはhttpsで始まる必要があります");
       return;
@@ -146,7 +147,7 @@ export function TaskDetailModal({
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Button onClick={handleSave} className="flex-1">
+          <Button onClick={handleSave} disabled={!title.trim()} className="flex-1">
             保存
           </Button>
           <Button variant="danger" onClick={handleDelete} className="shrink-0">
