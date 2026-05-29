@@ -15,6 +15,8 @@ export class MockQueryChain {
   delete = vi.fn().mockReturnThis();
   eq = vi.fn().mockReturnThis();
   or = vi.fn().mockReturnThis();
+  not = vi.fn().mockReturnThis();
+  lt = vi.fn().mockReturnThis();
   order = vi.fn().mockReturnThis();
   limit = vi.fn().mockReturnThis();
   single = vi.fn().mockResolvedValue({ data: null, error: null });
