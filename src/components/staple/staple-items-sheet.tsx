@@ -13,112 +13,15 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  useSortable,
   rectSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { StapleItemCard } from "@/components/staple/staple-item-card";
 import { StapleItemFormSheet } from "@/components/staple/staple-item-form-sheet";
+import { SortableStapleCard } from "@/components/staple/sortable-staple-card";
+import { StapleQuickAddSheet } from "@/components/staple/staple-quick-add-sheet";
 import type { StapleItem, Category } from "@/types";
-
-interface SortableStapleCardProps {
-  item: StapleItem;
-  categories: Category[];
-  isEditMode: boolean;
-  onAddToTask: (item: StapleItem) => void;
-  onLongPress: (item: StapleItem) => void;
-  onDelete: (id: string) => void;
-}
-
-function SortableStapleCard(props: SortableStapleCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: props.item.id,
-    disabled: !props.isEditMode,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className="h-full" {...(props.isEditMode ? { ...attributes, ...listeners } : {})}>
-      <StapleItemCard {...props} isDragging={isDragging} />
-    </div>
-  );
-}
-
-interface QuickAddSheetProps {
-  isOpen: boolean;
-  item: StapleItem | null;
-  onClose: () => void;
-  onConfirm: (item: StapleItem, overrideQuantity: number | null, overrideNote: string | null) => void;
-}
-
-function QuickAddSheet({ isOpen, item, onClose, onConfirm }: QuickAddSheetProps) {
-  const [quantityStr, setQuantityStr] = useState("");
-  const [note, setNote] = useState("");
-
-  const handleOpen = useCallback(() => {
-    if (item) {
-      setQuantityStr(item.default_quantity !== null ? String(item.default_quantity) : "");
-      setNote(item.note ?? "");
-    }
-  }, [item]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!item) return;
-    const quantity = quantityStr ? parseFloat(quantityStr) : null;
-    onConfirm(item, quantity !== null && !isNaN(quantity) ? quantity : null, note.trim() || null);
-    onClose();
-  };
-
-  return (
-    <BottomSheet
-      isOpen={isOpen}
-      onClose={onClose}
-      title={item?.name ?? ""}
-      elevated
-    >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" onAnimationStart={handleOpen}>
-        <p className="text-sm text-muted">数量・メモを調整してリストに追加できます</p>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            inputMode="decimal"
-            value={quantityStr}
-            onChange={(e) => setQuantityStr(e.target.value)}
-            placeholder="数量"
-            min="0"
-            step="0.5"
-            className="flex-1 rounded border border-border-strong bg-surface px-4 py-3 text-sm text-foreground placeholder:text-subtle outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
-          />
-          {item?.default_unit && (
-            <span className="text-sm text-muted">{item.default_unit}</span>
-          )}
-        </div>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="メモ（任意）"
-          rows={2}
-          maxLength={1000}
-          className="rounded border border-border-strong bg-surface px-4 py-3 text-sm text-foreground placeholder:text-subtle outline-none resize-none focus:border-focus focus:ring-2 focus:ring-focus/15"
-        />
-        <button
-          type="submit"
-          className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white active:bg-primary/90"
-        >
-          リストに追加
-        </button>
-      </form>
-    </BottomSheet>
-  );
-}
 
 interface StapleItemsSheetProps {
   isOpen: boolean;
@@ -420,7 +323,7 @@ export function StapleItemsSheet({
       />
 
       {/* クイック追加（長押し） */}
-      <QuickAddSheet
+      <StapleQuickAddSheet
         isOpen={isQuickAddOpen}
         item={quickAddItem}
         onClose={() => {
