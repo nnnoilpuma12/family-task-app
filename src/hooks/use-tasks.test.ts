@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { MockQueryChain, createMockSupabase } from "@/test/mocks/supabase";
 import type { Task } from "@/types";
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
 vi.mock("@/lib/push", () => ({ sendPushNotification: vi.fn() }));
 vi.mock("@/lib/supabase/client");
 
