@@ -109,6 +109,25 @@ describe("TaskDetailModal", () => {
     });
   });
 
+  describe("タイトルバリデーション", () => {
+    it("タイトルが空白のみの場合は保存されない", async () => {
+      const user = userEvent.setup();
+      const task = makeTask({ title: "元のタイトル" });
+      const onUpdate = vi.fn();
+      render(
+        <TaskDetailModal {...defaultProps} task={task} onUpdate={onUpdate} />
+      );
+
+      const titleInput = screen.getByDisplayValue("元のタイトル");
+      await user.clear(titleInput);
+      await user.type(titleInput, "   ");
+
+      await user.click(screen.getByText("保存"));
+
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+  });
+
   describe("カテゴリ選択", () => {
     it("showNone=false のため「なし」ボタンが表示されない", () => {
       const category = makeCategory();

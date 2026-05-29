@@ -29,11 +29,13 @@ export function ProfileEditor({ profile, onUpdate }: ProfileEditorProps) {
   const previewAvatarUrl = avatarKey ? avatarUrlFromKey(avatarKey) : null;
 
   const handleSave = async () => {
+    const trimmedNickname = nickname.trim();
+    if (!trimmedNickname) return;
     setSaving(true);
     const supabase = createClient();
     const { data, error } = await supabase
       .from("profiles")
-      .update({ nickname, avatar_url: previewAvatarUrl })
+      .update({ nickname: trimmedNickname, avatar_url: previewAvatarUrl })
       .eq("id", profile.id)
       .select()
       .single();
@@ -76,7 +78,7 @@ export function ProfileEditor({ profile, onUpdate }: ProfileEditorProps) {
           className="rounded border border-border-strong bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
         />
       </div>
-      <Button size="sm" onClick={handleSave} disabled={saving}>
+      <Button size="sm" onClick={handleSave} disabled={saving || !nickname.trim()}>
         {saving ? "保存中..." : "保存"}
       </Button>
 

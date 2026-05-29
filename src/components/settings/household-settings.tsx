@@ -27,11 +27,13 @@ export function HouseholdSettings({
   const [copied, setCopied] = useState(false);
 
   const handleSave = async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
     setSaving(true);
     const supabase = createClient();
     const { data, error } = await supabase
       .from("households")
-      .update({ name })
+      .update({ name: trimmedName })
       .eq("id", household.id)
       .select()
       .single();
@@ -73,7 +75,7 @@ export function HouseholdSettings({
             maxLength={50}
             className="flex-1 rounded border border-border-strong bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
           />
-          <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
             {saving ? "..." : "保存"}
           </Button>
         </div>
