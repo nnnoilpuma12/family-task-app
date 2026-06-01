@@ -65,16 +65,20 @@ export function useCategories(householdId: string | null) {
   };
 
   const updateCategory = async (id: string, updates: Partial<Pick<Category, "name" | "color" | "icon" | "sort_order">>) => {
+    let snapshot = categories;
+    setCategories((prev) => {
+      snapshot = prev;
+      return prev.map((c) => (c.id === id ? { ...c, ...updates } : c));
+    });
+
     const { error } = await supabase
       .from("categories")
       .update(updates)
       .eq("id", id);
 
-    if (error) toast.error("カテゴリの更新に失敗しました");
-    if (!error) {
-      setCategories((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
-      );
+    if (error) {
+      setCategories(snapshot);
+      toast.error("カテゴリの更新に失敗しました");
     }
     return { error };
   };
@@ -90,7 +94,9 @@ export function useCategories(householdId: string | null) {
   };
 
   const reorderCategories = async (orderedIds: string[]) => {
+    let snapshot = categories;
     setCategories((prev) => {
+      snapshot = prev;
       const map = new Map(prev.map((c) => [c.id, c]));
       return orderedIds.map((id, i) => ({ ...map.get(id)!, sort_order: i }));
     });
@@ -100,8 +106,8 @@ export function useCategories(householdId: string | null) {
       )
     );
     if (results.some((r) => r.error)) {
+      setCategories(snapshot);
       toast.error("カテゴリの並び替えに失敗しました");
-      query.refetch();
     }
   };
 
