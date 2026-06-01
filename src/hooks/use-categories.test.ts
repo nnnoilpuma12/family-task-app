@@ -90,5 +90,63 @@ describe("useCategories", () => {
       await waitFor(() => expect(result.current.categories[0].name).toBe("新名前"));
       expect(result.current.categories[0].color).toBe("#0000ff");
     });
+
+    it("エラー時: optimistic update をロールバックする", async () => {
+      const cat = makeCategory({ id: "c-1", name: "元の名前", color: "#0000ff" });
+      chain._result = { data: [cat], error: null };
+
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.categories).toHaveLength(1));
+
+      chain._result = { data: null, error: { message: "DB error" } };
+
+      await act(async () => {
+        await result.current.updateCategory("c-1", { name: "新しい名前" });
+      });
+
+      expect(result.current.categories[0].name).toBe("元の名前");
+    });
+  });
+
+  describe("reorderCategories", () => {
+    it("正常系: 指定した順序に並び替わる", async () => {
+      const cats = [
+        makeCategory({ id: "c-1", sort_order: 0 }),
+        makeCategory({ id: "c-2", sort_order: 1 }),
+      ];
+      chain._result = { data: cats, error: null };
+
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.categories).toHaveLength(2));
+
+      await act(async () => {
+        await result.current.reorderCategories(["c-2", "c-1"]);
+      });
+
+      expect(result.current.categories[0].id).toBe("c-2");
+      expect(result.current.categories[1].id).toBe("c-1");
+    });
+
+    it("エラー時: snapshot にロールバックする", async () => {
+      const cats = [
+        makeCategory({ id: "c-1", sort_order: 0 }),
+        makeCategory({ id: "c-2", sort_order: 1 }),
+      ];
+      chain._result = { data: cats, error: null };
+
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.categories).toHaveLength(2));
+
+      chain._result = { data: null, error: { message: "DB error" } };
+
+      await act(async () => {
+        await result.current.reorderCategories(["c-2", "c-1"]);
+      });
+
+      await waitFor(() => {
+        expect(result.current.categories[0].id).toBe("c-1");
+        expect(result.current.categories[1].id).toBe("c-2");
+      });
+    });
   });
 });
