@@ -57,6 +57,22 @@ describe("useCategories", () => {
       );
       await waitFor(() => expect(result.current.categories).toHaveLength(3));
     });
+
+    it("エラー時: state に追加されない", async () => {
+      const existing = [makeCategory({ sort_order: 0 })];
+      chain._result = { data: existing, error: null };
+
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.categories).toHaveLength(1));
+
+      chain.single.mockResolvedValueOnce({ data: null, error: { message: "DB error" } });
+
+      await act(async () => {
+        await result.current.addCategory("失敗カテゴリ", "#ff0000");
+      });
+
+      expect(result.current.categories).toHaveLength(1);
+    });
   });
 
   describe("deleteCategory", () => {
@@ -91,6 +107,21 @@ describe("useCategories", () => {
       expect(result.current.categories[0].color).toBe("#0000ff");
     });
 
+    it("color のみ変更して name は維持される", async () => {
+      const cat = makeCategory({ id: "c-1", name: "名前そのまま", color: "#0000ff" });
+      chain._result = { data: [cat], error: null };
+
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.categories).toHaveLength(1));
+
+      await act(async () => {
+        await result.current.updateCategory("c-1", { color: "#ff0000" });
+      });
+
+      await waitFor(() => expect(result.current.categories[0].color).toBe("#ff0000"));
+      expect(result.current.categories[0].name).toBe("名前そのまま");
+    });
+
     it("エラー時: optimistic update をロールバックする", async () => {
       const cat = makeCategory({ id: "c-1", name: "元の名前", color: "#0000ff" });
       chain._result = { data: [cat], error: null };
@@ -119,12 +150,23 @@ describe("useCategories", () => {
       const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.categories).toHaveLength(2));
 
+      // バックグラウンド再フェッチが起きても正しい順序を返すよう DB 状態を先に更新
+      chain._result = {
+        data: [
+          { ...cats[1], sort_order: 0 },
+          { ...cats[0], sort_order: 1 },
+        ],
+        error: null,
+      };
+
       await act(async () => {
         await result.current.reorderCategories(["c-2", "c-1"]);
       });
 
-      expect(result.current.categories[0].id).toBe("c-2");
-      expect(result.current.categories[1].id).toBe("c-1");
+      await waitFor(() => {
+        expect(result.current.categories[0].id).toBe("c-2");
+        expect(result.current.categories[1].id).toBe("c-1");
+      });
     });
 
     it("エラー時: snapshot にロールバックする", async () => {
