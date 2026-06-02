@@ -226,6 +226,21 @@ describe("useTasks", () => {
 
       await waitFor(() => expect(result.current.tasks).toHaveLength(0));
     });
+
+    it("エラー時: 楽観的削除からロールバックする", async () => {
+      const task = makeTask({ id: "t-1" });
+      chain._result = { data: [task], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      chain._result = { data: null, error: { message: "DB error" } };
+
+      await act(async () => {
+        await result.current.deleteTask("t-1", { skipToast: true });
+      });
+
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+    });
   });
 
   describe("reorderTasks", () => {
@@ -302,6 +317,28 @@ describe("useTasks", () => {
       });
 
       expect(result.current.hasMoreCompleted).toBe(false);
+    });
+
+    it("ページサイズぴったり30件の取得で hasMoreCompleted が true のまま", async () => {
+      chain._result = { data: [], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.hasMoreCompleted).toBe(true);
+
+      const batch30 = Array.from({ length: 30 }, (_, i) =>
+        makeTask({
+          id: `batch-${i}`,
+          is_done: true,
+          completed_at: `2023-${String(i + 1).padStart(2, "0")}-01T00:00:00Z`,
+        })
+      );
+      chain._result = { data: batch30, error: null };
+
+      await act(async () => {
+        await result.current.loadMoreCompleted();
+      });
+
+      expect(result.current.hasMoreCompleted).toBe(true);
     });
 
     it("重複 id は追記されない", async () => {
