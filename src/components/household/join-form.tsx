@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { clearCachedHousehold } from "@/lib/household-cache";
 
 export function JoinHouseholdForm() {
   const router = useRouter();
@@ -27,6 +28,9 @@ export function JoinHouseholdForm() {
       return;
     }
 
+    // 参加先の世帯名はここでは不明なため、古いキャッシュを消して
+    // usePageData の再取得に任せる（誤った世帯名の表示を防ぐ）
+    clearCachedHousehold();
     router.push("/");
     router.refresh();
   };

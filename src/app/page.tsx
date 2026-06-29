@@ -36,6 +36,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useTaskRecommendations } from "@/hooks/use-task-recommendations";
 import { useTitleSuggestions } from "@/hooks/use-title-suggestions";
 import { usePageData } from "@/hooks/use-page-data";
+import { getCachedHouseholdId } from "@/lib/household-cache";
 import { useStapleItems } from "@/hooks/use-staple-items";
 import { useRealtimeStapleItems } from "@/hooks/use-realtime-staple-items";
 import type { TabMeasurements } from "@/components/category/category-tabs";
@@ -74,7 +75,15 @@ export default function Home() {
     tabMeasurementsRef.current = m;
   }, []);
 
-  const householdId = profile?.household_id ?? null;
+  // 前回セッションでキャッシュした householdId をマウント後に読み出し、
+  // profiles 取得を待たずに tasks/categories/staple/Realtime を並列発火させる。
+  // （useEffect で読むことで SSR とのハイドレーション不整合を避ける）
+  const [cachedHouseholdId, setCachedHouseholdId] = useState<string | null>(null);
+  useEffect(() => {
+    setCachedHouseholdId(getCachedHouseholdId());
+  }, []);
+  // profile 確定後はそちらを正とする（世帯切替時はキー変更で自動再取得される）
+  const householdId = profile?.household_id ?? cachedHouseholdId;
   const supabase = useMemo(() => createClient(), []);
   const { categories } = useCategories(householdId);
   const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted } =
