@@ -4,6 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import {
+  getCachedHouseholdName,
+  setCachedHousehold,
+  clearCachedHousehold,
+} from "@/lib/household-cache";
 import type { Profile, Household } from "@/types";
 
 interface UsePageDataOptions {
@@ -32,6 +37,11 @@ export function usePageData(options: UsePageDataOptions = {}): PageData {
 
   useEffect(() => {
     const load = async () => {
+      // キャッシュ済みの世帯名を即時反映してヘッダーの CLS を防ぐ
+      // （マウント後の実行なのでハイドレーション不整合は起きない）
+      const cachedName = getCachedHouseholdName();
+      if (cachedName) setHouseholdName(cachedName);
+
       const supabase = createClient();
       // middleware が全リクエストでサーバ側セッション検証を済ませているため、
       // ここはネットワーク往復のない getSession() で十分（認証往復の二重化を回避）
@@ -41,6 +51,7 @@ export function usePageData(options: UsePageDataOptions = {}): PageData {
       const user = session?.user;
 
       if (!user) {
+        clearCachedHousehold();
         router.push("/login");
         setLoading(false);
         return;
@@ -70,6 +81,7 @@ export function usePageData(options: UsePageDataOptions = {}): PageData {
       }
 
       if (!p.household_id && redirectIfNoHousehold) {
+        clearCachedHousehold();
         setProfile(p);
         router.push("/household/new");
         setLoading(false);
@@ -79,24 +91,28 @@ export function usePageData(options: UsePageDataOptions = {}): PageData {
       setProfile(p);
 
       if (p.household_id) {
+        const hid = p.household_id;
         if (fetchHousehold) {
           const [householdResult, membersResult] = await Promise.all([
             supabase
               .from("households")
               .select("*")
-              .eq("id", p.household_id)
+              .eq("id", hid)
               .single(),
             supabase
               .from("profiles")
               .select("*")
-              .eq("household_id", p.household_id)
+              .eq("household_id", hid)
               .order("created_at", { ascending: true }),
           ]);
 
           if (householdResult.error) toast.error("ハウスホールドの取得に失敗しました");
           if (householdResult.data) {
             setHousehold(householdResult.data);
-            if (householdResult.data.name) setHouseholdName(householdResult.data.name);
+            if (householdResult.data.name) {
+              setHouseholdName(householdResult.data.name);
+              setCachedHousehold(hid, householdResult.data.name);
+            }
           }
 
           if (membersResult.error) toast.error("メンバーの取得に失敗しました");
@@ -106,7 +122,7 @@ export function usePageData(options: UsePageDataOptions = {}): PageData {
           supabase
             .from("profiles")
             .select("*")
-            .eq("household_id", p.household_id)
+            .eq("household_id", hid)
             .then(({ data, error }) => {
               if (error) toast.error("メンバーの取得に失敗しました");
               if (data) setMembers(data);
@@ -115,10 +131,14 @@ export function usePageData(options: UsePageDataOptions = {}): PageData {
           supabase
             .from("households")
             .select("name")
-            .eq("id", p.household_id)
+            .eq("id", hid)
             .single()
             .then(({ data }) => {
-              if (data?.name) setHouseholdName(data.name);
+              if (data?.name) {
+                setHouseholdName(data.name);
+                // 次回起動で profiles を待たずに名前・id を即時利用するためキャッシュ
+                setCachedHousehold(hid, data.name);
+              }
             });
         }
       }

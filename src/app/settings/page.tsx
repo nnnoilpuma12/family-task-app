@@ -9,6 +9,7 @@ import { CategorySettings } from "@/components/settings/category-settings";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 import { useCategories } from "@/hooks/use-categories";
 import { usePageData } from "@/hooks/use-page-data";
+import { clearCachedHousehold } from "@/lib/household-cache";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function SettingsPage() {
 
   const handleLogout = async () => {
     const supabase = createClient();
+    clearCachedHousehold();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();

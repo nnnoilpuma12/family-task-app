@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { setCachedHousehold } from "@/lib/household-cache";
 
 export function CreateHouseholdForm() {
   const router = useRouter();
@@ -30,6 +31,8 @@ export function CreateHouseholdForm() {
       return;
     }
 
+    // 次回起動の並列化のため、作成直後に id/名前をキャッシュ
+    setCachedHousehold(householdId, trimmedName);
     router.push("/");
     router.refresh();
   };
