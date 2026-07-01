@@ -7,12 +7,15 @@ import { ProfileEditor } from "@/components/settings/profile-editor";
 import { HouseholdSettings } from "@/components/settings/household-settings";
 import { CategorySettings } from "@/components/settings/category-settings";
 import { NotificationSettings } from "@/components/settings/notification-settings";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCategories } from "@/hooks/use-categories";
 import { usePageData } from "@/hooks/use-page-data";
 import { clearCachedHousehold } from "@/lib/household-cache";
+import { clearPersistedQueryCache } from "@/lib/query-persist";
 
 export default function SettingsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { profile, setProfile, members, household, setHousehold } = usePageData({
     redirectIfNoHousehold: false,
     fetchHousehold: true,
@@ -23,7 +26,10 @@ export default function SettingsPage() {
 
   const handleLogout = async () => {
     const supabase = createClient();
+    // 別ユーザーがメモリ/端末に前ユーザーのデータを見ないよう、in-memory と永続キャッシュを破棄
     clearCachedHousehold();
+    queryClient.clear();
+    clearPersistedQueryCache();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
