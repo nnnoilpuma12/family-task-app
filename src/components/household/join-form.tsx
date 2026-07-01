@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { clearCachedHousehold } from "@/lib/household-cache";
+import { clearPersistedQueryCache } from "@/lib/query-persist";
 
 export function JoinHouseholdForm() {
   const router = useRouter();
@@ -29,8 +30,10 @@ export function JoinHouseholdForm() {
     }
 
     // 参加先の世帯名はここでは不明なため、古いキャッシュを消して
-    // usePageData の再取得に任せる（誤った世帯名の表示を防ぐ）
+    // usePageData の再取得に任せる（誤った世帯名の表示を防ぐ）。
+    // 前世帯のタスク等が端末に残らないよう永続キャッシュも破棄する
     clearCachedHousehold();
+    clearPersistedQueryCache();
     router.push("/");
     router.refresh();
   };
