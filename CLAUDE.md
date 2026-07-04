@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |---|---|
 | Framework | Next.js 16.1.6 (App Router, Turbopack) |
 | UI | React 19.2.3, Tailwind CSS v4, framer-motion 12, sonner |
-| Data fetching | @tanstack/react-query 5（サーバーステートのキャッシュ・再検証） |
+| Data fetching | @tanstack/react-query 5 + query-sync-storage-persister / react-query-persist-client（キャッシュを localStorage に永続化） |
 | DnD | @dnd-kit/core 6 / sortable 10 / utilities 3 |
 | Icons | lucide-react |
 | Backend | Supabase (`@supabase/ssr` 0.8, `supabase-js` 2.95) — Postgres + Auth + Realtime + Storage |
@@ -62,7 +62,7 @@ npx supabase db push                            # 本番 Supabase へ反映
 コードから自明でないものだけ：
 
 - `src/proxy.ts` — **Next.js 16 で `middleware.ts` から改名されたエントリポイント**。`async function proxy(request)` を export する（`middleware` ではない）。中身は `src/lib/supabase/middleware.ts` の `updateSession` に委譲し、セッション更新と未認証リダイレクトを担当。
-- `src/app/providers.tsx` — `QueryClientProvider` をマウントする Client ラッパ。`layout.tsx` が `<Providers>` で全ページを包む。`QueryClient` は `useState` の初期化関数で一度だけ生成（リクエスト/レンダ間で共有しない）。`staleTime: 30s` / `gcTime: 5min` / `refetchOnWindowFocus`。
+- `src/app/providers.tsx` — `PersistQueryClientProvider` をマウントする Client ラッパ。`layout.tsx` が `<Providers>` で全ページを包む。`QueryClient` は `useState` の初期化関数で一度だけ生成（リクエスト/レンダ間で共有しない）。`staleTime: 30s` / `gcTime: 24h`（永続化の必須条件 `gcTime >= maxAge`）/ `retry: 1` / `refetchOnWindowFocus`。永続化は成功したクエリのみ dehydrate する。
 - `src/app/layout.tsx` — ルートレイアウト。`ServiceWorkerRegister` / `Toaster`（sonner）/ `Providers` をマウント。PWA メタデータ・アイコン・viewport もここ。
 - `src/lib/supabase/` — レンダリング文脈ごとにクライアントを使い分ける：
   - `client.ts` — Client Component 用（`createBrowserClient`）
@@ -70,6 +70,8 @@ npx supabase db push                            # 本番 Supabase へ反映
   - `middleware.ts` — proxy 専用のセッション更新ロジック
   - `service-role.ts` — サービスロールキー用クライアント。`src/app/api/push/send/route.ts` でのみ使用
 - `src/lib/query-keys.ts` — React Query のキー定義を一元化（`queryKeys.tasks / categories / stapleItems`、いずれも `householdId` でスコープ）。フックは必ずこれを経由してキーを組み立てる。
+- `src/lib/query-persist.ts` — React Query キャッシュの localStorage 永続化設定を一元化。`createAppPersister()` / `clearPersistedQueryCache()` / `APP_CACHE_VERSION` を export。**DB スキーマや型を変えてキャッシュ互換が崩れるときは `APP_CACHE_VERSION` を上げて旧キャッシュを無効化する**。
+- `src/lib/household-cache.ts` — 直近の世帯 id / 名前を localStorage にキャッシュする軽量ヘルパ。起動時に `householdId` を即座に得て、profiles 取得を待たずにデータ取得を並列発火させるためのもの（後述「起動フロー」）。
 - `src/lib/date.ts` — `formatDueDate` / `getQuickDate` などの日付ユーティリティ
 - `src/lib/validation.ts` — `isValidUrl`（タスク URL の XSS/フィッシング対策バリデーション）
 - `src/lib/avatar.ts` — 24 種類の絵文字アバタープリセット（動物・花・食べ物・感情）
@@ -105,7 +107,9 @@ src/app/page.tsx（Client Component）
   └─ useTitleSuggestions()     — 過去タイトルからの入力サジェスト（アイドル時取得）
 ```
 
-- **サーバーステートは React Query が保持**。`useTasks` / `useCategories` / `useStapleItems` は `useQuery` でフェッチし、キャッシュは `queryClient.setQueryData(queryKeys.xxx(householdId), ...)` で直接書き換える。ページ遷移で戻ってきたときの再取得を避けるのが目的。
+- **サーバーステートは React Query が保持**。`useTasks` / `useCategories` / `useStapleItems` は `useQuery` でフェッチし、キャッシュは `queryClient.setQueryData(queryKeys.xxx(householdId), ...)` で直接書き換える。ページ遷移で戻ってきたときの再取得を避けるのが目的。キャッシュは localStorage に永続化され（`src/lib/query-persist.ts`）、再訪時は即時表示 → 裏で再検証となる。
+- **起動フロー（並列化）**：`page.tsx` はマウント直後に `getCachedHouseholdId()`（localStorage）を読み、`householdId = profile?.household_id ?? cachedHouseholdId` として tasks / categories / staple / Realtime を profiles 取得を待たずに並列発火させる。profile 確定後はそちらが正となり、世帯が変わればキー変更で自動再取得される。`usePageData` はネットワーク往復のない `getSession()` を使う（サーバ側検証は middleware 済み）。詳細は `docs/startup-flow.md`。
+- **キャッシュのクリア境界**：別ユーザー / 別世帯に切り替わる箇所（ログアウト＝`settings/page.tsx`、世帯参加＝`household/join-form.tsx`）では `clearCachedHousehold()` と `clearPersistedQueryCache()` を必ず呼び、端末に前世帯のデータを残さない。
 - **楽観的更新**：`setQueryData` でキャッシュを先に更新 → Supabase 呼び出し。`useCategories` などはエラー時にスナップショットへロールバックする（既存パターンに合わせる）。
 - **Realtime と楽観的更新の競合**は id ベースの dedupe で解決（`useRealtimeTasks` / `useRealtimeStapleItems` 参照）。
 - **完了済みタスクは段階ロード**。初期は未完了 + 直近の完了のみ表示し、`loadMoreCompleted()`（`COMPLETED_PAGE_SIZE = 30`）で追加取得する。
@@ -243,8 +247,9 @@ VAPID_SUBJECT=mailto:...
 - `docs/incident-profiles-403.md` — profiles テーブルへの 403 エラーに関する過去インシデント記録（RLS 設計の経緯把握に有用）
 - `docs/nonfunctional-roadmap.md` — 非機能要件（パフォーマンス・セキュリティ・運用）のロードマップ
 - `docs/performance-analysis.md` — パフォーマンス分析記録（直列クエリ・未ページネーション・バンドルサイズの課題を記録）
+- `docs/startup-flow.md` — アプリ起動〜初回描画のシーケンス図（householdId キャッシュによる並列化の対応前後を Mermaid で図解）
 
-ルートにある `plan.md` は機能開発の計画メモ。
+ルートにある `plan.md` は機能開発の計画メモ、`DESIGN.md` は Notion 風デザインシステムの詳細ドキュメント（カラー・タイポグラフィ・コンポーネントスタイルの参照元）。
 
 ---
 
