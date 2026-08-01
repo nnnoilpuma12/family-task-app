@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
+
+// マウント判定用（サーバでは false、クライアントでは true）。
+// 値は変化しないので購読は no-op でよい。
+const subscribeNoop = () => () => {};
+const getMountedSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -25,6 +32,15 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
+
+  // `transform` / `will-change` を持つ祖先（SwipeableTaskContainer など）は
+  // position: fixed の包含ブロックになり、表示位置がリスト量に応じてずれる。
+  // document.body へポータルして常にビューポート基準で中央寄せする。
+  const isMounted = useSyncExternalStore(
+    subscribeNoop,
+    getMountedSnapshot,
+    getServerSnapshot
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -63,7 +79,9 @@ export function ConfirmDialog({
       ? "bg-danger hover:opacity-90 text-white"
       : "bg-primary hover:bg-primary-dark text-white";
 
-  return (
+  if (!isMounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div
@@ -121,6 +139,7 @@ export function ConfirmDialog({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
