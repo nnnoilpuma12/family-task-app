@@ -18,12 +18,28 @@ function ensureVapidConfigured() {
 }
 
 // P2-4: Simple in-memory rate limiter (10 requests/minute/user)
+// 注意: インスタンスローカルなので複数インスタンス構成では best-effort。
+// 厳密な制限が必要になったら共有ストア（Postgres / Redis）へ移すこと。
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60_000;
+// 期限切れエントリは同一ユーザーの再訪でしか上書きされないため、
+// 掃除しないとユーザー数に比例して Map が単調増加する。
+// setInterval はサーバーレス環境で回収されないので、リクエスト契機で間引く。
+const RATE_LIMIT_SWEEP_INTERVAL_MS = 5 * 60_000;
+let rateLimitSweptAt = Date.now();
+
+function sweepRateLimitMap(now: number) {
+  if (now - rateLimitSweptAt < RATE_LIMIT_SWEEP_INTERVAL_MS) return;
+  rateLimitSweptAt = now;
+  for (const [key, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) rateLimitMap.delete(key);
+  }
+}
 
 function isRateLimited(userId: string): boolean {
   const now = Date.now();
+  sweepRateLimitMap(now);
   const entry = rateLimitMap.get(userId);
 
   if (!entry || now >= entry.resetAt) {
