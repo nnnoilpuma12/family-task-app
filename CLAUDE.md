@@ -214,7 +214,7 @@ VAPID_SUBJECT=mailto:...
 
 ### マイグレーション一覧
 
-`supabase/migrations/` 配下に 14 ファイル：
+`supabase/migrations/` 配下に 17 ファイル：
 
 1. `001_initial_schema.sql` — 全スキーマ + RLS + トリガ + 関数
 2. `002_add_profiles_insert_policy.sql`
@@ -230,6 +230,11 @@ VAPID_SUBJECT=mailto:...
 12. `012_staple_items.sql` — `staple_items` テーブル + RLS + Realtime publish、`reorder_staple_items` RPC 新設
 13. `013_lock_profile_household_update.sql` — `profiles` UPDATE に `WITH CHECK` を追加し household_id 直接変更を禁止、`create_household_with_defaults` RPC 新設
 14. `014_fix_invite_code_extensions_schema.sql` — 招待コード生成 RPC の `gen_random_bytes` を `extensions` スキーマで完全修飾（再発行失敗の修正）
+15. `015_scalability_indexes.sql` — 完了済みタスクの蓄積に効く複合インデックス追加（起動時取得の BitmapOr 化、完了済みページングの keyset 化、タイトルサジェスト、レコメンドの式インデックス）。重複した `idx_tasks_household` / `idx_tasks_household_done_completed` を削除
+16. `016_rls_initplan_optimization.sql` — 全 RLS ポリシーの `get_my_household_id()` / `auth.uid()` を `(select ...)` で包んで InitPlan 化、`task_assignees` / `task_images` のポリシーを `IN` から `EXISTS` へ書き換え（権限の意味は不変）
+17. `017_recommendations_time_window.sql` — `get_recurring_recommendations` の集計対象を直近 1 年に制限（起動ごとの全期間走査を解消。最終完了が 1 年以上前のタイトルは出なくなる）
+
+> **スケーラビリティの前提**：このアプリに論理削除は無く、削除は全て物理 DELETE。蓄積源はパージされない完了済みタスク（`is_done = true`）で、効いてくる軸は総ユーザー数ではなく **1 世帯あたりの利用年数**。全テーブルが `household_id` でスコープされているため、世帯数の増加は個々のクエリコストにほぼ影響しない。`tasks` に新しいクエリパターンを足すときは、読む行数が履歴全体に比例していないか（返す件数に比例しているか）を `EXPLAIN (ANALYZE, BUFFERS)` で確認すること。
 
 ---
 
