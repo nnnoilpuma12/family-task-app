@@ -4,6 +4,7 @@ import { useTasks } from "@/hooks/use-tasks";
 import { createClient } from "@/lib/supabase/client";
 import { MockQueryChain, createMockSupabase } from "@/test/mocks/supabase";
 import { createQueryWrapper } from "@/test/query-wrapper";
+import { flushQueryUpdates } from "@/test/flush";
 import type { Task } from "@/types";
 
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
@@ -87,6 +88,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.addTask({ title: "買い物" });
       });
+      await flushQueryUpdates();
 
       await waitFor(() => expect(result.current.tasks).toContainEqual(serverTask));
     });
@@ -101,6 +103,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.addTask({ title: "失敗タスク" });
       });
+      await flushQueryUpdates();
 
       expect(result.current.tasks).toHaveLength(0);
     });
@@ -123,6 +126,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.toggleTask("t-1");
       });
+      await flushQueryUpdates();
 
       await waitFor(() => expect(result.current.tasks[0].is_done).toBe(true));
       expect(result.current.tasks[0].completed_at).not.toBeNull();
@@ -144,6 +148,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.toggleTask("t-1");
       });
+      await flushQueryUpdates();
 
       await waitFor(() => expect(result.current.tasks[0].is_done).toBe(false));
       expect(result.current.tasks[0].completed_at).toBeNull();
@@ -165,6 +170,7 @@ describe("useTasks", () => {
           household_id: "evil-household",
         });
       });
+      await flushQueryUpdates();
 
       expect(chain.update).toHaveBeenCalledWith(
         expect.objectContaining({ title: "新しいタイトル" })
@@ -172,6 +178,22 @@ describe("useTasks", () => {
       expect(chain.update).toHaveBeenCalledWith(
         expect.not.objectContaining({ household_id: "evil-household" })
       );
+    });
+
+    it("エラー時: snapshot にロールバックする", async () => {
+      const task = makeTask({ id: "t-1", title: "元のタイトル" });
+      chain._result = { data: [task], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      chain.single.mockResolvedValueOnce({ data: null, error: { message: "DB error" } });
+
+      await act(async () => {
+        await result.current.updateTask("t-1", { title: "新しいタイトル" });
+      });
+      await flushQueryUpdates();
+
+      expect(result.current.tasks[0].title).toBe("元のタイトル");
     });
 
     it("更新成功時にプッシュ通知が送信される", async () => {
@@ -187,6 +209,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.updateTask("t-1", { title: "新しいタイトル" });
       });
+      await flushQueryUpdates();
 
       expect(sendPushNotification).toHaveBeenCalledWith({
         title: "家族タスク",
@@ -208,6 +231,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.updateTask("t-1", { is_done: true }, { skipNotification: true });
       });
+      await flushQueryUpdates();
 
       expect(sendPushNotification).not.toHaveBeenCalled();
     });
@@ -223,6 +247,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.deleteTask("t-1");
       });
+      await flushQueryUpdates();
 
       await waitFor(() => expect(result.current.tasks).toHaveLength(0));
     });
@@ -238,6 +263,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.deleteTask("t-1", { skipToast: true });
       });
+      await flushQueryUpdates();
 
       await waitFor(() => expect(result.current.tasks).toHaveLength(1));
     });
@@ -252,11 +278,31 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.reorderTasks(["id-b", "id-a"]);
       });
+      await flushQueryUpdates();
 
       expect(mockClient.rpc).toHaveBeenCalledWith("reorder_tasks", {
         p_task_ids: ["id-b", "id-a"],
         p_sort_orders: [0, 1],
       });
+    });
+
+    it("エラー時: snapshot にロールバックする", async () => {
+      const tasks = [
+        makeTask({ id: "t-1", sort_order: 0 }),
+        makeTask({ id: "t-2", sort_order: 1 }),
+      ];
+      chain._result = { data: tasks, error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { message: "RPC error" } });
+
+      await act(async () => {
+        await result.current.reorderTasks(["t-2", "t-1"]);
+      });
+      await flushQueryUpdates();
+
+      expect(result.current.tasks.map((t) => t.id)).toEqual(["t-1", "t-2"]);
     });
   });
 
@@ -281,6 +327,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.loadMoreCompleted();
       });
+      await flushQueryUpdates();
 
       await waitFor(() => expect(result.current.tasks).toHaveLength(2));
       // 古いタスクは末尾に追記される
@@ -302,6 +349,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.loadMoreCompleted();
       });
+      await flushQueryUpdates();
 
       expect(chain.lt).toHaveBeenCalledWith("completed_at", "2024-02-01T00:00:00Z");
     });
@@ -315,6 +363,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.loadMoreCompleted();
       });
+      await flushQueryUpdates();
 
       expect(result.current.hasMoreCompleted).toBe(false);
     });
@@ -337,6 +386,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.loadMoreCompleted();
       });
+      await flushQueryUpdates();
 
       expect(result.current.hasMoreCompleted).toBe(true);
     });
@@ -357,6 +407,7 @@ describe("useTasks", () => {
       await act(async () => {
         await result.current.loadMoreCompleted();
       });
+      await flushQueryUpdates();
 
       expect(result.current.tasks).toHaveLength(1);
     });

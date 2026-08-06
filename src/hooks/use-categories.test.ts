@@ -4,6 +4,7 @@ import { useCategories } from "@/hooks/use-categories";
 import { createClient } from "@/lib/supabase/client";
 import { MockQueryChain, createMockSupabase } from "@/test/mocks/supabase";
 import { createQueryWrapper } from "@/test/query-wrapper";
+import { flushQueryUpdates } from "@/test/flush";
 import type { Category } from "@/types";
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -51,6 +52,7 @@ describe("useCategories", () => {
       await act(async () => {
         await result.current.addCategory("新カテゴリ", "#ff0000");
       });
+      await flushQueryUpdates();
 
       expect(chain.insert).toHaveBeenCalledWith(
         expect.objectContaining({ sort_order: 2 })
@@ -70,6 +72,7 @@ describe("useCategories", () => {
       await act(async () => {
         await result.current.addCategory("失敗カテゴリ", "#ff0000");
       });
+      await flushQueryUpdates();
 
       expect(result.current.categories).toHaveLength(1);
     });
@@ -86,6 +89,7 @@ describe("useCategories", () => {
       await act(async () => {
         await result.current.deleteCategory("c-1");
       });
+      await flushQueryUpdates();
 
       await waitFor(() => expect(result.current.categories).toHaveLength(0));
     });
@@ -102,6 +106,7 @@ describe("useCategories", () => {
       await act(async () => {
         await result.current.updateCategory("c-1", { name: "新名前" });
       });
+      await flushQueryUpdates();
 
       await waitFor(() => expect(result.current.categories[0].name).toBe("新名前"));
       expect(result.current.categories[0].color).toBe("#0000ff");
@@ -117,6 +122,7 @@ describe("useCategories", () => {
       await act(async () => {
         await result.current.updateCategory("c-1", { color: "#ff0000" });
       });
+      await flushQueryUpdates();
 
       await waitFor(() => expect(result.current.categories[0].color).toBe("#ff0000"));
       expect(result.current.categories[0].name).toBe("名前そのまま");
@@ -134,6 +140,7 @@ describe("useCategories", () => {
       await act(async () => {
         await result.current.updateCategory("c-1", { name: "新しい名前" });
       });
+      await flushQueryUpdates();
 
       expect(result.current.categories[0].name).toBe("元の名前");
     });
@@ -162,6 +169,7 @@ describe("useCategories", () => {
       await act(async () => {
         await result.current.reorderCategories(["c-2", "c-1"]);
       });
+      await flushQueryUpdates();
 
       await waitFor(() => {
         expect(result.current.categories[0].id).toBe("c-2");
@@ -184,6 +192,7 @@ describe("useCategories", () => {
       await act(async () => {
         await result.current.reorderCategories(["c-2", "c-1"]);
       });
+      await flushQueryUpdates();
 
       await waitFor(() => {
         expect(result.current.categories[0].id).toBe("c-1");
