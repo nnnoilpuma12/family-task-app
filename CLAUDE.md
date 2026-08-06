@@ -140,15 +140,29 @@ src/app/page.tsx（Client Component）
 |---|---|
 | `src/test/setup.ts` | Vitest グローバルセットアップ。`next/navigation` を自動モック |
 | `src/test/mocks/supabase.ts` | `MockQueryChain`（thenable な Supabase クエリチェーンのモック）と `createMockSupabase()` を提供 |
-| `src/test/query-wrapper.tsx` | `createQueryWrapper()`。テストごとに独立した `QueryClient`（`retry: false` / `gcTime: 0`）を持つ React Query ラッパを生成 |
+| `src/test/query-wrapper.tsx` | `createQueryWrapper()`。テストごとに独立した `QueryClient`（`retry: false` / `gcTime: 0` / `staleTime: Infinity` / `refetchOn*: false`）を持つ React Query ラッパを生成 |
+| `src/test/flush.ts` | `flushQueryUpdates()`。React Query の observer 通知をフラッシュする |
+
+CI は `.github/workflows/ci.yml` が PR / main への push で `npm run test:run` を実行する。
+lint は既存エラーが残っているため現状 `continue-on-error: true`（解消したら必須化する）。
 
 **テスト作成パターン：**
 
 ```typescript
 // Supabase クライアントはモジュールレベルで vi.mock()
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => createMockSupabase({ /* テーブルごとの返却値 */ }),
-}));
+vi.mock("@/lib/supabase/client");
+
+// テーブルごとに返却値を分ける
+const client = createMockSupabase({
+  profiles: { data: [profile] },
+  staple_items: { data: items },
+});
+vi.mocked(createClient).mockReturnValue(client);
+client._table("staple_items")._result = { data: [], error: null };  // 後から差し替え
+
+// 単一チェーンを全テーブルで共有する形も可（既存テストの書き方）
+const chain = new MockQueryChain();
+const client = createMockSupabase(chain);
 
 // framer-motion, sonner, next/navigation も vi.mock() で差し替える
 vi.mock("framer-motion", () => ({ motion: { div: "div" }, AnimatePresence: ({ children }) => children }));
@@ -161,6 +175,16 @@ await waitFor(() => expect(result.current.loading).toBe(false));
 ```
 
 > React Query を使うフック（`useTasks` / `useCategories` / `useStapleItems`）のテストは **必ず `createQueryWrapper()` を wrapper に渡す**こと。渡さないと `QueryClient` が見つからず失敗する。
+
+> **楽観的更新のテストでは `flushQueryUpdates()` を挟むこと。** React Query の observer 通知はバッチされるため、`act()` 直後に同期的に読んだ `result.current` はまだ更新前の値を指している。とくに「値が元に戻っていること」を確かめるロールバックのテストは、フラッシュを忘れると *更新前* の値を読んでしまい、**ロールバック処理を削除してもテストが通る**（＝何も検証していない）状態になる。
+>
+> ```typescript
+> await act(async () => { await result.current.updateStapleItem("s-1", { name: "新" }); });
+> await flushQueryUpdates();          // これが無いと下の assert が常に成功する
+> expect(result.current.stapleItems[0].name).toBe("元の名前");
+> ```
+>
+> 変化を待つ検証は `waitFor` で足りる。非変化の検証にのみ必要。
 
 ---
 
