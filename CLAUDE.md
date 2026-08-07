@@ -224,7 +224,7 @@ VAPID_SUBJECT=mailto:...
 - `get_my_household_id()` — RLS の無限再帰回避用 SECURITY DEFINER ヘルパ
 - `create_default_categories(p_household_id)` — 世帯作成時のデフォルトカテゴリ投入
 - `create_household_with_defaults(p_name text)` — **世帯の新規作成はこの RPC のみ**。households 作成・profile 紐付け・デフォルトカテゴリ・招待コード発行をアトミックに実行（SECURITY DEFINER で RLS バイパス）
-- `generate_invite_code(p_household_id)` — 6 文字招待コード生成（`extensions.gen_random_bytes` を完全修飾）
+- `generate_invite_code(p_household_id)` — 16 文字招待コード生成（`gen_random_bytes(8)` の hex。005 で 6 文字 MD5 から変更。`extensions.gen_random_bytes` を完全修飾）
 - `reorder_tasks(p_task_ids, p_sort_orders)` — タスク並び順の一括更新（RLS 対応）
 - `reorder_staple_items(p_item_ids, p_sort_orders)` — 定番品並び順の一括更新（RLS 対応）
 - `handle_new_user()` / `handle_updated_at()` — トリガ関数
