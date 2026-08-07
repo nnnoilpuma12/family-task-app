@@ -100,6 +100,7 @@ export function createMockSupabase(
         data: { session: { user: { id: "user-1" } } },
         error: null,
       }),
+      signOut: vi.fn().mockResolvedValue({ error: null }),
     },
     channel: vi.fn().mockReturnValue({
       on: vi.fn().mockReturnThis(),
