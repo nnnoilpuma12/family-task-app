@@ -3,6 +3,7 @@ import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
 import { createClient } from "@/lib/supabase/client";
+import { asSupabaseClient } from "@/test/mocks/supabase";
 import type { Task } from "@/types";
 
 vi.mock("@/lib/supabase/client");
@@ -28,9 +29,11 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
+type TaskChangePayload = { new?: Partial<Task>; old?: Partial<Task> };
+
 describe("useRealtimeTasks", () => {
   // postgres_changes イベントのコールバックを捕捉するためのマップ
-  let callbacks: Record<string, (payload: { new?: Partial<Task>; old?: Partial<Task> }) => void>;
+  let callbacks: Record<string, (payload: TaskChangePayload) => void>;
   let mockChannel: { on: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> };
   let mockRemoveChannel: ReturnType<typeof vi.fn>;
 
@@ -39,7 +42,7 @@ describe("useRealtimeTasks", () => {
     callbacks = {};
     mockChannel = {
       on: vi.fn().mockImplementation(
-        (_type: string, filter: { event: string }, cb: (p: any) => void) => {
+        (_type: string, filter: { event: string }, cb: (p: TaskChangePayload) => void) => {
           callbacks[filter.event] = cb;
           return mockChannel;
         }
@@ -47,10 +50,12 @@ describe("useRealtimeTasks", () => {
       subscribe: vi.fn().mockImplementation(() => mockChannel),
     };
     mockRemoveChannel = vi.fn();
-    vi.mocked(createClient).mockReturnValue({
-      channel: vi.fn().mockReturnValue(mockChannel),
-      removeChannel: mockRemoveChannel,
-    } as any);
+    vi.mocked(createClient).mockReturnValue(
+      asSupabaseClient({
+        channel: vi.fn().mockReturnValue(mockChannel),
+        removeChannel: mockRemoveChannel,
+      })
+    );
   });
 
   function renderWithState(householdId: string | null, initialTasks: Task[] = [], onRemoteChange?: () => void) {

@@ -1,4 +1,18 @@
 import { vi } from "vitest";
+import type { createClient } from "@/lib/supabase/client";
+
+export type MockResult = { data: unknown; error: unknown };
+
+type SupabaseBrowserClient = ReturnType<typeof createClient>;
+
+/**
+ * モックオブジェクトを createClient の戻り値型として扱うためのヘルパ。
+ * Supabase クライアントの全メソッドをモックで実装するのは非現実的なため、
+ * テスト内でのみ使う意図的なダウンキャスト（`any` は使わない）。
+ */
+export function asSupabaseClient(mock: object): SupabaseBrowserClient {
+  return mock as SupabaseBrowserClient;
+}
 
 /**
  * Supabase クエリビルダーのモッククラス。
@@ -7,7 +21,7 @@ import { vi } from "vitest";
  * - `.single()` は別途 mockResolvedValue で制御する
  */
 export class MockQueryChain {
-  _result: { data: any; error: any } = { data: [], error: null };
+  _result: MockResult = { data: [], error: null };
 
   select = vi.fn().mockReturnThis();
   insert = vi.fn().mockReturnThis();
@@ -24,9 +38,9 @@ export class MockQueryChain {
   upsert = vi.fn().mockReturnThis();
 
   // Thenable interface — `await chain` でここが呼ばれる
-  then<T = any>(
-    onfulfilled?: ((value: { data: any; error: any }) => T | PromiseLike<T>) | null,
-    onrejected?: ((reason: any) => never) | null
+  then<T = MockResult>(
+    onfulfilled?: ((value: MockResult) => T | PromiseLike<T>) | null,
+    onrejected?: ((reason: unknown) => never) | null
   ): Promise<T> {
     return Promise.resolve(this._result).then(
       onfulfilled ?? undefined,

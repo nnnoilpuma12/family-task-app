@@ -3,6 +3,7 @@ import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useRealtimeStapleItems } from "@/hooks/use-realtime-staple-items";
 import { createClient } from "@/lib/supabase/client";
+import { asSupabaseClient } from "@/test/mocks/supabase";
 import type { StapleItem } from "@/types";
 
 vi.mock("@/lib/supabase/client");
@@ -29,8 +30,10 @@ function makeStapleItem(overrides: Partial<StapleItem> = {}): StapleItem {
   };
 }
 
+type StapleItemChangePayload = { new?: Partial<StapleItem>; old?: Partial<StapleItem> };
+
 describe("useRealtimeStapleItems", () => {
-  let callbacks: Record<string, (payload: { new?: Partial<StapleItem>; old?: Partial<StapleItem> }) => void>;
+  let callbacks: Record<string, (payload: StapleItemChangePayload) => void>;
   let mockChannel: { on: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> };
   let mockRemoveChannel: ReturnType<typeof vi.fn>;
 
@@ -39,7 +42,7 @@ describe("useRealtimeStapleItems", () => {
     callbacks = {};
     mockChannel = {
       on: vi.fn().mockImplementation(
-        (_type: string, filter: { event: string }, cb: (p: any) => void) => {
+        (_type: string, filter: { event: string }, cb: (p: StapleItemChangePayload) => void) => {
           callbacks[filter.event] = cb;
           return mockChannel;
         }
@@ -47,10 +50,12 @@ describe("useRealtimeStapleItems", () => {
       subscribe: vi.fn().mockImplementation(() => mockChannel),
     };
     mockRemoveChannel = vi.fn();
-    vi.mocked(createClient).mockReturnValue({
-      channel: vi.fn().mockReturnValue(mockChannel),
-      removeChannel: mockRemoveChannel,
-    } as any);
+    vi.mocked(createClient).mockReturnValue(
+      asSupabaseClient({
+        channel: vi.fn().mockReturnValue(mockChannel),
+        removeChannel: mockRemoveChannel,
+      })
+    );
   });
 
   function renderWithState(householdId: string | null, initialItems: StapleItem[] = []) {

@@ -2,7 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { usePageData } from "@/hooks/use-page-data";
 import { createClient } from "@/lib/supabase/client";
-import { MockQueryChain } from "@/test/mocks/supabase";
+import { MockQueryChain, asSupabaseClient } from "@/test/mocks/supabase";
 import type { Profile } from "@/types";
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -85,7 +85,7 @@ describe("usePageData", () => {
 
   it("セッションなし: /login へリダイレクトし loading が false になる", async () => {
     vi.mocked(createClient).mockReturnValue(
-      buildMockClient({ session: null }) as any
+      asSupabaseClient(buildMockClient({ session: null }))
     );
 
     const { result } = renderHook(() => usePageData());
@@ -98,7 +98,7 @@ describe("usePageData", () => {
   it("プロフィールあり・household_id あり: profile がセットされ loading が false になる", async () => {
     const profile = makeProfile();
     vi.mocked(createClient).mockReturnValue(
-      buildMockClient({ profileData: profile }) as any
+      asSupabaseClient(buildMockClient({ profileData: profile }))
     );
 
     const { result } = renderHook(() => usePageData());
@@ -111,7 +111,7 @@ describe("usePageData", () => {
   it("household_id なし + redirectIfNoHousehold=true: /household/new へリダイレクト", async () => {
     const profile = makeProfile({ household_id: null });
     vi.mocked(createClient).mockReturnValue(
-      buildMockClient({ profileData: profile }) as any
+      asSupabaseClient(buildMockClient({ profileData: profile }))
     );
 
     const { result } = renderHook(() => usePageData({ redirectIfNoHousehold: true }));
@@ -124,7 +124,7 @@ describe("usePageData", () => {
   it("household_id なし + redirectIfNoHousehold=false: リダイレクトしない", async () => {
     const profile = makeProfile({ household_id: null });
     vi.mocked(createClient).mockReturnValue(
-      buildMockClient({ profileData: profile }) as any
+      asSupabaseClient(buildMockClient({ profileData: profile }))
     );
 
     const { result } = renderHook(() => usePageData({ redirectIfNoHousehold: false }));
@@ -137,10 +137,10 @@ describe("usePageData", () => {
   it("プロフィール未存在: upsert で作成し profile がセットされる", async () => {
     const newProfile = makeProfile({ household_id: null });
     vi.mocked(createClient).mockReturnValue(
-      buildMockClient({
+      asSupabaseClient(buildMockClient({
         profileData: null,
         upsertProfileData: newProfile,
-      }) as any
+      }))
     );
 
     const { result } = renderHook(() => usePageData({ redirectIfNoHousehold: true }));
@@ -154,11 +154,11 @@ describe("usePageData", () => {
   it("プロフィール取得エラー: toast.error が呼ばれる", async () => {
     const { toast } = await import("sonner");
     vi.mocked(createClient).mockReturnValue(
-      buildMockClient({
+      asSupabaseClient(buildMockClient({
         profileData: null,
         profileError: { message: "DB error" },
         upsertProfileData: makeProfile(),
-      }) as any
+      }))
     );
 
     renderHook(() => usePageData());
