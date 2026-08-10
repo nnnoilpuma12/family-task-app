@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Trash2 } from "lucide-react";
@@ -35,15 +35,22 @@ export function TaskDetailModal({
   const [url, setUrl] = useState("");
   const [urlError, setUrlError] = useState("");
 
-  useEffect(() => {
+  // 開いたタスクが変わったらフォームを同期する。
+  // effect ではなく render 中に前回値と比較して調整する（React 公式の
+  // 「props 変更に応じた state 調整」パターン）。閉じると task が null になり
+  // syncedTaskId も null に戻るため、同じタスクを開き直せば再同期される。
+  const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
+  if ((task?.id ?? null) !== syncedTaskId) {
+    setSyncedTaskId(task?.id ?? null);
     if (task) {
       setTitle(task.title);
       setCategoryId(task.category_id);
       setDueDate(task.due_date ?? "");
       setMemo(task.memo ?? "");
       setUrl(task.url ?? "");
+      setUrlError("");
     }
-  }, [task]);
+  }
 
   if (!task) return null;
 

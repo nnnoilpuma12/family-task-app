@@ -1,7 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+
+const TABLET_MEDIA_QUERY = "(min-width: 768px)";
+
+function subscribeToTabletQuery(onStoreChange: () => void) {
+  const mq = window.matchMedia(TABLET_MEDIA_QUERY);
+  mq.addEventListener("change", onStoreChange);
+  return () => mq.removeEventListener("change", onStoreChange);
+}
+
+function getTabletSnapshot() {
+  return window.matchMedia(TABLET_MEDIA_QUERY).matches;
+}
+
+// SSR / ハイドレーション時はモバイル扱い（従来の初期値 false と同じ）
+function getTabletServerSnapshot() {
+  return false;
+}
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -13,15 +30,11 @@ interface BottomSheetProps {
 
 export function BottomSheet({ isOpen, onClose, title, children, elevated = false }: BottomSheetProps) {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [isTablet, setIsTablet] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    setIsTablet(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsTablet(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
+  const isTablet = useSyncExternalStore(
+    subscribeToTabletQuery,
+    getTabletSnapshot,
+    getTabletServerSnapshot
+  );
 
   useEffect(() => {
     if (isOpen) {

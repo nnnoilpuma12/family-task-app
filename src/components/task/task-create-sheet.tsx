@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { CategoryPicker } from "@/components/task/category-picker";
@@ -32,14 +32,20 @@ export function TaskCreateSheet({
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(selectedCategoryId);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const [dueDate, setDueDate] = useState<string>("");
+  const [memo, setMemo] = useState("");
 
-  useEffect(() => {
+  // シートを開いたタイミングで、表示中のカテゴリを初期値に戻す。
+  // effect ではなく render 中に前回値と比較して調整する（React 公式の
+  // 「props 変更に応じた state 調整」パターン）。effect で setState すると
+  // 一度古い値で描画してから再レンダするカスケードが起きるため。
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setCategoryId(selectedCategoryId);
     }
-  }, [isOpen, selectedCategoryId]);
-  const [dueDate, setDueDate] = useState<string>("");
-  const [memo, setMemo] = useState("");
+  }
 
   // タイトル変更時にサジェスト候補を算出
   const suggestions = useMemo(() => {

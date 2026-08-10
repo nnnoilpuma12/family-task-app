@@ -32,15 +32,22 @@ export function useSwipeableTab({
   const directionLocked = useRef<"horizontal" | "vertical" | null>(null);
   const cachedContainerWidth = useRef(375);
 
-  // Keep latest values in refs to avoid stale closures in event handlers
+  // Keep latest values in refs to avoid stale closures in event handlers.
+  // 書き込みはコミット後（effect 内）に行う。render 中に ref を書き換えると
+  // react-hooks/refs に違反し、Strict Mode の二重レンダでも壊れるため。
   const activeIndexRef = useRef(activeIndex);
-  activeIndexRef.current = activeIndex;
   const tabCountRef = useRef(tabCount);
-  tabCountRef.current = tabCount;
   const onChangeIndexRef = useRef(onChangeIndex);
-  onChangeIndexRef.current = onChangeIndex;
   const indicatorRefsRef = useRef(indicatorRefs);
-  indicatorRefsRef.current = indicatorRefs;
+
+  // 依存配列なし = 毎コミット後に同期。タッチハンドラはコミット後にしか
+  // 発火しないため、これで常に最新値が読める。
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+    tabCountRef.current = tabCount;
+    onChangeIndexRef.current = onChangeIndex;
+    indicatorRefsRef.current = indicatorRefs;
+  });
 
   const updateIndicator = useCallback((progress: number) => {
     const ind = indicatorRefsRef.current;

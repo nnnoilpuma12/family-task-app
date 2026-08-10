@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { CategoryPicker } from "@/components/task/category-picker";
@@ -46,7 +46,13 @@ export function StapleItemFormSheet({
   const [note, setNote] = useState("");
   const [showIconPicker, setShowIconPicker] = useState(false);
 
-  useEffect(() => {
+  // シートを開いたタイミングでフォームを初期化する。
+  // effect ではなく render 中に前回値と比較して調整する（React 公式の
+  // 「props 変更に応じた state 調整」パターン）。effect で setState すると
+  // 空フォームを一度描画してから値入りで再レンダするカスケードが起きるため。
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       if (item) {
         setName(item.name);
@@ -65,7 +71,7 @@ export function StapleItemFormSheet({
       }
       setShowIconPicker(false);
     }
-  }, [isOpen, item, defaultCategoryId]);
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
