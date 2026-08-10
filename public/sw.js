@@ -1,3 +1,6 @@
+// このファイルのバイト列を変えてブラウザに更新を検知させるためのマーカー。
+// コードからは参照しないので未使用警告を抑止する。
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SW_VERSION = "4";
 
 self.addEventListener("install", () => {

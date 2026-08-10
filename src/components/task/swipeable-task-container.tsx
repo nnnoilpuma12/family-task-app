@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo, type RefObject } from "react";
+import { useRef, useMemo } from "react";
 import { useSwipeableTab, type IndicatorRefs } from "@/hooks/use-swipeable-tab";
 import type { Category } from "@/types";
 
