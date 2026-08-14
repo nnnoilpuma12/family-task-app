@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同一ブランチへの連続 push では古い実行をキャンセルする
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 3 つとも必須。1 つ落ちても残りの結果が分かるよう if: always() で続行する
+      # （ジョブを分けないのは npm ci を 1 回で済ませるため）。
+      - name: Test
+        run: npm run test:run
+
+      # 既存の React Compiler 違反は eslint-suppressions.json に固定済み。
+      # 新規違反・件数増加・台帳の未更新はいずれもここで落ちる。
+      - name: Lint
+        if: always()
+        run: npm run lint
+
+      - name: Typecheck
+        if: always()
+        run: npm run typecheck
