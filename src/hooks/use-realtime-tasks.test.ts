@@ -28,9 +28,12 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
+/** postgres_changes のコールバックが受け取るペイロード */
+type RealtimeCallback = (payload: { new?: Partial<Task>; old?: Partial<Task> }) => void;
+
 describe("useRealtimeTasks", () => {
   // postgres_changes イベントのコールバックを捕捉するためのマップ
-  let callbacks: Record<string, (payload: { new?: Partial<Task>; old?: Partial<Task> }) => void>;
+  let callbacks: Record<string, RealtimeCallback>;
   let mockChannel: { on: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> };
   let mockRemoveChannel: ReturnType<typeof vi.fn>;
 
@@ -39,7 +42,7 @@ describe("useRealtimeTasks", () => {
     callbacks = {};
     mockChannel = {
       on: vi.fn().mockImplementation(
-        (_type: string, filter: { event: string }, cb: (p: any) => void) => {
+        (_type: string, filter: { event: string }, cb: RealtimeCallback) => {
           callbacks[filter.event] = cb;
           return mockChannel;
         }
@@ -47,10 +50,11 @@ describe("useRealtimeTasks", () => {
       subscribe: vi.fn().mockImplementation(() => mockChannel),
     };
     mockRemoveChannel = vi.fn();
+    // @ts-expect-error - モックオブジェクトは SupabaseClient の全インターフェースを実装しない
     vi.mocked(createClient).mockReturnValue({
       channel: vi.fn().mockReturnValue(mockChannel),
       removeChannel: mockRemoveChannel,
-    } as any);
+    });
   });
 
   function renderWithState(householdId: string | null, initialTasks: Task[] = [], onRemoteChange?: () => void) {
