@@ -1,5 +1,6 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { toast } from "sonner";
 import { useTasks } from "@/hooks/use-tasks";
 import { createClient } from "@/lib/supabase/client";
 import { MockQueryChain, createMockSupabase } from "@/test/mocks/supabase";
@@ -174,6 +175,21 @@ describe("useTasks", () => {
       );
     });
 
+    it("エラー時: snapshot にロールバックする", async () => {
+      const task = makeTask({ id: "t-1", title: "元のタイトル" });
+      chain._result = { data: [task], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      chain.single.mockResolvedValueOnce({ data: null, error: { message: "DB error" } });
+
+      await act(async () => {
+        await result.current.updateTask("t-1", { title: "新しいタイトル" });
+      });
+
+      expect(result.current.tasks[0].title).toBe("元のタイトル");
+    });
+
     it("更新成功時にプッシュ通知が送信される", async () => {
       const { sendPushNotification } = await import("@/lib/push");
       const task = makeTask({ id: "t-1", title: "掃除" });
@@ -257,6 +273,105 @@ describe("useTasks", () => {
         p_task_ids: ["id-b", "id-a"],
         p_sort_orders: [0, 1],
       });
+    });
+
+    it("エラー時: snapshot にロールバックする", async () => {
+      const tasks = [
+        makeTask({ id: "t-1", sort_order: 0 }),
+        makeTask({ id: "t-2", sort_order: 1 }),
+      ];
+      chain._result = { data: tasks, error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { message: "RPC error" } });
+
+      await act(async () => {
+        await result.current.reorderTasks(["t-2", "t-1"]);
+      });
+
+      expect(result.current.tasks.map((t) => t.id)).toEqual(["t-1", "t-2"]);
+    });
+  });
+
+  describe("deleteTask の「元に戻す」", () => {
+    // sonner の action は ReactNode も取りうるので型ガードで絞る
+    function isUndoAction(value: unknown): value is { label: string; onClick: () => void } {
+      if (typeof value !== "object" || value === null) return false;
+      if (!("label" in value) || !("onClick" in value)) return false;
+      return typeof value.onClick === "function";
+    }
+
+    function latestUndoAction() {
+      const calls = vi.mocked(toast).mock.calls;
+      const options = calls[calls.length - 1]?.[1];
+      const action = options?.action;
+      if (!isUndoAction(action)) {
+        throw new Error("「元に戻す」アクションが見つかりません");
+      }
+      return action;
+    }
+
+    async function renderAndDelete(task: Task) {
+      chain._result = { data: [task], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      chain._result = { data: null, error: null };
+      await act(async () => {
+        await result.current.deleteTask(task.id);
+      });
+      return result;
+    }
+
+    it("削除成功時に「元に戻す」付きトーストを出す", async () => {
+      await renderAndDelete(makeTask({ id: "t-1", title: "牛乳を買う" }));
+
+      expect(toast).toHaveBeenCalledWith(
+        "タスクを削除しました",
+        expect.objectContaining({
+          action: expect.objectContaining({ label: "元に戻す" }),
+        })
+      );
+    });
+
+    it("「元に戻す」を押すと削除したタスクを insert して一覧へ戻す", async () => {
+      const task = makeTask({ id: "t-1", title: "牛乳を買う" });
+      const result = await renderAndDelete(task);
+      expect(result.current.tasks).toHaveLength(0);
+
+      await act(async () => {
+        latestUndoAction().onClick();
+      });
+
+      expect(chain.insert).toHaveBeenCalledWith(expect.objectContaining({ id: "t-1" }));
+      expect(result.current.tasks.map((t) => t.id)).toEqual(["t-1"]);
+    });
+
+    it("復元に失敗したらエラートーストを出し一覧を戻さない", async () => {
+      const result = await renderAndDelete(makeTask({ id: "t-1" }));
+
+      chain._result = { data: null, error: { message: "insert failed" } };
+      await act(async () => {
+        latestUndoAction().onClick();
+      });
+
+      expect(toast.error).toHaveBeenCalledWith("元に戻せませんでした");
+      expect(result.current.tasks).toHaveLength(0);
+    });
+
+    it("skipToast: true ではトーストを出さない", async () => {
+      const task = makeTask({ id: "t-1" });
+      chain._result = { data: [task], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+      chain._result = { data: null, error: null };
+      await act(async () => {
+        await result.current.deleteTask("t-1", { skipToast: true });
+      });
+
+      expect(toast).not.toHaveBeenCalled();
     });
   });
 
