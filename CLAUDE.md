@@ -31,6 +31,8 @@ npm run dev          # Next.js 開発サーバー（http://localhost:3000）
 npm run build        # 本番ビルド
 npm run start        # 本番サーバー
 npm run lint         # ESLint
+npm run lint:prune   # 解消済みの lint 抑制を eslint-suppressions.json から削る
+npm run typecheck    # tsc --noEmit（型チェックのみ）
 npm test             # Vitest（watch モード）
 npm run test:run     # Vitest（単発実行・CI 用）
 npm run test:ui      # Vitest UI ダッシュボード（ブラウザで結果確認）
@@ -138,17 +140,26 @@ src/app/page.tsx（Client Component）
 
 | ファイル | 役割 |
 |---|---|
-| `src/test/setup.ts` | Vitest グローバルセットアップ。`next/navigation` を自動モック |
+| `src/test/setup.ts` | Vitest グローバルセットアップ。`next/navigation` を自動モックし、React Query の通知を同期実行に差し替える |
 | `src/test/mocks/supabase.ts` | `MockQueryChain`（thenable な Supabase クエリチェーンのモック）と `createMockSupabase()` を提供 |
-| `src/test/query-wrapper.tsx` | `createQueryWrapper()`。テストごとに独立した `QueryClient`（`retry: false` / `gcTime: 0`）を持つ React Query ラッパを生成 |
+| `src/test/query-wrapper.tsx` | `createQueryWrapper()`。テストごとに独立した `QueryClient`（`retry: false` / `gcTime: 0` / `staleTime: Infinity` / `refetchOn*: false`）を持つ React Query ラッパを生成 |
 
 **テスト作成パターン：**
 
 ```typescript
 // Supabase クライアントはモジュールレベルで vi.mock()
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => createMockSupabase({ /* テーブルごとの返却値 */ }),
-}));
+vi.mock("@/lib/supabase/client");
+
+// テーブルごとに返却値を分ける（推奨）
+const client = createMockSupabase({
+  profiles: { data: [profile] },
+  staple_items: { data: items },
+});
+client._table("staple_items")._result = { data: [], error: null };  // 後から差し替え
+
+// 単一チェーンを全テーブルで共有する形も可（既存テストの書き方）
+const chain = new MockQueryChain();
+const client = createMockSupabase(chain);
 
 // framer-motion, sonner, next/navigation も vi.mock() で差し替える
 vi.mock("framer-motion", () => ({ motion: { div: "div" }, AnimatePresence: ({ children }) => children }));
@@ -161,6 +172,26 @@ await waitFor(() => expect(result.current.loading).toBe(false));
 ```
 
 > React Query を使うフック（`useTasks` / `useCategories` / `useStapleItems`）のテストは **必ず `createQueryWrapper()` を wrapper に渡す**こと。渡さないと `QueryClient` が見つからず失敗する。
+
+> **楽観的更新のテストについて。** React Query の observer 通知は既定で `setTimeout` 0 にバッチされるため、`act()` 直後に同期的に読む `result.current` は更新前の値を指す。これは「値が元に戻っていること」を確かめるロールバックのテストを静かに無意味にする（期待値が更新前の値と一致するので、**ロールバック処理を削除してもテストが通る**）。
+>
+> `src/test/setup.ts` で `notifyManager.setScheduler((cb) => cb())` を設定し、通知を同期実行にしてこれを塞いでいる。**テスト側で待ちを挟む必要はない。** この設定を外すとロールバック系のテストが一斉に無意味化するので消さないこと。
+
+### lint の負債（`eslint-suppressions.json`）
+
+React Compiler 系の既存エラー 8 件（`react-hooks/set-state-in-effect` × 4、`react-hooks/refs` × 4）は ESLint 9 の suppressions 機構で台帳として固定してある。`npm run lint` は 0 errors で通り、CI の必須チェックになっている。
+
+台帳があるのは**現状維持のためだけ**で、以下はすべて CI で落ちる：
+
+- 台帳に無いファイルでの新規違反
+- 台帳にあるファイルでの件数増加
+- 違反を直したのに台帳を更新していない場合（`npm run lint:prune` で台帳から削る）
+
+新しいコードでこれらのルールを抑制してはいけない。負債は減る方向にしか動かせない。
+
+### CI
+
+`.github/workflows/ci.yml` が PR と main への push で `test:run` / `lint` / `typecheck` を実行する（3 つとも必須）。
 
 ---
 
@@ -200,7 +231,7 @@ VAPID_SUBJECT=mailto:...
 - `get_my_household_id()` — RLS の無限再帰回避用 SECURITY DEFINER ヘルパ
 - `create_default_categories(p_household_id)` — 世帯作成時のデフォルトカテゴリ投入
 - `create_household_with_defaults(p_name text)` — **世帯の新規作成はこの RPC のみ**。households 作成・profile 紐付け・デフォルトカテゴリ・招待コード発行をアトミックに実行（SECURITY DEFINER で RLS バイパス）
-- `generate_invite_code(p_household_id)` — 6 文字招待コード生成（`extensions.gen_random_bytes` を完全修飾）
+- `generate_invite_code(p_household_id)` — 16 文字招待コード生成（`gen_random_bytes(8)` の hex。005 で 6 文字 MD5 から変更。`extensions.gen_random_bytes` を完全修飾）
 - `reorder_tasks(p_task_ids, p_sort_orders)` — タスク並び順の一括更新（RLS 対応）
 - `reorder_staple_items(p_item_ids, p_sort_orders)` — 定番品並び順の一括更新（RLS 対応）
 - `handle_new_user()` / `handle_updated_at()` — トリガ関数
