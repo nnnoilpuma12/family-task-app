@@ -71,7 +71,7 @@ npx supabase db push                            # 本番 Supabase へ反映
   - `server.ts` — Server Component / Route Handler 用（`createServerClient` + cookies）
   - `middleware.ts` — proxy 専用のセッション更新ロジック
   - `service-role.ts` — サービスロールキー用クライアント。`src/app/api/push/send/route.ts` でのみ使用
-- `src/lib/query-keys.ts` — React Query のキー定義を一元化（`queryKeys.tasks / categories / stapleItems`、いずれも `householdId` でスコープ）。フックは必ずこれを経由してキーを組み立てる。
+- `src/lib/query-keys.ts` — React Query のキー定義を一元化（`queryKeys.tasks / categories / stapleItems / recommendations / titleSuggestions`、いずれも `householdId` でスコープ）。フックは必ずこれを経由してキーを組み立てる。
 - `src/lib/query-persist.ts` — React Query キャッシュの localStorage 永続化設定を一元化。`createAppPersister()` / `clearPersistedQueryCache()` / `APP_CACHE_VERSION` を export。**DB スキーマや型を変えてキャッシュ互換が崩れるときは `APP_CACHE_VERSION` を上げて旧キャッシュを無効化する**。
 - `src/lib/household-cache.ts` — 直近の世帯 id / 名前を localStorage にキャッシュする軽量ヘルパ。起動時に `householdId` を即座に得て、profiles 取得を待たずにデータ取得を並列発火させるためのもの（後述「起動フロー」）。
 - `src/lib/date.ts` — `formatDueDate` / `getQuickDate` などの日付ユーティリティ
@@ -245,7 +245,7 @@ VAPID_SUBJECT=mailto:...
 
 ### マイグレーション一覧
 
-`supabase/migrations/` 配下に 17 ファイル：
+`supabase/migrations/` 配下に 18 ファイル：
 
 1. `001_initial_schema.sql` — 全スキーマ + RLS + トリガ + 関数
 2. `002_add_profiles_insert_policy.sql`
@@ -264,8 +264,9 @@ VAPID_SUBJECT=mailto:...
 15. `015_scalability_indexes.sql` — 完了済みタスクの蓄積に効く複合インデックス追加（起動時取得の BitmapOr 化、完了済みページングの keyset 化、タイトルサジェスト、レコメンドの式インデックス）。重複した `idx_tasks_household` / `idx_tasks_household_done_completed` を削除
 16. `016_rls_initplan_optimization.sql` — 全 RLS ポリシーの `get_my_household_id()` / `auth.uid()` を `(select ...)` で包んで InitPlan 化、`task_assignees` / `task_images` のポリシーを `IN` から `EXISTS` へ書き換え（権限の意味は不変）
 17. `017_recommendations_time_window.sql` — `get_recurring_recommendations` の集計対象を直近 1 年に制限（起動ごとの全期間走査を解消。最終完了が 1 年以上前のタイトルは出なくなる）
+18. `018_missing_fk_indexes.sql` — 008 の外部キーインデックス棚卸しから漏れていた 4 本を追加（`push_subscriptions.profile_id` / `staple_items.category_id` / `staple_items.created_by` / `dismissed_recommendations.dismissed_by`）。015 とは軸が違い、世帯スコープを持たない表と削除時の逆引きが対象
 
-> **スケーラビリティの前提**：このアプリに論理削除は無く、削除は全て物理 DELETE。蓄積源はパージされない完了済みタスク（`is_done = true`）で、効いてくる軸は総ユーザー数ではなく **1 世帯あたりの利用年数**。全テーブルが `household_id` でスコープされているため、世帯数の増加は個々のクエリコストにほぼ影響しない。`tasks` に新しいクエリパターンを足すときは、読む行数が履歴全体に比例していないか（返す件数に比例しているか）を `EXPLAIN (ANALYZE, BUFFERS)` で確認すること。
+> **スケーラビリティの前提**：このアプリに論理削除は無く、削除は全て物理 DELETE。蓄積源はパージされない完了済みタスク（`is_done = true`）で、効いてくる軸は総ユーザー数ではなく **1 世帯あたりの利用年数**。全テーブルが `household_id` でスコープされているため、世帯数の増加は個々のクエリコストにほぼ影響しない。**例外は `push_subscriptions`** で、この表だけは世帯で分割されず総ユーザー数（総デバイス数）に比例して伸びる（018 でインデックスを追加済み。ここに新しいクエリを足すときは総ユーザー数に比例しないか確認すること）。`tasks` に新しいクエリパターンを足すときは、読む行数が履歴全体に比例していないか（返す件数に比例しているか）を `EXPLAIN (ANALYZE, BUFFERS)` で確認すること。
 
 ---
 
