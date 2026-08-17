@@ -74,6 +74,24 @@ describe("useTasks", () => {
         expect.stringMatching(/^is_done\.eq\.false,completed_at\.gte\./)
       );
     });
+
+    it("取得上限を明示する（PostgREST の max_rows によるサイレント切り捨て対策）", async () => {
+      chain._result = { data: [], error: null };
+      renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+
+      await waitFor(() => expect(chain.limit).toHaveBeenCalledWith(1000));
+    });
+
+    it("上限に到達したら警告を出す", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      chain._result = { data: Array.from({ length: 1000 }, () => makeTask()), error: null };
+
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("1000"));
+      warn.mockRestore();
+    });
   });
 
   describe("addTask", () => {
@@ -256,6 +274,72 @@ describe("useTasks", () => {
       });
 
       await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+    });
+  });
+
+  describe("deleteTasks（一括削除）", () => {
+    it("1 本の DELETE にまとめ、in で全 id を渡す", async () => {
+      const tasks = [makeTask({ id: "t-1" }), makeTask({ id: "t-2" }), makeTask({ id: "t-3" })];
+      chain._result = { data: tasks, error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(3));
+
+      chain.delete.mockClear();
+      await act(async () => {
+        await result.current.deleteTasks(["t-1", "t-2", "t-3"]);
+      });
+
+      expect(chain.delete).toHaveBeenCalledTimes(1);
+      expect(chain.in).toHaveBeenCalledWith("id", ["t-1", "t-2", "t-3"]);
+      await waitFor(() => expect(result.current.tasks).toHaveLength(0));
+    });
+
+    it("削除したタスクを「元に戻す」用に返す", async () => {
+      const t1 = makeTask({ id: "t-1" });
+      const t2 = makeTask({ id: "t-2" });
+      chain._result = { data: [t1, t2], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+      let deleted: Task[] = [];
+      await act(async () => {
+        const r = await result.current.deleteTasks(["t-1"]);
+        deleted = r.deleted;
+      });
+
+      expect(deleted).toEqual([t1]);
+      await waitFor(() => expect(result.current.tasks).toEqual([t2]));
+    });
+
+    it("エラー時: 楽観的削除からロールバックする", async () => {
+      const tasks = [makeTask({ id: "t-1" }), makeTask({ id: "t-2" })];
+      chain._result = { data: tasks, error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+      chain._result = { data: null, error: { message: "DB error" } };
+
+      let error: unknown = null;
+      await act(async () => {
+        const r = await result.current.deleteTasks(["t-1", "t-2"]);
+        error = r.error;
+      });
+
+      expect(error).not.toBeNull();
+      await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+    });
+
+    it("空配列ならリクエストを送らない", async () => {
+      chain._result = { data: [], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      chain.delete.mockClear();
+      await act(async () => {
+        await result.current.deleteTasks([]);
+      });
+
+      expect(chain.delete).not.toHaveBeenCalled();
     });
   });
 
