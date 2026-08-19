@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useTaskRecommendations } from "@/hooks/use-task-recommendations";
 import { createClient } from "@/lib/supabase/client";
 import { MockQueryChain, createMockSupabase } from "@/test/mocks/supabase";
+import { createQueryWrapper } from "@/test/query-wrapper";
 import type { TaskRecommendation } from "@/types";
 
 vi.mock("@/lib/supabase/client");
@@ -46,8 +47,9 @@ describe("useTaskRecommendations", () => {
     const recs = [makeRecommendation()];
     mockClient.rpc.mockResolvedValue({ data: recs, error: null });
 
-    const { result } = renderHook(() =>
-      useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID)
+    const { result } = renderHook(
+      () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),
+      { wrapper: createQueryWrapper() }
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -56,7 +58,9 @@ describe("useTaskRecommendations", () => {
   });
 
   it("householdId が null の場合は RPC を呼ばず loading が true のまま", () => {
-    const { result } = renderHook(() => useTaskRecommendations(null));
+    const { result } = renderHook(() => useTaskRecommendations(null), {
+      wrapper: createQueryWrapper(),
+    });
     expect(mockClient.rpc).not.toHaveBeenCalled();
     expect(result.current.loading).toBe(true);
   });
@@ -64,12 +68,35 @@ describe("useTaskRecommendations", () => {
   it("RPC エラーでも loading が false になる", async () => {
     mockClient.rpc.mockResolvedValue({ data: null, error: { message: "RPC error" } });
 
-    const { result } = renderHook(() =>
-      useTaskRecommendations(HOUSEHOLD_ID)
-    );
+    const { result } = renderHook(() => useTaskRecommendations(HOUSEHOLD_ID), {
+      wrapper: createQueryWrapper(),
+    });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.recommendations).toHaveLength(0);
+  });
+
+  it("refetch でキャッシュを無効化して RPC を取り直す", async () => {
+    mockClient.rpc.mockResolvedValue({ data: [makeRecommendation()], error: null });
+
+    const { result } = renderHook(
+      () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),
+      { wrapper: createQueryWrapper() }
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockClient.rpc).toHaveBeenCalledTimes(1);
+
+    mockClient.rpc.mockResolvedValue({
+      data: [makeRecommendation({ normalized_title: "洗濯" })],
+      error: null,
+    });
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    await waitFor(() => expect(mockClient.rpc).toHaveBeenCalledTimes(2));
+    expect(result.current.recommendations[0].normalized_title).toBe("洗濯");
   });
 
   describe("dismiss", () => {
@@ -82,8 +109,9 @@ describe("useTaskRecommendations", () => {
       const rec2 = makeRecommendation({ normalized_title: "洗濯" });
       mockClient.rpc.mockResolvedValue({ data: [rec1, rec2], error: null });
 
-      const { result } = renderHook(() =>
-        useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID)
+      const { result } = renderHook(
+        () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),
+        { wrapper: createQueryWrapper() }
       );
       await waitFor(() => expect(result.current.recommendations).toHaveLength(2));
 
@@ -99,8 +127,9 @@ describe("useTaskRecommendations", () => {
       const rec = makeRecommendation({ median_interval_days: 14 });
       mockClient.rpc.mockResolvedValue({ data: [rec], error: null });
 
-      const { result } = renderHook(() =>
-        useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID)
+      const { result } = renderHook(
+        () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),
+        { wrapper: createQueryWrapper() }
       );
       // recommendations がロードされてから時刻を固定する（waitFor は setTimeout を使うため）
       await waitFor(() => expect(result.current.recommendations).toHaveLength(1));
@@ -123,8 +152,9 @@ describe("useTaskRecommendations", () => {
       const rec = makeRecommendation();
       mockClient.rpc.mockResolvedValue({ data: [rec], error: null });
 
-      const { result } = renderHook(() =>
-        useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID)
+      const { result } = renderHook(
+        () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),
+        { wrapper: createQueryWrapper() }
       );
       await waitFor(() => expect(result.current.recommendations).toHaveLength(1));
 

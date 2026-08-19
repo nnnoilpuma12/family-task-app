@@ -12,6 +12,10 @@ import type { Task } from "@/types";
 const COMPLETED_TASKS_WINDOW_DAYS = 30;
 // 「もっと見る」で追加取得する古い完了済みタスクの 1 ページ件数
 const COMPLETED_PAGE_SIZE = 30;
+// 初期取得の明示的な上限。PostgREST の max_rows（supabase/config.toml）と同値にしてある。
+// .limit() を省くとサーバ側の max_rows で「エラーにならずに」打ち切られるため、
+// 上限を明示して打ち切りを検知できるようにする（後述の切り捨て検知）。
+const TASKS_FETCH_LIMIT = 1000;
 
 export function useTasks(householdId: string | null) {
   const supabase = useMemo(() => createClient(), []);
@@ -33,9 +37,22 @@ export function useTasks(householdId: string | null) {
       .or(`is_done.eq.false,completed_at.gte.${completedCutoff}`)
       .order("is_done")
       .order("sort_order")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(TASKS_FETCH_LIMIT);
 
     if (error) throw error;
+
+    // 上限に到達＝取得しきれていない。is_done 昇順なので未完了が先に入り、
+    // 溢れるのは 30 日ウィンドウ内の古い完了済みから（loadMoreCompleted で辿れる）。
+    // 表示は縮退で済むが、未完了だけで上限に達する世帯が出たらページングが必要になるため、
+    // 気づけるようにログを残す。
+    if (data && data.length === TASKS_FETCH_LIMIT) {
+      console.warn(
+        `[useTasks] 初期取得が上限 ${TASKS_FETCH_LIMIT} 件に到達しました。` +
+          "未完了タスクが上限に迫っている場合はページングの導入を検討してください。"
+      );
+    }
+
     return data ?? [];
   }, [householdId, supabase]);
 
@@ -265,6 +282,29 @@ export function useTasks(householdId: string | null) {
     return { error };
   };
 
+  // 複数タスクをまとめて削除する。1 件 1 リクエストで並列発射すると
+  // 「完了済みを全件削除」で数百リクエストが同時に飛ぶため、1 本の DELETE に集約する。
+  // 戻り値の deleted は「元に戻す」用のスナップショット。
+  const deleteTasks = async (ids: string[]) => {
+    if (ids.length === 0) return { deleted: [] as Task[], error: null };
+
+    const previousTasks = tasks;
+    const targetIds = new Set(ids);
+    const deleted = previousTasks.filter((t) => targetIds.has(t.id));
+
+    // Optimistic update
+    setTasks((prev) => prev.filter((t) => !targetIds.has(t.id)));
+
+    const { error } = await supabase.from("tasks").delete().in("id", ids);
+
+    if (error) {
+      // Rollback
+      setTasks(previousTasks);
+      return { deleted: [] as Task[], error };
+    }
+    return { deleted, error: null };
+  };
+
   const toggleTask = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
@@ -300,5 +340,5 @@ export function useTasks(householdId: string | null) {
     }
   };
 
-  return { tasks, setTasks, loading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted, refetch: query.refetch };
+  return { tasks, setTasks, loading, addTask, updateTask, deleteTask, deleteTasks, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted, refetch: query.refetch };
 }

@@ -86,7 +86,7 @@ export default function Home() {
   const householdId = profile?.household_id ?? cachedHouseholdId;
   const supabase = useMemo(() => createClient(), []);
   const { categories } = useCategories(householdId);
-  const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted } =
+  const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, deleteTasks, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted } =
     useTasks(householdId);
 
   const { recommendations, loading: recsLoading, dismiss: dismissRecommendation, refetch: refetchRecommendations } =
@@ -180,41 +180,36 @@ export default function Home() {
     const doneSnapshot = tasks.filter((t) => t.is_done);
     if (doneSnapshot.length === 0) return;
 
-    const results = await Promise.all(
-      doneSnapshot.map((task) =>
-        deleteTask(task.id, { skipToast: true }).then((r) => ({ task, error: r?.error }))
-      )
-    );
-    const succeeded = results.filter((r) => !r.error).map((r) => r.task);
-    const failedCount = results.length - succeeded.length;
+    // 1 件ずつ削除すると「もっと見る」で読み込んだぶんだけリクエストが同時に飛ぶため、
+    // 1 本の DELETE にまとめる（成否は全件まとめて扱う）
+    const { deleted, error } = await deleteTasks(doneSnapshot.map((t) => t.id));
 
-    if (failedCount > 0) {
-      toast.error(`${failedCount}件の削除に失敗しました`);
+    if (error) {
+      toast.error("完了済みタスクの削除に失敗しました");
+      return;
     }
 
-    if (succeeded.length > 0) {
-      toast(`完了済み${succeeded.length}件を削除しました`, {
-        action: {
-          label: "元に戻す",
-          onClick: () => {
-            supabase
-              .from("tasks")
-              .insert(succeeded)
-              .then(({ error }) => {
-                if (!error) {
-                  setTasks((prev) => [...succeeded, ...prev]);
-                } else {
-                  toast.error("元に戻せませんでした");
-                }
-              });
-          },
+    toast(`完了済み${deleted.length}件を削除しました`, {
+      action: {
+        label: "元に戻す",
+        onClick: () => {
+          supabase
+            .from("tasks")
+            .insert(deleted)
+            .then(({ error: insertError }) => {
+              if (!insertError) {
+                setTasks((prev) => [...deleted, ...prev]);
+              } else {
+                toast.error("元に戻せませんでした");
+              }
+            });
         },
-        duration: 4000,
-      });
-    }
+      },
+      duration: 4000,
+    });
 
     refetchRecommendations();
-  }, [tasks, deleteTask, supabase, setTasks, refetchRecommendations]);
+  }, [tasks, deleteTasks, supabase, setTasks, refetchRecommendations]);
 
   return (
     <div className="min-h-dvh bg-background">
