@@ -69,7 +69,7 @@ npx supabase db push                            # 本番 Supabase へ反映
 - `src/lib/supabase/` — レンダリング文脈ごとにクライアントを使い分ける：
   - `client.ts` — Client Component 用（`createBrowserClient`）
   - `server.ts` — Server Component / Route Handler 用（`createServerClient` + cookies）
-  - `middleware.ts` — proxy 専用のセッション更新ロジック
+  - `middleware.ts` — proxy 専用のセッション更新ロジック。認証判定は `getClaims()`（JWT をローカル検証）。**往復ゼロにするには Supabase 側の署名キーを非対称に移行する必要がある**（`docs/startup-flow.md` 参照）
   - `service-role.ts` — サービスロールキー用クライアント。`src/app/api/push/send/route.ts` でのみ使用
 - `src/lib/query-keys.ts` — React Query のキー定義を一元化（`queryKeys.tasks / categories / stapleItems / recommendations / titleSuggestions`、いずれも `householdId` でスコープ）。フックは必ずこれを経由してキーを組み立てる。
 - `src/lib/query-persist.ts` — React Query キャッシュの localStorage 永続化設定を一元化。`createAppPersister()` / `clearPersistedQueryCache()` / `APP_CACHE_VERSION` を export。**DB スキーマや型を変えてキャッシュ互換が崩れるときは `APP_CACHE_VERSION` を上げて旧キャッシュを無効化する**。
@@ -78,7 +78,7 @@ npx supabase db push                            # 本番 Supabase へ反映
 - `src/lib/validation.ts` — `isValidUrl`（タスク URL の XSS/フィッシング対策バリデーション）
 - `src/lib/avatar.ts` — 24 種類の絵文字アバタープリセット（動物・花・食べ物・感情）
 - `src/lib/push.ts` — fire-and-forget な Web Push 送信ヘルパ
-- `src/lib/idle.ts` — `runWhenIdle`。`requestIdleCallback`（非対応時は `setTimeout`）で重い非クリティカルな取得をアイドル時に逃がす。`useTitleSuggestions` で使用。
+- `src/lib/idle.ts` — `runWhenIdle`。`requestIdleCallback`（非対応時は `setTimeout`）で重い非クリティカルな取得をアイドル時に逃がす。フックからは `src/hooks/use-idle-ready.ts` の `useIdleReady` 経由で使う（定番品取得・Realtime 購読・サジェスト・レコメンドの共通ゲート）。
 - `src/app/api/push/` — Web Push の Route Handler。`subscribe/` は購読登録/削除、`send/` は他メンバーへの通知送信。`useTasks` のタスク追加・完了時に呼ばれる。
 - `src/app/auth/callback/route.ts` — Supabase OAuth / マジックリンクの code→session 交換。
 - `src/app/error.tsx` / `global-error.tsx` / `not-found.tsx` — App Router のエラー・404 境界。
@@ -116,6 +116,7 @@ src/app/page.tsx（Client Component）
 - **Realtime と楽観的更新の競合**は id ベースの dedupe で解決（`useRealtimeTasks` / `useRealtimeStapleItems` 参照）。
 - **完了済みタスクは段階ロード**。初期は未完了 + 直近の完了のみ表示し、`loadMoreCompleted()`（`COMPLETED_PAGE_SIZE = 30`）で追加取得する。
 - **タスク完了時**は `canvas-confetti` でアニメーションを再生し、他メンバーへ Web Push 通知を送信。
+- **起動直後の競合削減**：定番品の取得と Realtime 購読は `useIdleReady` で初回ペイント後まで遅らせる。Supabase への `preconnect` を `layout.tsx` で張り、ハイドレーション前に TLS ハンドシェイクを済ませておく。
 - **起動バンドル削減**：重いシート/モーダル（`TaskCreateSheet` / `TaskDetailModal` / `StapleItemsSheet`）は `next/dynamic`（`ssr: false`）で初回オープン時に遅延ロードし、以降はマウントを維持して閉じるアニメを保つ。
 - このプロジェクトはほぼ全面 Client Rendering。Server で動くのは `src/app/auth/callback/route.ts`、`src/app/api/push/**/route.ts`、`src/lib/supabase/server.ts`、`src/lib/supabase/middleware.ts`、`src/proxy.ts` のみ。
 
