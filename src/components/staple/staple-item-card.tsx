@@ -90,7 +90,7 @@ export function StapleItemCard({
       {isEditMode && (
         <button
           onClick={() => onDelete(item.id)}
-          className="absolute -top-2 -left-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow"
+          className="absolute -top-2 -left-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow"
           aria-label={`${item.name}を削除`}
         >
           <X size={12} />
