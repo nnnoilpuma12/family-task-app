@@ -76,7 +76,8 @@ npx supabase db push                            # 本番 Supabase へ反映
 - `src/lib/household-cache.ts` — 直近の世帯 id / 名前を localStorage にキャッシュする軽量ヘルパ。起動時に `householdId` を即座に得て、profiles 取得を待たずにデータ取得を並列発火させるためのもの（後述「起動フロー」）。
 - `src/lib/date.ts` — `formatDueDate` / `getQuickDate` などの日付ユーティリティ
 - `src/lib/validation.ts` — `isValidUrl`（タスク URL の XSS/フィッシング対策バリデーション）
-- `src/lib/avatar.ts` — 24 種類の絵文字アバタープリセット（動物・花・食べ物・感情）
+- `src/lib/avatar.ts` — 24 種類の絵文字アバタープリセット（動物・花・食べ物・感情）と、`profiles.avatar_url` の判別ヘルパ（`emoji:<key>` / 画像 URL / 未設定の 3 状態）
+- `src/lib/avatar-upload.ts` — カスタムアイコン（任意の画像ファイル）のクライアント側処理。ファイル検証・EXIF 適用・縮小・正方形トリミングの計算・256px WebP への変換・`avatars` バケットへのアップロード / 削除。トリミングの表示と切り出しは同じ式（`getAvatarDisplayMetrics` / `computeAvatarCropRect`）を共有する
 - `src/lib/push.ts` — fire-and-forget な Web Push 送信ヘルパ
 - `src/lib/idle.ts` — `runWhenIdle`。`requestIdleCallback`（非対応時は `setTimeout`）で重い非クリティカルな取得をアイドル時に逃がす。`useTitleSuggestions` で使用。
 - `src/app/api/push/` — Web Push の Route Handler。`subscribe/` は購読登録/削除、`send/` は他メンバーへの通知送信。`useTasks` のタスク追加・完了時に呼ばれる。
@@ -126,6 +127,7 @@ src/app/page.tsx（Client Component）
 - **定番品（staple items）**：世帯ごとの「いつもの品」マスタ。ワンタップでタスク（買い物リスト）へ追加。`use_count` / `last_used_at` で使用頻度を記録し、よく使う順に並べられる。
 - **定期タスクレコメンド**：完了履歴から周期を推定し、再追加を提案（`get_recurring_recommendations` RPC）。非表示は `dismissed_recommendations` に記録。
 - **Web Push 通知**：タスク追加・完了時に他メンバーへ送信。
+- **ユーザーアイコン**：絵文字プリセット（24 種）に加え、端末の画像ファイルをアップロードして設定できる。選択後にドラッグ + ズームで正方形にトリミングし、256px の WebP（非対応環境は JPEG）へ変換してから `avatars` バケットへ送る。`profiles.avatar_url` は `emoji:<key>` か公開 URL のいずれかを保持し、保存時に不要になった旧画像は Storage から削除する。
 
 ### 型定義
 
@@ -227,6 +229,12 @@ VAPID_SUBJECT=mailto:...
 | `push_subscriptions` | Web Push 購読情報（profile に紐づく） |
 | `dismissed_recommendations` | ユーザーが非表示にしたレコメンドの記録（household_id / profile_id / normalized_title / dismissed_until） |
 
+Storage バケット：
+
+| Bucket | 役割 |
+|---|---|
+| `avatars` | ユーザーが設定したカスタムアイコン画像。パスは `<auth.uid()>/<uuid>.webp`。public バケットだがファイル名が UUID のため URL は推測できない。書き込み・削除は自分のフォルダ配下のみ（019） |
+
 主要な DB 関数（`supabase.rpc()` で呼べる）：
 - `get_my_household_id()` — RLS の無限再帰回避用 SECURITY DEFINER ヘルパ
 - `create_default_categories(p_household_id)` — 世帯作成時のデフォルトカテゴリ投入
@@ -245,7 +253,7 @@ VAPID_SUBJECT=mailto:...
 
 ### マイグレーション一覧
 
-`supabase/migrations/` 配下に 18 ファイル：
+`supabase/migrations/` 配下に 19 ファイル：
 
 1. `001_initial_schema.sql` — 全スキーマ + RLS + トリガ + 関数
 2. `002_add_profiles_insert_policy.sql`
@@ -265,6 +273,7 @@ VAPID_SUBJECT=mailto:...
 16. `016_rls_initplan_optimization.sql` — 全 RLS ポリシーの `get_my_household_id()` / `auth.uid()` を `(select ...)` で包んで InitPlan 化、`task_assignees` / `task_images` のポリシーを `IN` から `EXISTS` へ書き換え（権限の意味は不変）
 17. `017_recommendations_time_window.sql` — `get_recurring_recommendations` の集計対象を直近 1 年に制限（起動ごとの全期間走査を解消。最終完了が 1 年以上前のタイトルは出なくなる）
 18. `018_missing_fk_indexes.sql` — 008 の外部キーインデックス棚卸しから漏れていた 4 本を追加（`push_subscriptions.profile_id` / `staple_items.category_id` / `staple_items.created_by` / `dismissed_recommendations.dismissed_by`）。015 とは軸が違い、世帯スコープを持たない表と削除時の逆引きが対象
+19. `019_avatar_storage.sql` — カスタムアイコン用の `avatars` Storage バケット（public / 2MiB / 画像 3 形式）と `storage.objects` の RLS（参照は全員、書き込み・削除は `<uid>/` 配下のみ）。`profiles.avatar_url` に長さ制約（500 文字）を追加
 
 > **スケーラビリティの前提**：このアプリに論理削除は無く、削除は全て物理 DELETE。蓄積源はパージされない完了済みタスク（`is_done = true`）で、効いてくる軸は総ユーザー数ではなく **1 世帯あたりの利用年数**。全テーブルが `household_id` でスコープされているため、世帯数の増加は個々のクエリコストにほぼ影響しない。**例外は `push_subscriptions`** で、この表だけは世帯で分割されず総ユーザー数（総デバイス数）に比例して伸びる（018 でインデックスを追加済み。ここに新しいクエリを足すときは総ユーザー数に比例しないか確認すること）。`tasks` に新しいクエリパターンを足すときは、読む行数が履歴全体に比例していないか（返す件数に比例しているか）を `EXPLAIN (ANALYZE, BUFFERS)` で確認すること。
 
