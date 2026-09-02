@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   clampAvatarOffset,
+  describeAvatarUploadError,
   computeAvatarCropRect,
   getAvatarDisplayMetrics,
   getAvatarStoragePath,
@@ -144,5 +145,30 @@ describe("getAvatarStoragePath", () => {
   it("null / 空文字は null", () => {
     expect(getAvatarStoragePath(null)).toBeNull();
     expect(getAvatarStoragePath("")).toBeNull();
+  });
+});
+
+describe("describeAvatarUploadError", () => {
+  it("バケット未作成は保存先未設定として案内する", () => {
+    expect(describeAvatarUploadError(new Error("Bucket not found"))).toContain("avatars");
+  });
+
+  it("RLS 違反はログインし直しを案内する", () => {
+    const message = "new row violates row-level security policy";
+    expect(describeAvatarUploadError(new Error(message))).toContain("ログインし直して");
+  });
+
+  it("通信エラーは電波状況を案内する", () => {
+    expect(describeAvatarUploadError(new TypeError("Failed to fetch"))).toContain("通信");
+  });
+
+  it("未知のエラーは汎用文言にフォールバックする", () => {
+    expect(describeAvatarUploadError(new Error("something else"))).toBe(
+      "画像のアップロードに失敗しました"
+    );
+  });
+
+  it("Error 以外を渡しても落ちない", () => {
+    expect(describeAvatarUploadError(null)).toBe("画像のアップロードに失敗しました");
   });
 });
