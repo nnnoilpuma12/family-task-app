@@ -253,6 +253,36 @@ function extensionForMimeType(mimeType: string): string {
 }
 
 /**
+ * Storage が返したエラーから、ユーザーに出すメッセージを組み立てる。
+ *
+ * アップロード失敗はクライアント側の不備（大きすぎる等）ではなく
+ * 「バケットや RLS が本番に用意されていない」ことが原因のケースが多く、
+ * 一律「失敗しました」だと原因の切り分けができない。原因ごとに文言を分ける。
+ */
+export function describeAvatarUploadError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("bucket not found")) {
+    // 019_avatar_storage.sql が本番に未適用（npx supabase db push 漏れ）
+    return "アイコンの保存先が未設定です（avatars バケットが見つかりません）";
+  }
+  if (normalized.includes("row-level security") || normalized.includes("unauthorized")) {
+    return "アイコンを保存する権限がありません。ログインし直してからお試しください";
+  }
+  if (normalized.includes("mime type") || normalized.includes("invalid_mime_type")) {
+    return "この形式の画像は保存できません";
+  }
+  if (normalized.includes("exceeded the maximum allowed size") || normalized.includes("payload too large")) {
+    return "画像サイズが大きすぎます";
+  }
+  if (normalized.includes("failed to fetch") || normalized.includes("networkerror")) {
+    return "通信に失敗しました。電波の良い場所で再度お試しください";
+  }
+  return "画像のアップロードに失敗しました";
+}
+
+/**
  * アイコン画像をアップロードして公開 URL を返す。
  * パスの先頭を uid にすることで storage.objects の RLS を通す。
  */
@@ -265,7 +295,11 @@ export async function uploadAvatarImage(userId: string, blob: Blob): Promise<str
     cacheControl: "31536000",
     upsert: false,
   });
-  if (error) throw error;
+  if (error) {
+    // 端末上でしか起きない失敗なのでサーバーログに残らない。原因追跡用に出す
+    console.error("[avatar:upload] failed", { path, contentType: blob.type, message: error.message });
+    throw error;
+  }
 
   const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
   return data.publicUrl;

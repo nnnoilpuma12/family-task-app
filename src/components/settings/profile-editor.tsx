@@ -5,7 +5,11 @@ import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { avatarUrlFromKey, isUploadedAvatarUrl } from "@/lib/avatar";
-import { deleteAvatarImage, uploadAvatarImage } from "@/lib/avatar-upload";
+import {
+  deleteAvatarImage,
+  describeAvatarUploadError,
+  uploadAvatarImage,
+} from "@/lib/avatar-upload";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarPicker } from "@/components/settings/avatar-picker";
 import { Button } from "@/components/ui/button";
@@ -64,8 +68,8 @@ export function ProfileEditor({ profile, onUpdate }: ProfileEditorProps) {
     if (pendingImage) {
       try {
         nextAvatarUrl = await uploadAvatarImage(profile.id, pendingImage.blob);
-      } catch {
-        toast.error("画像のアップロードに失敗しました");
+      } catch (error) {
+        toast.error(describeAvatarUploadError(error));
         setSaving(false);
         return;
       }
