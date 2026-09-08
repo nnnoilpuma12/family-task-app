@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 import type { StapleItem } from "@/types";
 
 vi.mock("@/lib/supabase/client");
+vi.mock("@/lib/idle", () => ({
+  runWhenIdle: vi.fn((cb: () => void) => {
+    cb();
+    return vi.fn();
+  }),
+}));
 
 const HOUSEHOLD_ID = "household-1";
 

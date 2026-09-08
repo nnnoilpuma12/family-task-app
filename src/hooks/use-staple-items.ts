@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
+import { useIdleReady } from "@/hooks/use-idle-ready";
 import type { StapleItem } from "@/types";
 
 export function useStapleItems(householdId: string | null) {
@@ -24,14 +25,21 @@ export function useStapleItems(householdId: string | null) {
     return data ?? [];
   }, [householdId, supabase]);
 
+  // 定番品は「定番品シート」を開くまで描画に使われない。起動時の取得競合を減らすため、
+  // 初回ペイント後（アイドル）まで発火を遅らせる。シートを開くのは必ずユーザー操作で、
+  // アイドルはその前に来るため、体感上の待ちは増えない。
+  const { isReady } = useIdleReady(!!householdId);
+
   const query = useQuery({
     queryKey: queryKeys.stapleItems(householdId),
     queryFn: fetchStapleItems,
-    enabled: !!householdId,
+    enabled: !!householdId && isReady,
   });
 
   const stapleItems = useMemo(() => query.data ?? [], [query.data]);
-  const loading = !householdId || query.isLoading;
+  // isLoading は「無効化中（enabled: false）」だと false になるため、アイドル待ちの
+  // あいだ「0 件で読み込み完了」に見えてしまう。pending で見るのが正しい。
+  const loading = !householdId || query.isPending;
 
   useEffect(() => {
     if (query.isError) toast.error("定番品の取得に失敗しました");

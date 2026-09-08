@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
-import { runWhenIdle } from "@/lib/idle";
+import { useIdleReady } from "@/hooks/use-idle-ready";
 import type { TaskRecommendation } from "@/types";
 
 // 完了履歴を集計する重い RPC なので、この時間内の再マウント・フォーカス復帰では取り直さない。
@@ -17,11 +17,7 @@ export function useTaskRecommendations(householdId: string | null, profileId?: s
   const queryClient = useQueryClient();
 
   // 起動クリティカルパスから外してアイドル後に発火させる（RPC が重いため）
-  const [isIdle, setIsIdle] = useState(false);
-  useEffect(() => {
-    if (!householdId) return;
-    return runWhenIdle(() => setIsIdle(true));
-  }, [householdId]);
+  const { isReady, markReady } = useIdleReady(!!householdId);
 
   const fetchRecommendations = useCallback(async (): Promise<TaskRecommendation[]> => {
     const { data, error } = await supabase.rpc("get_recurring_recommendations");
@@ -34,7 +30,7 @@ export function useTaskRecommendations(householdId: string | null, profileId?: s
   const query = useQuery({
     queryKey: queryKeys.recommendations(householdId),
     queryFn: fetchRecommendations,
-    enabled: !!householdId && isIdle,
+    enabled: !!householdId && isReady,
     staleTime: RECOMMENDATIONS_STALE_TIME_MS,
   });
 
@@ -72,11 +68,11 @@ export function useTaskRecommendations(householdId: string | null, profileId?: s
   // タスクの追加・完了・削除の直後に呼ばれる。まだアイドル待ちでもここで有効化して取り直す。
   const refetch = useCallback(async () => {
     if (!householdId) return;
-    setIsIdle(true);
+    markReady();
     await queryClient.invalidateQueries({
       queryKey: queryKeys.recommendations(householdId),
     });
-  }, [householdId, queryClient]);
+  }, [householdId, markReady, queryClient]);
 
   return { recommendations, loading, dismiss, refetch };
 }

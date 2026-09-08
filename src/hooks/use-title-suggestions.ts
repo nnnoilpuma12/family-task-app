@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
-import { runWhenIdle } from "@/lib/idle";
+import { useIdleReady } from "@/hooks/use-idle-ready";
 
 type PastTask = { title: string; category_id: string | null };
 
@@ -21,11 +21,7 @@ export function useTitleSuggestions(householdId: string | null) {
   const supabase = useMemo(() => createClient(), []);
 
   // 作成シートを開くまで不要な取得のため、起動クリティカルパスから外してアイドル後に発火させる
-  const [isIdle, setIsIdle] = useState(false);
-  useEffect(() => {
-    if (!householdId) return;
-    return runWhenIdle(() => setIsIdle(true));
-  }, [householdId]);
+  const { isReady } = useIdleReady(!!householdId);
 
   const fetchPastTasks = useCallback(async (): Promise<PastTask[]> => {
     if (!householdId) return [];
@@ -57,7 +53,7 @@ export function useTitleSuggestions(householdId: string | null) {
   const pastTasksQuery = useQuery({
     queryKey: queryKeys.titleSuggestions(householdId),
     queryFn: fetchPastTasks,
-    enabled: !!householdId && isIdle,
+    enabled: !!householdId && isReady,
     staleTime: TITLE_SUGGESTIONS_STALE_TIME_MS,
   });
 

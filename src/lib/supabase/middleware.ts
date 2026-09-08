@@ -29,22 +29,28 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // JWT 検証はローカルで完結させる。getUser() は毎リクエスト Auth サーバへ往復し、
+  // その往復がそのまま HTML の TTFB に直列で乗る（PWA のコールドスタートでは
+  // 白画面の時間そのもの）。getClaims() はプロジェクトの署名キーが非対称（ECC/RSA）
+  // なら WebCrypto でローカル検証し、JWKS はキャッシュされるため往復が消える。
+  // 対称鍵のままなら getUser() 相当の往復にフォールバックするので、
+  // 署名キーを移行していない環境でも挙動は変わらない（安全側に倒れる）。
+  // getSession() と違い JWT の署名を検証するため、認証判定に使ってよい。
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const isAuthenticated = !!claimsData?.claims.sub;
 
   const publicPaths = ["/login", "/signup", "/auth/callback", "/forgot-password"];
   const isPublicPath = publicPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
 
-  if (!user && !isPublicPath) {
+  if (!isAuthenticated && !isPublicPath) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isPublicPath) {
+  if (isAuthenticated && isPublicPath) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

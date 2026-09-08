@@ -9,13 +9,18 @@ import { updateSession } from "@/lib/supabase/middleware";
  */
 
 const mocks = vi.hoisted(() => ({
-  user: null as { id: string } | null,
+  claims: null as { sub: string } | null,
 }));
 
+// getClaims は「未ログイン」を data: null で返す（getUser の data.user: null ではない）。
+// 認証判定がこの形を取り違えると全員がログイン扱いになるため、返り値の形も含めて固定する。
 vi.mock("@supabase/ssr", () => ({
   createServerClient: () => ({
     auth: {
-      getUser: async () => ({ data: { user: mocks.user }, error: null }),
+      getClaims: async () =>
+        mocks.claims === null
+          ? { data: null, error: null }
+          : { data: { claims: mocks.claims }, error: null },
     },
   }),
 }));
@@ -36,12 +41,12 @@ describe("updateSession", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
-    mocks.user = null;
+    mocks.claims = null;
   });
 
   describe("未ログイン", () => {
     it.each(PROTECTED_PATHS)("%s へのアクセスは /login にリダイレクトする", async (path) => {
-      mocks.user = null;
+      mocks.claims = null;
 
       const res = await updateSession(makeRequest(path));
 
@@ -49,7 +54,7 @@ describe("updateSession", () => {
     });
 
     it.each(PUBLIC_PATHS)("%s はリダイレクトせず通す", async (path) => {
-      mocks.user = null;
+      mocks.claims = null;
 
       const res = await updateSession(makeRequest(path));
 
@@ -63,7 +68,7 @@ describe("updateSession", () => {
     // パスワード再設定リンクを踏むと code 交換の前に / へ飛ばされる
     // （= /reset-password に辿り着けない）。修正は別 PR で扱う。
     it.each(PUBLIC_PATHS)("%s へのアクセスは / にリダイレクトする", async (path) => {
-      mocks.user = { id: "user-1" };
+      mocks.claims = { sub: "user-1" };
 
       const res = await updateSession(makeRequest(path));
 
@@ -71,7 +76,7 @@ describe("updateSession", () => {
     });
 
     it.each(PROTECTED_PATHS)("%s はリダイレクトせず通す", async (path) => {
-      mocks.user = { id: "user-1" };
+      mocks.claims = { sub: "user-1" };
 
       const res = await updateSession(makeRequest(path));
 
@@ -81,7 +86,7 @@ describe("updateSession", () => {
 
   describe("リダイレクト先の組み立て", () => {
     it("クエリ文字列を保持したまま /login へ送る", async () => {
-      mocks.user = null;
+      mocks.claims = null;
 
       const res = await updateSession(makeRequest("/settings?tab=push"));
       const location = res.headers.get("location");
@@ -93,7 +98,7 @@ describe("updateSession", () => {
     });
 
     it("/reset-password は公開パスに含まれないため未ログインでは弾かれる", async () => {
-      mocks.user = null;
+      mocks.claims = null;
 
       const res = await updateSession(makeRequest("/reset-password"));
 

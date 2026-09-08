@@ -36,6 +36,22 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Supabase への接続（DNS + TLS ハンドシェイク）を HTML パース時点で始めるための origin。
+ * 起動直後の tasks / categories 取得はハイドレーション後に初めて発火するため、
+ * 何もしないとその瞬間からハンドシェイクが始まり、モバイル回線ではまるごと待ち時間になる。
+ * 環境変数が未設定・不正な場合は preconnect を出さない（起動を壊さない）。
+ */
+const supabaseOrigin = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+})();
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -55,6 +71,11 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} antialiased`}
       >
+        {/* React が <head> へ巻き上げる。CORS フェッチなので crossOrigin 付きで
+            接続プールを合わせないと、実際のクエリでハンドシェイクをやり直すことになる */}
+        {supabaseOrigin && (
+          <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />
+        )}
         <ServiceWorkerRegister />
         <Toaster />
         <Providers>{children}</Providers>

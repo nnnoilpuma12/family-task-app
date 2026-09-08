@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useIdleReady } from "@/hooks/use-idle-ready";
 import type { Task } from "@/types";
 
 export function useRealtimeTasks(
@@ -9,8 +10,15 @@ export function useRealtimeTasks(
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>,
   onRemoteChange?: () => void
 ) {
+  // Realtime の WebSocket ハンドシェイク（HTTP アップグレード + 認証）は、
+  // 起動直後に張ると初期クエリと接続・帯域を食い合う。初回ペイント後まで遅らせる。
+  // 取得スナップショットと購読開始のあいだのイベントを取りこぼす窓は元々存在し
+  // （同時に開始しても取得結果は購読前の状態）、アイドルは初回ペイント直後に
+  // 来るため窓の広がりはわずか。取りこぼしは refetchOnWindowFocus で回収される。
+  const { isReady } = useIdleReady(!!householdId);
+
   useEffect(() => {
-    if (!householdId) return;
+    if (!householdId || !isReady) return;
 
     const supabase = createClient();
     const channel = supabase
@@ -67,5 +75,5 @@ export function useRealtimeTasks(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [householdId, setTasks, onRemoteChange]);
+  }, [householdId, isReady, setTasks, onRemoteChange]);
 }
