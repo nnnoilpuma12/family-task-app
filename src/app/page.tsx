@@ -39,6 +39,8 @@ import { usePageData } from "@/hooks/use-page-data";
 import { getCachedHouseholdId } from "@/lib/household-cache";
 import { useStapleItems } from "@/hooks/use-staple-items";
 import { useRealtimeStapleItems } from "@/hooks/use-realtime-staple-items";
+import { useRealtimeCategories } from "@/hooks/use-realtime-categories";
+import { useRealtimeResync } from "@/hooks/use-realtime-resync";
 import type { TabMeasurements } from "@/components/category/category-tabs";
 import type { IndicatorRefs } from "@/hooks/use-swipeable-tab";
 import type { Task, TaskRecommendation } from "@/types";
@@ -85,8 +87,8 @@ export default function Home() {
   // profile 確定後はそちらを正とする（世帯切替時はキー変更で自動再取得される）
   const householdId = profile?.household_id ?? cachedHouseholdId;
   const supabase = useMemo(() => createClient(), []);
-  const { categories } = useCategories(householdId);
-  const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, deleteTasks, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted } =
+  const { categories, setCategories, refetch: refetchCategories } = useCategories(householdId);
+  const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, deleteTasks, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted, refetch: refetchTasks } =
     useTasks(householdId);
 
   const { recommendations, loading: recsLoading, dismiss: dismissRecommendation, refetch: refetchRecommendations } =
@@ -102,8 +104,12 @@ export default function Home() {
     deleteStapleItem,
     reorderStapleItems,
     recordUsage,
+    refetch: refetchStapleItems,
   } = useStapleItems(householdId);
-  useRealtimeStapleItems(householdId, setStapleItems);
+  useRealtimeStapleItems(householdId, setStapleItems, refetchStapleItems);
+  useRealtimeCategories(householdId, setCategories, refetchCategories);
+  // WebSocket が無言で切れているあいだの取りこぼしを、復帰契機で回収する
+  useRealtimeResync(householdId);
 
   // Debounced refetch for realtime events from other household members
   const recsTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -112,13 +118,13 @@ export default function Home() {
     recsTimerRef.current = setTimeout(() => refetchRecommendations(), 2000);
   }, [refetchRecommendations]);
 
-  useRealtimeTasks(householdId, setTasks, onRemoteChange);
+  useRealtimeTasks(householdId, setTasks, onRemoteChange, refetchTasks);
 
-  // Auto-select first category when categories load and none is selected
+  // 選択中のカテゴリが未設定、または（他メンバーの削除で）消えたら先頭へ寄せる
   useEffect(() => {
-    if (selectedCategoryId === null && categories.length > 0) {
-      setSelectedCategoryId(categories[0].id);
-    }
+    if (categories.length === 0) return;
+    if (categories.some((c) => c.id === selectedCategoryId)) return;
+    setSelectedCategoryId(categories[0].id);
   }, [categories, selectedCategoryId]);
 
   const tasks = useMemo(() => {

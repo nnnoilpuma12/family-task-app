@@ -111,5 +111,5 @@ export function useCategories(householdId: string | null) {
     }
   };
 
-  return { categories, loading, addCategory, updateCategory, deleteCategory, reorderCategories, refetch: query.refetch };
+  return { categories, setCategories, loading, addCategory, updateCategory, deleteCategory, reorderCategories, refetch: query.refetch };
 }

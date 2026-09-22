@@ -67,8 +67,16 @@ npx supabase gen types typescript --local > src/types/database.ts
 ## Realtime
 
 - Realtime publish 対象を増やす場合は、マイグレーション内で `ALTER PUBLICATION supabase_realtime ADD TABLE <name>;` を書く。
-- `REPLICA IDENTITY FULL` が必要なテーブル（UPDATE/DELETE で旧値が欲しい場合）は明示する（`009_tasks_replica_identity_full.sql` 参照）。
+- **publish したら必ず購読側のフックもセットで用意する**。購読者のいない publish は配信コストを払うだけで何も起きない（`categories` が長らくこの状態だった）。
+- **購読側で `filter` を使う表には `REPLICA IDENTITY FULL` を必ず設定する**（`009` / `020` 参照）。
+  postgres_changes の DELETE は「変更前の行」で配信可否を判定するが、REPLICA IDENTITY が既定だと
+  WAL には主キーしか載らない。そのため `filter: household_id=eq.<id>` を満たせず、
+  **エラーにもならずに DELETE イベントだけが黙って配信されない**。INSERT / UPDATE は届くので気づきにくい。
 - フロント側は `useRealtimeTasks` のパターン（id dedupe）を踏襲。
+- **購読状態を握り潰さない**。`.subscribe()` をコールバック無しで呼ぶと切断もエラーも無言で通り過ぎる。
+  `src/lib/realtime.ts` の `createSubscribeHandler` を通し、`SUBSCRIBED`（再接続後の rejoin でも再通知される）を
+  再同期の起点にする。postgres_changes には切断中のイベントを再送する仕組みが無いため、
+  回収経路が無いと画面は古いまま固まる。
 
 ---
 

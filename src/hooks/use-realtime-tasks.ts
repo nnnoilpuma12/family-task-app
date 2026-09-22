@@ -3,18 +3,22 @@
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useIdleReady } from "@/hooks/use-idle-ready";
+import { createSubscribeHandler } from "@/lib/realtime";
 import type { Task } from "@/types";
 
 export function useRealtimeTasks(
   householdId: string | null,
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>,
-  onRemoteChange?: () => void
+  onRemoteChange?: () => void,
+  /** 購読が成立したときに呼ばれる。切断中に取りこぼしたイベントを取得で回収する */
+  onResync?: () => void
 ) {
   // Realtime の WebSocket ハンドシェイク（HTTP アップグレード + 認証）は、
   // 起動直後に張ると初期クエリと接続・帯域を食い合う。初回ペイント後まで遅らせる。
   // 取得スナップショットと購読開始のあいだのイベントを取りこぼす窓は元々存在し
   // （同時に開始しても取得結果は購読前の状態）、アイドルは初回ペイント直後に
-  // 来るため窓の広がりはわずか。取りこぼしは refetchOnWindowFocus で回収される。
+  // 来るため窓の広がりはわずか。この窓と、以降の切断による取りこぼしは
+  // 購読成立時の onResync で回収する。
   const { isReady } = useIdleReady(!!householdId);
 
   useEffect(() => {
@@ -70,10 +74,10 @@ export function useRealtimeTasks(
           onRemoteChange?.();
         }
       )
-      .subscribe();
+      .subscribe(createSubscribeHandler(`tasks:${householdId}`, onResync));
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [householdId, isReady, setTasks, onRemoteChange]);
+  }, [householdId, isReady, setTasks, onRemoteChange, onResync]);
 }

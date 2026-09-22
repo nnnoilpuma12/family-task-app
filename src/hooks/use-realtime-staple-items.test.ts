@@ -1,6 +1,7 @@
 import { renderHook, act } from "@testing-library/react";
 import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { useRealtimeStapleItems } from "@/hooks/use-realtime-staple-items";
 import { createClient } from "@/lib/supabase/client";
 import type { StapleItem } from "@/types";
@@ -38,6 +39,9 @@ function makeStapleItem(overrides: Partial<StapleItem> = {}): StapleItem {
 /** postgres_changes のコールバックが受け取るペイロード */
 type RealtimeCallback = (payload: { new?: Partial<StapleItem>; old?: Partial<StapleItem> }) => void;
 
+/** subscribe() に渡す購読状態ハンドラ */
+type SubscribeHandler = (status: REALTIME_SUBSCRIBE_STATES, err?: Error) => void;
+
 describe("useRealtimeStapleItems", () => {
   let callbacks: Record<string, RealtimeCallback>;
   let mockChannel: { on: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> };
@@ -63,10 +67,14 @@ describe("useRealtimeStapleItems", () => {
     });
   });
 
-  function renderWithState(householdId: string | null, initialItems: StapleItem[] = []) {
+  function renderWithState(
+    householdId: string | null,
+    initialItems: StapleItem[] = [],
+    onResync?: () => void
+  ) {
     return renderHook(() => {
       const [items, setItems] = useState<StapleItem[]>(initialItems);
-      useRealtimeStapleItems(householdId, setItems);
+      useRealtimeStapleItems(householdId, setItems, onResync);
       return { items };
     });
   }
@@ -129,6 +137,16 @@ describe("useRealtimeStapleItems", () => {
 
     expect(result.current.items).toHaveLength(1);
     expect(result.current.items[0].id).toBe("si-2");
+  });
+
+  it("購読が成立したら onResync が呼ばれる（切断中の取りこぼしを取得で回収する）", () => {
+    const onResync = vi.fn();
+    renderWithState(HOUSEHOLD_ID, [], onResync);
+
+    const handler: SubscribeHandler = mockChannel.subscribe.mock.calls[0][0];
+    act(() => { handler(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED); });
+
+    expect(onResync).toHaveBeenCalledTimes(1);
   });
 
   it("アンマウント時に removeChannel が呼ばれる", () => {

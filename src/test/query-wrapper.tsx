@@ -8,6 +8,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // setQueryData による楽観的更新をモックの旧データで上書きするのを防ぐため。
 // 明示的な refetch() は staleTime に関係なく動くので表現力は落ちない。
 export function createQueryWrapper() {
+  return createQueryWrapperWithClient().wrapper;
+}
+
+/**
+ * wrapper と一緒に QueryClient 本体も返す版。
+ * invalidateQueries の呼ばれ方そのものを検証したいテストで使う。
+ */
+export function createQueryWrapperWithClient() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -20,7 +28,8 @@ export function createQueryWrapper() {
       },
     },
   });
-  return function Wrapper({ children }: { children: ReactNode }) {
+  function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-  };
+  }
+  return { wrapper: Wrapper, queryClient };
 }

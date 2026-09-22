@@ -3,17 +3,21 @@
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useIdleReady } from "@/hooks/use-idle-ready";
+import { createSubscribeHandler } from "@/lib/realtime";
 import type { StapleItem } from "@/types";
 
 export function useRealtimeStapleItems(
   householdId: string | null,
-  setStapleItems: React.Dispatch<React.SetStateAction<StapleItem[]>>
+  setStapleItems: React.Dispatch<React.SetStateAction<StapleItem[]>>,
+  /** 購読が成立したときに呼ばれる。切断中に取りこぼしたイベントを取得で回収する */
+  onResync?: () => void
 ) {
   // Realtime の WebSocket ハンドシェイク（HTTP アップグレード + 認証）は、
   // 起動直後に張ると初期クエリと接続・帯域を食い合う。初回ペイント後まで遅らせる。
   // 取得スナップショットと購読開始のあいだのイベントを取りこぼす窓は元々存在し
   // （同時に開始しても取得結果は購読前の状態）、アイドルは初回ペイント直後に
-  // 来るため窓の広がりはわずか。取りこぼしは refetchOnWindowFocus で回収される。
+  // 来るため窓の広がりはわずか。この窓と、以降の切断による取りこぼしは
+  // 購読成立時の onResync で回収する。
   const { isReady } = useIdleReady(!!householdId);
 
   useEffect(() => {
@@ -66,10 +70,10 @@ export function useRealtimeStapleItems(
           setStapleItems((prev) => prev.filter((si) => si.id !== deleted.id));
         }
       )
-      .subscribe();
+      .subscribe(createSubscribeHandler(`staple_items:${householdId}`, onResync));
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [householdId, isReady, setStapleItems]);
+  }, [householdId, isReady, setStapleItems, onResync]);
 }

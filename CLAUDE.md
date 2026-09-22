@@ -78,6 +78,7 @@ npx supabase db push                            # 本番 Supabase へ反映
 - `src/lib/validation.ts` — `isValidUrl`（タスク URL の XSS/フィッシング対策バリデーション）
 - `src/lib/avatar.ts` — 24 種類の絵文字アバタープリセット（動物・花・食べ物・感情）と、`profiles.avatar_url` の判別ヘルパ（`emoji:<key>` / 画像 URL / 未設定の 3 状態）
 - `src/lib/avatar-upload.ts` — カスタムアイコン（任意の画像ファイル）のクライアント側処理。ファイル検証・EXIF 適用・縮小・正方形トリミングの計算・256px WebP への変換・`avatars` バケットへのアップロード / 削除。トリミングの表示と切り出しは同じ式（`getAvatarDisplayMetrics` / `computeAvatarCropRect`）を共有する
+- `src/lib/realtime.ts` — `createSubscribeHandler`。Realtime チャンネルの購読状態（`SUBSCRIBED` / `CHANNEL_ERROR` / `TIMED_OUT`）を受け取るハンドラを組み立てる。`SUBSCRIBED` は初回購読だけでなく**ソケット再接続後の rejoin でも再通知される**ので、そこを再同期の起点にしている。
 - `src/lib/push.ts` — fire-and-forget な Web Push 送信ヘルパ
 - `src/lib/idle.ts` — `runWhenIdle`。`requestIdleCallback`（非対応時は `setTimeout`）で重い非クリティカルな取得をアイドル時に逃がす。フックからは `src/hooks/use-idle-ready.ts` の `useIdleReady` 経由で使う（定番品取得・Realtime 購読・サジェスト・レコメンドの共通ゲート）。
 - `src/app/api/push/` — Web Push の Route Handler。`subscribe/` は購読登録/削除、`send/` は他メンバーへの通知送信。`useTasks` のタスク追加・完了時に呼ばれる。
@@ -104,6 +105,8 @@ src/app/page.tsx（Client Component）
   ├─ useStapleItems()          — 定番品 CRUD + 並び順管理（React Query）
   ├─ useRealtimeTasks()        — Supabase Realtime 購読（id dedupe）
   ├─ useRealtimeStapleItems()  — 定番品の Realtime 購読
+  ├─ useRealtimeCategories()   — カテゴリの Realtime 購読
+  ├─ useRealtimeResync()       — 可視化・オンライン復帰での取りこぼし回収
   ├─ useSort()                 — ソート設定（localStorage 永続化）
   ├─ useSwipeableTab()         — カテゴリタブの横スワイプ ↔ タブ選択の同期
   ├─ useTaskRecommendations()  — 定期タスクレコメンド（RPC）
@@ -114,7 +117,11 @@ src/app/page.tsx（Client Component）
 - **起動フロー（並列化）**：`page.tsx` はマウント直後に `getCachedHouseholdId()`（localStorage）を読み、`householdId = profile?.household_id ?? cachedHouseholdId` として tasks / categories / staple / Realtime を profiles 取得を待たずに並列発火させる。profile 確定後はそちらが正となり、世帯が変わればキー変更で自動再取得される。`usePageData` はネットワーク往復のない `getSession()` を使う（サーバ側検証は middleware 済み）。詳細は `docs/startup-flow.md`。
 - **キャッシュのクリア境界**：別ユーザー / 別世帯に切り替わる箇所（ログアウト＝`settings/page.tsx`、世帯参加＝`household/join-form.tsx`）では `clearCachedHousehold()` と `clearPersistedQueryCache()` を必ず呼び、端末に前世帯のデータを残さない。
 - **楽観的更新**：`setQueryData` でキャッシュを先に更新 → Supabase 呼び出し。`useCategories` などはエラー時にスナップショットへロールバックする（既存パターンに合わせる）。
-- **Realtime と楽観的更新の競合**は id ベースの dedupe で解決（`useRealtimeTasks` / `useRealtimeStapleItems` 参照）。
+- **Realtime と楽観的更新の競合**は id ベースの dedupe で解決（`useRealtimeTasks` / `useRealtimeStapleItems` / `useRealtimeCategories` 参照）。
+- **Realtime の取りこぼしは必ず回収する**。WebSocket は端末のスリープ・アプリ切り替え・回線切り替えで無言のまま切れ、postgres_changes には切断中のイベントを再送する仕組みが無い。回収は 2 系統：
+  - 購読成立時（`createSubscribeHandler` の `onResync`）— 再接続のたびに当該クエリを取り直す。初期取得と購読開始のあいだに空く窓もこれで埋まる
+  - `useRealtimeResync` — `visibilitychange` / `online` を拾って世帯スコープのクエリを invalidate する
+- **`refetchOnWindowFocus` を取りこぼしの保険として当てにしない**。`refetchOnWindowFocus: true` は stale なクエリしか取り直さず、さらに `setQueryData` は呼ばれるたび `dataUpdatedAt` を更新する。`setTasks` などは中身が `setQueryData` なので、**Realtime イベントや楽観的更新のたびに `staleTime`（30 秒）のタイマーが振り出しに戻る**。操作が活発なときほど保険が効かなくなるため、回収は上の 2 系統で明示的に行う。
 - **完了済みタスクは段階ロード**。初期は未完了 + 直近の完了のみ表示し、`loadMoreCompleted()`（`COMPLETED_PAGE_SIZE = 30`）で追加取得する。
 - **タスク完了時**は `canvas-confetti` でアニメーションを再生し、他メンバーへ Web Push 通知を送信。
 - **起動直後の競合削減**：定番品の取得と Realtime 購読は `useIdleReady` で初回ペイント後まで遅らせる。Supabase への `preconnect` を `layout.tsx` で張り、ハイドレーション前に TLS ハンドシェイクを済ませておく。
@@ -254,7 +261,7 @@ Storage バケット：
 
 ### マイグレーション一覧
 
-`supabase/migrations/` 配下に 19 ファイル：
+`supabase/migrations/` 配下に 20 ファイル：
 
 1. `001_initial_schema.sql` — 全スキーマ + RLS + トリガ + 関数
 2. `002_add_profiles_insert_policy.sql`
@@ -275,7 +282,7 @@ Storage バケット：
 17. `017_recommendations_time_window.sql` — `get_recurring_recommendations` の集計対象を直近 1 年に制限（起動ごとの全期間走査を解消。最終完了が 1 年以上前のタイトルは出なくなる）
 18. `018_missing_fk_indexes.sql` — 008 の外部キーインデックス棚卸しから漏れていた 4 本を追加（`push_subscriptions.profile_id` / `staple_items.category_id` / `staple_items.created_by` / `dismissed_recommendations.dismissed_by`）。015 とは軸が違い、世帯スコープを持たない表と削除時の逆引きが対象
 19. `019_avatar_storage.sql` — カスタムアイコン用の `avatars` Storage バケット（public / 2MiB / 画像 3 形式）と `storage.objects` の RLS（参照は全員、書き込み・削除は `<uid>/` 配下のみ）。`profiles.avatar_url` に長さ制約（500 文字）を追加
-
+20. `020_realtime_delete_replica_identity.sql` — `staple_items` / `categories` に `REPLICA IDENTITY FULL` を設定。postgres_changes の DELETE は「変更前の行」で配信可否を判定するため、既定（主キーのみ）だと購読側の `filter=household_id=eq.<id>` を満たせず、**削除イベントだけが配信されていなかった**
 > **スケーラビリティの前提**：このアプリに論理削除は無く、削除は全て物理 DELETE。蓄積源はパージされない完了済みタスク（`is_done = true`）で、効いてくる軸は総ユーザー数ではなく **1 世帯あたりの利用年数**。全テーブルが `household_id` でスコープされているため、世帯数の増加は個々のクエリコストにほぼ影響しない。**例外は `push_subscriptions`** で、この表だけは世帯で分割されず総ユーザー数（総デバイス数）に比例して伸びる（018 でインデックスを追加済み。ここに新しいクエリを足すときは総ユーザー数に比例しないか確認すること）。`tasks` に新しいクエリパターンを足すときは、読む行数が履歴全体に比例していないか（返す件数に比例しているか）を `EXPLAIN (ANALYZE, BUFFERS)` で確認すること。
 
 ---
