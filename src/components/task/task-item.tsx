@@ -8,6 +8,14 @@ import { Check, Calendar, GripVertical, Trash2 } from "lucide-react";
 import type { Task, Category, Profile } from "@/types";
 import { formatDueDate } from "@/lib/date";
 
+// リスト項目の入場スプリング。DESIGN.md §6.1 の既定スプリング
+//（damping 20 / stiffness 300）は整定まで約 460ms かかり、同 §6 の
+//「すべての動きは 250ms 以内」を満たしていなかった。
+// Realtime で届いたタスクではこの時間がネットワーク遅延に上乗せされ、
+// パートナー側の「反映がもったりする」体感に直結するため、
+// 弾みを残したまま 250ms 以内（約 240ms）で収まる減衰に寄せる。
+const ENTER_TRANSITION = { type: "spring", damping: 38, stiffness: 560 } as const;
+
 interface TaskItemProps {
   task: Task;
   category?: Category | null;
@@ -113,7 +121,7 @@ export const TaskItem = memo(function TaskItem({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
-        transition={{ type: "spring", damping: 20, stiffness: 300 }}
+        transition={ENTER_TRANSITION}
         className="relative overflow-hidden rounded-lg"
         style={isOverlay ? { opacity: 0.9, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" } : {}}
       >

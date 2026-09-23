@@ -1,6 +1,7 @@
 import { renderHook, act } from "@testing-library/react";
 import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
 import { createClient } from "@/lib/supabase/client";
 import type { Task } from "@/types";
@@ -37,6 +38,9 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 /** postgres_changes のコールバックが受け取るペイロード */
 type RealtimeCallback = (payload: { new?: Partial<Task>; old?: Partial<Task> }) => void;
 
+/** subscribe() に渡す購読状態ハンドラ */
+type SubscribeHandler = (status: REALTIME_SUBSCRIBE_STATES, err?: Error) => void;
+
 describe("useRealtimeTasks", () => {
   // postgres_changes イベントのコールバックを捕捉するためのマップ
   let callbacks: Record<string, RealtimeCallback>;
@@ -63,10 +67,15 @@ describe("useRealtimeTasks", () => {
     });
   });
 
-  function renderWithState(householdId: string | null, initialTasks: Task[] = [], onRemoteChange?: () => void) {
+  function renderWithState(
+    householdId: string | null,
+    initialTasks: Task[] = [],
+    onRemoteChange?: () => void,
+    onResync?: () => void
+  ) {
     return renderHook(() => {
       const [tasks, setTasks] = useState<Task[]>(initialTasks);
-      useRealtimeTasks(householdId, setTasks, onRemoteChange);
+      useRealtimeTasks(householdId, setTasks, onRemoteChange, onResync);
       return { tasks };
     });
   }
@@ -142,6 +151,50 @@ describe("useRealtimeTasks", () => {
     act(() => { callbacks.DELETE({ old: { id: "t-1" } }); });
 
     expect(onRemoteChange).toHaveBeenCalledTimes(3);
+  });
+
+  it("購読が成立したら onResync が呼ばれる（切断中の取りこぼしを取得で回収する）", () => {
+    const onResync = vi.fn();
+    renderWithState(HOUSEHOLD_ID, [], undefined, onResync);
+
+    const handler: SubscribeHandler = mockChannel.subscribe.mock.calls[0][0];
+    act(() => { handler(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED); });
+
+    expect(onResync).toHaveBeenCalledTimes(1);
+  });
+
+  it("購読がエラーになっても onResync は呼ばれない", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onResync = vi.fn();
+    renderWithState(HOUSEHOLD_ID, [], undefined, onResync);
+
+    const handler: SubscribeHandler = mockChannel.subscribe.mock.calls[0][0];
+    act(() => { handler(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, new Error("boom")); });
+
+    expect(onResync).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("再レンダーしてもチャンネルを張り直さない", () => {
+    // 依存が毎レンダー変わると購読が切れ張り直しになり、その隙間のイベントを落とす。
+    // page.tsx から渡す onResync（useQuery の refetch）は参照が安定している前提。
+    const onRemoteChange = vi.fn();
+    const onResync = vi.fn();
+    const { rerender } = renderHook(
+      ({ id }: { id: string }) => {
+        const [tasks, setTasks] = useState<Task[]>([]);
+        useRealtimeTasks(id, setTasks, onRemoteChange, onResync);
+        return { tasks };
+      },
+      { initialProps: { id: HOUSEHOLD_ID } }
+    );
+
+    rerender({ id: HOUSEHOLD_ID });
+    rerender({ id: HOUSEHOLD_ID });
+
+    expect(vi.mocked(createClient)().channel).toHaveBeenCalledTimes(1);
+    expect(mockRemoveChannel).not.toHaveBeenCalled();
   });
 
   it("アンマウント時に removeChannel が呼ばれる", () => {

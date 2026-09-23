@@ -263,17 +263,25 @@ Tailwind の 4px 基準スケールを使う。任意値（`p-[13px]` など）�
 
 ### 6.1 標準パラメータ
 
-| 用途 | 指定 |
-|---|---|
-| 既定のスプリング | `{ type: "spring", damping: 20, stiffness: 300 }` |
-| シートの出現 | `{ type: "spring", damping: 25, stiffness: 300 }` |
-| ダイアログの出現 | `{ type: "spring", damping: 24, stiffness: 320 }` |
-| チェックマークの出現 | `{ type: "spring", damping: 15, stiffness: 400 }`（最も弾む） |
-| 退出 | `tween` 0.15〜0.18s / `easeIn`（出現より速く消す） |
-| タブインジケータ | CSS `transition: transform 0.25s ease-out, width 0.25s ease-out` |
+| 用途 | 指定 | 整定の目安 |
+|---|---|---|
+| 既定のスプリング | `{ type: "spring", damping: 20, stiffness: 300 }` | 約 460ms |
+| リスト項目の入場 | `{ type: "spring", damping: 38, stiffness: 560 }` | 約 240ms |
+| シートの出現 | `{ type: "spring", damping: 25, stiffness: 300 }` | 約 370ms |
+| ダイアログの出現 | `{ type: "spring", damping: 24, stiffness: 320 }` | 約 380ms |
+| チェックマークの出現 | `{ type: "spring", damping: 15, stiffness: 400 }`（最も弾む） | 約 610ms |
+| 退出 | `tween` 0.15〜0.18s / `easeIn`（出現より速く消す） | 指定どおり |
+| タブインジケータ | CSS `transition: transform 0.25s ease-out, width 0.25s ease-out` | 指定どおり |
 
 減衰が小さいほど弾む。チェックマークだけ `damping: 15` で明確に弾ませ、
 「完了した」という達成感を身体的に返す。
+
+整定の目安は `mass: 1`（framer-motion の既定）での 1% 整定時間 `4.6 / (damping / 2)`。
+**既定のスプリングを含む多くのパラメータは、冒頭の「250ms 以内」を実際には満たしていない。**
+リスト項目の入場だけは、Realtime で届いたタスクの表示遅延に直結するため
+250ms 以内へ寄せてある（`src/components/task/task-item.tsx` の `ENTER_TRANSITION`）。
+残りは未整理の負債であり、触るときに 250ms 側へ寄せること。
+`damping` を上げるほど速く収まり、同時に上げた `stiffness` が弾みを残す。
 
 ### 6.2 決まった動きのパターン
 
