@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import type { StapleItem } from "@/types";
 
@@ -12,15 +12,12 @@ interface StapleQuickAddSheetProps {
 }
 
 export function StapleQuickAddSheet({ isOpen, item, onClose, onConfirm }: StapleQuickAddSheetProps) {
-  const [quantityStr, setQuantityStr] = useState("");
-  const [note, setNote] = useState("");
-
-  const handleOpen = useCallback(() => {
-    if (item) {
-      setQuantityStr(item.default_quantity !== null ? String(item.default_quantity) : "");
-      setNote(item.note ?? "");
-    }
-  }, [item]);
+  const [quantityStr, setQuantityStr] = useState(
+    () => item?.default_quantity !== null && item?.default_quantity !== undefined
+      ? String(item.default_quantity)
+      : ""
+  );
+  const [note, setNote] = useState(() => item?.note ?? "");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +34,7 @@ export function StapleQuickAddSheet({ isOpen, item, onClose, onConfirm }: Staple
       title={item?.name ?? ""}
       elevated
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" onAnimationStart={handleOpen}>
+      <form key={`${item?.id ?? "empty"}-${isOpen ? "open" : "closed"}`} onSubmit={handleSubmit} className="flex flex-col gap-4">
         <p className="text-sm text-muted">数量・メモを調整してリストに追加できます</p>
         <div className="flex items-center gap-2">
           <input

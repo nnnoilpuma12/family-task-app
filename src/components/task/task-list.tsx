@@ -161,6 +161,16 @@ export function TaskList({
       <div className="flex flex-col items-center justify-center py-20 text-subtle">
         <p className="text-lg">タスクがありません</p>
         <p className="mt-1 text-sm">右下の＋ボタンで追加しましょう</p>
+        {onLoadMoreCompleted && hasMoreCompleted && (
+          <button
+            type="button"
+            onClick={onLoadMoreCompleted}
+            disabled={loadingMoreCompleted}
+            className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-full bg-surface-strong px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-border-strong disabled:opacity-50"
+          >
+            {loadingMoreCompleted ? "読み込み中..." : "完了済みをもっと見る"}
+          </button>
+        )}
       </div>
     );
   }
@@ -249,17 +259,17 @@ export function TaskList({
                 />
               ))}
             </AnimatePresence>
-            {onLoadMoreCompleted && hasMoreCompleted && (
-              <button
-                type="button"
-                onClick={onLoadMoreCompleted}
-                disabled={loadingMoreCompleted}
-                className="mx-auto mt-2 inline-flex min-h-[44px] items-center justify-center rounded-full bg-surface-strong px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-border-strong disabled:opacity-50"
-              >
-                {loadingMoreCompleted ? "読み込み中..." : "完了済みをもっと見る"}
-              </button>
-            )}
           </>
+        )}
+        {onLoadMoreCompleted && hasMoreCompleted && (
+          <button
+            type="button"
+            onClick={onLoadMoreCompleted}
+            disabled={loadingMoreCompleted}
+            className="mx-auto mt-4 inline-flex min-h-[44px] items-center justify-center rounded-full bg-surface-strong px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-border-strong disabled:opacity-50"
+          >
+            {loadingMoreCompleted ? "読み込み中..." : "完了済みをもっと見る"}
+          </button>
         )}
       </div>
     </>

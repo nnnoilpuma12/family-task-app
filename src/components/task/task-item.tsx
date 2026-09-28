@@ -30,7 +30,6 @@ interface TaskItemProps {
 
 export const TaskItem = memo(function TaskItem({
   task,
-  category,
   createdBy,
   onToggle,
   onTap,
@@ -157,11 +156,14 @@ export const TaskItem = memo(function TaskItem({
 
           {/* Checkbox */}
           <button
+            type="button"
+            aria-label={showDone ? `「${task.title}」を未完了に戻す` : `「${task.title}」を完了にする`}
+            aria-pressed={showDone}
             onClick={(e) => {
               e.stopPropagation();
               handleToggle();
             }}
-            className="shrink-0 flex items-center justify-center p-3 -m-3 touch-manipulation"
+            className="shrink-0 flex items-center justify-center p-3 -m-3 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
             <motion.span
               whileTap={{ scale: 0.85 }}

@@ -44,6 +44,7 @@ import { useRealtimeResync } from "@/hooks/use-realtime-resync";
 import type { TabMeasurements } from "@/components/category/category-tabs";
 import type { IndicatorRefs } from "@/hooks/use-swipeable-tab";
 import type { Task, TaskRecommendation } from "@/types";
+import { UNCATEGORIZED_CATEGORY_ID } from "@/components/category/category-tabs";
 
 export default function Home() {
   const router = useRouter();
@@ -121,16 +122,12 @@ export default function Home() {
   useRealtimeTasks(householdId, setTasks, onRemoteChange, refetchTasks);
 
   // 選択中のカテゴリが未設定、または（他メンバーの削除で）消えたら先頭へ寄せる
-  useEffect(() => {
-    if (categories.length === 0) return;
-    if (categories.some((c) => c.id === selectedCategoryId)) return;
-    setSelectedCategoryId(categories[0].id);
-  }, [categories, selectedCategoryId]);
-
   const tasks = useMemo(() => {
-    const filtered = selectedCategoryId
-      ? allTasks.filter((t) => t.category_id === selectedCategoryId)
-      : allTasks;
+    const filtered = selectedCategoryId === UNCATEGORIZED_CATEGORY_ID
+      ? allTasks.filter((t) => t.category_id === null)
+      : selectedCategoryId
+        ? allTasks.filter((t) => t.category_id === selectedCategoryId)
+        : allTasks;
 
     if (sortOption === "manual") return filtered;
 
@@ -164,14 +161,19 @@ export default function Home() {
     setIsStapleMounted(true);
     setIsStapleOpen(true);
   }, []);
-  const handleDeleteTask = useCallback(async (id: string) => { await deleteTask(id); refetchRecommendations(); }, [deleteTask, refetchRecommendations]);
+  const handleDeleteTask = useCallback(async (id: string) => {
+    const result = await deleteTask(id);
+    refetchRecommendations();
+    return result;
+  }, [deleteTask, refetchRecommendations]);
   const handleCloseCreate = useCallback(() => setIsCreateOpen(false), []);
   const handleSubmit = useCallback(async (task: { title: string; category_id?: string | null; due_date?: string | null; memo?: string | null; url?: string | null }) => {
-    await addTask({ ...task, created_by: profile?.id ?? null });
+    const result = await addTask({ ...task, created_by: profile?.id ?? null });
     refetchRecommendations();
+    return result;
   }, [addTask, profile?.id, refetchRecommendations]);
   const handleCloseDetail = useCallback(() => setSelectedTask(null), []);
-  const handleUpdate = useCallback(async (id: string, updates: Partial<Task>) => { await updateTask(id, updates); }, [updateTask]);
+  const handleUpdate = useCallback(async (id: string, updates: Partial<Task>) => updateTask(id, updates), [updateTask]);
   const handleAcceptRecommendation = useCallback(async (rec: TaskRecommendation) => {
     await addTask({
       title: rec.latest_title,
