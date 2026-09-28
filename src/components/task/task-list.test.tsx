@@ -148,6 +148,13 @@ describe("TaskList", () => {
       expect(screen.getByText("タスクがありません")).toBeInTheDocument();
       expect(screen.queryByText("すべて削除")).not.toBeInTheDocument();
     });
+
+    it("表示中の完了が0件でも履歴の追加読み込み導線を出す", () => {
+      renderList([], { hasMoreCompleted: true });
+
+      expect(screen.getByText("タスクがありません")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "完了済みをもっと見る" })).toBeInTheDocument();
+    });
   });
 
   describe("未完了と完了の振り分け", () => {

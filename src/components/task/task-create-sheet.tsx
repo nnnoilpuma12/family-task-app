@@ -18,7 +18,7 @@ interface TaskCreateSheetProps {
     category_id?: string | null;
     due_date?: string | null;
     memo?: string | null;
-  }) => void;
+  }) => Promise<{ error: unknown | null } | void>;
 }
 
 export function TaskCreateSheet({
@@ -40,6 +40,7 @@ export function TaskCreateSheet({
   }, [isOpen, selectedCategoryId]);
   const [dueDate, setDueDate] = useState<string>("");
   const [memo, setMemo] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   // タイトル変更時にサジェスト候補を算出
   const suggestions = useMemo(() => {
@@ -57,21 +58,28 @@ export function TaskCreateSheet({
     setSuggestionDismissed(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || submitting) return;
 
-    onSubmit({
-      title: title.trim(),
-      category_id: categoryId,
-      due_date: dueDate || null,
-      memo: memo || null,
-    });
+    setSubmitting(true);
+    try {
+      const result = await onSubmit({
+        title: title.trim(),
+        category_id: categoryId,
+        due_date: dueDate || null,
+        memo: memo || null,
+      });
 
-    setTitle("");
-    setDueDate("");
-    setMemo("");
-    onClose();
+      if (result && "error" in result && result.error) return;
+
+      setTitle("");
+      setDueDate("");
+      setMemo("");
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -125,8 +133,8 @@ export function TaskCreateSheet({
           className="rounded border border-border-strong bg-surface px-4 py-3 text-sm text-foreground placeholder:text-subtle outline-none resize-none focus:border-focus focus:ring-2 focus:ring-focus/15"
         />
 
-        <Button type="submit" disabled={!title.trim()}>
-          追加
+        <Button type="submit" disabled={!title.trim() || submitting}>
+          {submitting ? "追加中..." : "追加"}
         </Button>
       </form>
     </BottomSheet>

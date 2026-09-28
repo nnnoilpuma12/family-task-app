@@ -8,6 +8,8 @@ export interface TabMeasurements {
   tabOffsets: number[];
 }
 
+export const UNCATEGORIZED_CATEGORY_ID = "__uncategorized__";
+
 interface CategoryTabsProps {
   categories: Category[];
   selectedId: string | null;
@@ -30,9 +32,11 @@ export function CategoryTabs({
   const indicatorRef = externalIndicatorRef ?? internalIndicatorRef;
   const tabButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Tab IDs in order: category ids only (no "すべて")
-  const tabIds: string[] = categories.map((c) => c.id);
-  const activeIndex = selectedId ? tabIds.indexOf(selectedId) : -1;
+  // 「すべて」「未分類」を固定し、その後ろにカテゴリを並べる。
+  const tabIds: string[] = ["__all__", UNCATEGORIZED_CATEGORY_ID, ...categories.map((c) => c.id)];
+  const activeIndex = selectedId === null
+    ? 0
+    : tabIds.indexOf(selectedId);
   const safeIndex = activeIndex === -1 ? 0 : activeIndex;
 
   const measureTabs = useCallback(() => {
@@ -132,7 +136,7 @@ export function CategoryTabs({
 
   // Get background color for active tab — Notion-style soft tinted pill
   const getActiveBg = (index: number): string => {
-    const cat = categories[index];
+    const cat = categories[index - 2];
     return cat ? `${cat.color}1a` : "#ebeae8";
   };
 
@@ -152,7 +156,7 @@ export function CategoryTabs({
 
   return (
     <div className="relative">
-      <div ref={containerRef} className="relative flex px-4 py-2">
+      <div ref={containerRef} role="tablist" className="relative flex overflow-x-auto no-scrollbar px-4 py-2">
         {/* Indicator bar */}
         <div
           ref={indicatorRef}
@@ -164,12 +168,32 @@ export function CategoryTabs({
         />
 
         {/* Tab buttons */}
+        <button
+          ref={(el) => { tabButtonRefs.current[0] = el; }}
+          onClick={() => handleSelect(null, 0)}
+          aria-selected={selectedId === null}
+          role="tab"
+          className="relative z-10 flex shrink-0 items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+        >
+          <span className={selectedId === null ? "text-foreground" : "text-muted"}>すべて</span>
+        </button>
+        <button
+          ref={(el) => { tabButtonRefs.current[1] = el; }}
+          onClick={() => handleSelect(UNCATEGORIZED_CATEGORY_ID, 1)}
+          aria-selected={selectedId === UNCATEGORIZED_CATEGORY_ID}
+          role="tab"
+          className="relative z-10 flex shrink-0 items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+        >
+          <span className={selectedId === UNCATEGORIZED_CATEGORY_ID ? "text-foreground" : "text-muted"}>未分類</span>
+        </button>
         {categories.map((cat, i) => (
           <button
             key={cat.id}
-            ref={(el) => { tabButtonRefs.current[i] = el; }}
-            onClick={() => handleSelect(cat.id, i)}
-            className="relative z-10 flex-1 flex items-center justify-center rounded-full py-1.5 text-sm font-medium transition-colors"
+            ref={(el) => { tabButtonRefs.current[i + 2] = el; }}
+            onClick={() => handleSelect(cat.id, i + 2)}
+            aria-selected={selectedId === cat.id}
+            role="tab"
+            className="relative z-10 flex shrink-0 items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
           >
             <span style={{ color: selectedId === cat.id ? cat.color : "var(--text-muted)" }}>
               {cat.name}

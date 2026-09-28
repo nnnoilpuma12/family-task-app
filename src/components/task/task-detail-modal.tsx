@@ -15,8 +15,8 @@ interface TaskDetailModalProps {
   onClose: () => void;
   categories: Category[];
   members: Profile[];
-  onUpdate: (id: string, updates: Partial<Task>) => void;
-  onDelete: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<Task>) => Promise<{ error: unknown | null } | void>;
+  onDelete: (id: string) => Promise<{ error: unknown | null } | void>;
 }
 
 export function TaskDetailModal({
@@ -34,6 +34,8 @@ export function TaskDetailModal({
   const [memo, setMemo] = useState("");
   const [url, setUrl] = useState("");
   const [urlError, setUrlError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -47,26 +49,39 @@ export function TaskDetailModal({
 
   if (!task) return null;
 
-  const handleSave = () => {
-    if (!title.trim()) return;
+  const handleSave = async () => {
+    if (!title.trim() || saving || deleting) return;
     if (url && !isValidUrl(url)) {
       setUrlError("URLはhttpまたはhttpsで始まる必要があります");
       return;
     }
     setUrlError("");
-    onUpdate(task.id, {
-      title: title.trim(),
-      category_id: categoryId,
-      due_date: dueDate || null,
-      memo: memo || null,
-      url: url || null,
-    });
-    onClose();
+    setSaving(true);
+    try {
+      const result = await onUpdate(task.id, {
+        title: title.trim(),
+        category_id: categoryId,
+        due_date: dueDate || null,
+        memo: memo || null,
+        url: url || null,
+      });
+      if (result && "error" in result && result.error) return;
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = () => {
-    onDelete(task.id);
-    onClose();
+  const handleDelete = async () => {
+    if (saving || deleting) return;
+    setDeleting(true);
+    try {
+      const result = await onDelete(task.id);
+      if (result && "error" in result && result.error) return;
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const createdByMember = members.find((m) => m.id === task.created_by);
@@ -147,10 +162,10 @@ export function TaskDetailModal({
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Button onClick={handleSave} disabled={!title.trim()} className="flex-1">
-            保存
+          <Button onClick={handleSave} disabled={!title.trim() || saving || deleting} className="flex-1">
+            {saving ? "保存中..." : "保存"}
           </Button>
-          <Button variant="danger" onClick={handleDelete} className="shrink-0">
+          <Button variant="danger" onClick={handleDelete} disabled={saving || deleting} className="shrink-0" aria-label="タスクを削除">
             <Trash2 size={18} />
           </Button>
         </div>
