@@ -3,7 +3,6 @@
 import { useRef, useMemo } from "react";
 import { useSwipeableTab, type IndicatorRefs } from "@/hooks/use-swipeable-tab";
 import type { Category } from "@/types";
-import { UNCATEGORIZED_CATEGORY_ID } from "@/components/category/category-tabs";
 
 interface SwipeableTaskContainerProps {
   categories: Category[];
@@ -22,13 +21,10 @@ export function SwipeableTaskContainer({
 }: SwipeableTaskContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Keep swipe order aligned with the visible tabs.
-  const categoryOrder = useMemo(
-    () => ["__all__", UNCATEGORIZED_CATEGORY_ID, ...categories.map((c) => c.id)],
-    [categories]
-  );
+  // Keep swipe order aligned with the user-defined category tabs.
+  const categoryOrder = useMemo(() => categories.map((category) => category.id), [categories]);
 
-  const activeIndex = selectedCategoryId === null ? 0 : categoryOrder.indexOf(selectedCategoryId);
+  const activeIndex = selectedCategoryId === null ? -1 : categoryOrder.indexOf(selectedCategoryId);
   const safeIndex = activeIndex === -1 ? 0 : activeIndex;
 
   useSwipeableTab({
@@ -37,7 +33,7 @@ export function SwipeableTaskContainer({
     activeIndex: safeIndex,
     onChangeIndex: (index: number) => {
       const next = categoryOrder[index];
-      onCategoryChange(next === "__all__" || !next ? null : next);
+      if (next) onCategoryChange(next);
     },
     indicatorRefs,
   });

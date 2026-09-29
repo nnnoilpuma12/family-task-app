@@ -44,7 +44,6 @@ import { useRealtimeResync } from "@/hooks/use-realtime-resync";
 import type { TabMeasurements } from "@/components/category/category-tabs";
 import type { IndicatorRefs } from "@/hooks/use-swipeable-tab";
 import type { Task, TaskRecommendation } from "@/types";
-import { UNCATEGORIZED_CATEGORY_ID } from "@/components/category/category-tabs";
 
 export default function Home() {
   const router = useRouter();
@@ -121,13 +120,22 @@ export default function Home() {
 
   useRealtimeTasks(householdId, setTasks, onRemoteChange, refetchTasks);
 
-  // 選択中のカテゴリが未設定、または（他メンバーの削除で）消えたら先頭へ寄せる
+  // 初回取得時と選択中カテゴリの削除時は、先頭のユーザー定義カテゴリへ寄せる。
+  useEffect(() => {
+    if (categories.length === 0) {
+      if (selectedCategoryId !== null) setSelectedCategoryId(null);
+      return;
+    }
+
+    const selectionExists = categories.some((category) => category.id === selectedCategoryId);
+    if (!selectionExists) setSelectedCategoryId(categories[0].id);
+  }, [categories, selectedCategoryId]);
+
+  // 一覧に表示するのは、選択中のユーザー定義カテゴリに属するタスクだけ。
   const tasks = useMemo(() => {
-    const filtered = selectedCategoryId === UNCATEGORIZED_CATEGORY_ID
-      ? allTasks.filter((t) => t.category_id === null)
-      : selectedCategoryId
-        ? allTasks.filter((t) => t.category_id === selectedCategoryId)
-        : allTasks;
+    const filtered = selectedCategoryId
+      ? allTasks.filter((task) => task.category_id === selectedCategoryId)
+      : [];
 
     if (sortOption === "manual") return filtered;
 
