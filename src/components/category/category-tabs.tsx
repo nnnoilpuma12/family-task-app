@@ -8,8 +8,6 @@ export interface TabMeasurements {
   tabOffsets: number[];
 }
 
-export const UNCATEGORIZED_CATEGORY_ID = "__uncategorized__";
-
 interface CategoryTabsProps {
   categories: Category[];
   selectedId: string | null;
@@ -32,11 +30,8 @@ export function CategoryTabs({
   const indicatorRef = externalIndicatorRef ?? internalIndicatorRef;
   const tabButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // 「すべて」「未分類」を固定し、その後ろにカテゴリを並べる。
-  const tabIds: string[] = ["__all__", UNCATEGORIZED_CATEGORY_ID, ...categories.map((c) => c.id)];
-  const activeIndex = selectedId === null
-    ? 0
-    : tabIds.indexOf(selectedId);
+  const tabIds = categories.map((category) => category.id);
+  const activeIndex = selectedId === null ? -1 : tabIds.indexOf(selectedId);
   const safeIndex = activeIndex === -1 ? 0 : activeIndex;
 
   const measureTabs = useCallback(() => {
@@ -51,7 +46,9 @@ export function CategoryTabs({
       if (btn) {
         const rect = btn.getBoundingClientRect();
         widths.push(rect.width);
-        offsets.push(rect.left - containerRect.left);
+        // getBoundingClientRect() is viewport-relative. Add scrollLeft so the
+        // indicator remains aligned with tabs after horizontal scrolling.
+        offsets.push(rect.left - containerRect.left + container.scrollLeft);
       }
     });
 
@@ -83,6 +80,29 @@ export function CategoryTabs({
     }
   }, [indicatorRef, measureTabs]);
 
+  const revealTab = useCallback((index: number, behavior: ScrollBehavior) => {
+    const container = containerRef.current;
+    const tab = tabButtonRefs.current[index];
+    if (!container || !tab) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const tabRect = tab.getBoundingClientRect();
+    const leftPadding = 16;
+    const rightPadding = 16;
+
+    if (tabRect.left < containerRect.left + leftPadding) {
+      container.scrollTo({
+        left: Math.max(0, container.scrollLeft - (containerRect.left + leftPadding - tabRect.left)),
+        behavior,
+      });
+    } else if (tabRect.right > containerRect.right - rightPadding) {
+      container.scrollTo({
+        left: container.scrollLeft + (tabRect.right - containerRect.right + rightPadding),
+        behavior,
+      });
+    }
+  }, []);
+
   // Report measurements to parent for swipe indicator sync
   useEffect(() => {
     if (!onTabMeasure) return;
@@ -94,6 +114,8 @@ export function CategoryTabs({
 
   // Position indicator when selection changes
   useEffect(() => {
+    if (activeIndex === -1) return;
+    revealTab(activeIndex, "smooth");
     requestAnimationFrame(() => {
       const bar = indicatorRef.current;
       // If a swipe transition is still in progress, skip repositioning
@@ -107,7 +129,7 @@ export function CategoryTabs({
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, categories.length]);
+  }, [selectedId, categories.length, activeIndex, revealTab]);
 
   // Initial position (no animation) + re-measure on layout changes (e.g. font load)
   useEffect(() => {
@@ -131,12 +153,13 @@ export function CategoryTabs({
 
   const handleSelect = (id: string | null, index: number) => {
     positionIndicator(index, true);
+    revealTab(index, "smooth");
     onSelect(id);
   };
 
   // Get background color for active tab — Notion-style soft tinted pill
   const getActiveBg = (index: number): string => {
-    const cat = categories[index - 2];
+    const cat = categories[index];
     return cat ? `${cat.color}1a` : "#ebeae8";
   };
 
@@ -156,7 +179,12 @@ export function CategoryTabs({
 
   return (
     <div className="relative">
-      <div ref={containerRef} role="tablist" className="relative flex overflow-x-auto no-scrollbar px-4 py-2">
+      <div
+        ref={containerRef}
+        role="tablist"
+        aria-label="カテゴリ"
+        className="relative flex snap-x snap-proximity overflow-x-auto no-scrollbar px-4 py-2"
+      >
         {/* Indicator bar */}
         <div
           ref={indicatorRef}
@@ -167,33 +195,14 @@ export function CategoryTabs({
           }}
         />
 
-        {/* Tab buttons */}
-        <button
-          ref={(el) => { tabButtonRefs.current[0] = el; }}
-          onClick={() => handleSelect(null, 0)}
-          aria-selected={selectedId === null}
-          role="tab"
-          className="relative z-10 flex shrink-0 items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-        >
-          <span className={selectedId === null ? "text-foreground" : "text-muted"}>すべて</span>
-        </button>
-        <button
-          ref={(el) => { tabButtonRefs.current[1] = el; }}
-          onClick={() => handleSelect(UNCATEGORIZED_CATEGORY_ID, 1)}
-          aria-selected={selectedId === UNCATEGORIZED_CATEGORY_ID}
-          role="tab"
-          className="relative z-10 flex shrink-0 items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-        >
-          <span className={selectedId === UNCATEGORIZED_CATEGORY_ID ? "text-foreground" : "text-muted"}>未分類</span>
-        </button>
         {categories.map((cat, i) => (
           <button
             key={cat.id}
-            ref={(el) => { tabButtonRefs.current[i + 2] = el; }}
-            onClick={() => handleSelect(cat.id, i + 2)}
+            ref={(el) => { tabButtonRefs.current[i] = el; }}
+            onClick={() => handleSelect(cat.id, i)}
             aria-selected={selectedId === cat.id}
             role="tab"
-            className="relative z-10 flex shrink-0 items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+            className="relative z-10 flex shrink-0 snap-start items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
           >
             <span style={{ color: selectedId === cat.id ? cat.color : "var(--text-muted)" }}>
               {cat.name}
