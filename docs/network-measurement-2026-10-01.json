@@ -1,0 +1,533 @@
+{
+  "recordedAt": "2026-09-30T23:53:57.909Z",
+  "environment": "local-loopback",
+  "node": "v24.19.0",
+  "samples": 20,
+  "jwtAlgorithm": "ES256",
+  "dataCounts": {
+    "tasks": 500,
+    "categories": 5,
+    "members": 1,
+    "staples": 0,
+    "suggestions": 500
+  },
+  "fixture": {
+    "active": 100,
+    "completed": 2000,
+    "cleaned": true
+  },
+  "limitations": [
+    "Node HTTP measurements; not browser render timings",
+    "No mobile WAN latency",
+    "Application/DB caches and connections warm across repeated samples",
+    "p95 is descriptive for this small sample"
+  ],
+  "requestSummary": {
+    "isolated-endpoints/profiles.self": {
+      "n": 20,
+      "min": 2.6,
+      "p50": 4.33,
+      "p95": 4.83,
+      "max": 8.01
+    },
+    "isolated-endpoints/tasks.initial": {
+      "n": 20,
+      "min": 9.12,
+      "p50": 10.67,
+      "p95": 13.9,
+      "max": 14.43
+    },
+    "isolated-endpoints/categories": {
+      "n": 20,
+      "min": 3.4,
+      "p50": 3.9,
+      "p95": 5.08,
+      "max": 5.19
+    },
+    "isolated-endpoints/profiles.members": {
+      "n": 20,
+      "min": 3.05,
+      "p50": 3.38,
+      "p95": 3.82,
+      "max": 3.96
+    },
+    "isolated-endpoints/households.name": {
+      "n": 20,
+      "min": 2.68,
+      "p50": 3.41,
+      "p95": 3.85,
+      "max": 3.93
+    },
+    "isolated-endpoints/staple_items": {
+      "n": 20,
+      "min": 3.2,
+      "p50": 3.44,
+      "p95": 4.72,
+      "max": 4.89
+    },
+    "isolated-endpoints/recommendations": {
+      "n": 20,
+      "min": 23.51,
+      "p50": 26.01,
+      "p95": 35.45,
+      "max": 39.34
+    },
+    "isolated-endpoints/title_suggestions": {
+      "n": 20,
+      "min": 3.34,
+      "p50": 4.71,
+      "p95": 6.05,
+      "max": 6.3
+    },
+    "isolated-endpoints/auth.getUser": {
+      "n": 20,
+      "min": 53.68,
+      "p50": 55.6,
+      "p95": 68.33,
+      "max": 88.97
+    },
+    "cold-data-path/profiles.self": {
+      "n": 20,
+      "min": 2.85,
+      "p50": 4.23,
+      "p95": 6.11,
+      "max": 12.72
+    },
+    "cold-data-path/tasks.initial": {
+      "n": 20,
+      "min": 9.82,
+      "p50": 11.72,
+      "p95": 23.35,
+      "max": 26.49
+    },
+    "cold-data-path/households.name": {
+      "n": 20,
+      "min": 3.28,
+      "p50": 4.51,
+      "p95": 9.21,
+      "max": 18.93
+    },
+    "cold-data-path/profiles.members": {
+      "n": 20,
+      "min": 2.46,
+      "p50": 4.1,
+      "p95": 18.74,
+      "max": 24.64
+    },
+    "cold-data-path/categories": {
+      "n": 20,
+      "min": 2.44,
+      "p50": 4.39,
+      "p95": 11.32,
+      "max": 28.45
+    },
+    "known-household-refetch/profiles.self": {
+      "n": 20,
+      "min": 3.56,
+      "p50": 4.97,
+      "p95": 6.11,
+      "max": 7
+    },
+    "known-household-refetch/categories": {
+      "n": 20,
+      "min": 3.51,
+      "p50": 4.97,
+      "p95": 6.33,
+      "max": 7.25
+    },
+    "known-household-refetch/profiles.members": {
+      "n": 20,
+      "min": 2.55,
+      "p50": 4.34,
+      "p95": 5.83,
+      "max": 8.35
+    },
+    "known-household-refetch/households.name": {
+      "n": 20,
+      "min": 2.74,
+      "p50": 4.51,
+      "p95": 7.75,
+      "max": 10.56
+    },
+    "known-household-refetch/tasks.initial": {
+      "n": 20,
+      "min": 10.79,
+      "p50": 12.66,
+      "p95": 16.78,
+      "max": 17.85
+    },
+    "authenticated-document/document.home": {
+      "n": 20,
+      "min": 8.55,
+      "p50": 9.73,
+      "p95": 15.51,
+      "max": 18.99
+    },
+    "static-js-parallel/js.8": {
+      "n": 20,
+      "min": 6.57,
+      "p50": 8.4,
+      "p95": 11.24,
+      "max": 12.29
+    },
+    "static-js-parallel/js.1": {
+      "n": 20,
+      "min": 9.24,
+      "p50": 14.14,
+      "p95": 20.88,
+      "max": 21.11
+    },
+    "static-js-parallel/js.6": {
+      "n": 20,
+      "min": 9.4,
+      "p50": 13.24,
+      "p95": 17.3,
+      "max": 17.32
+    },
+    "static-js-parallel/js.5": {
+      "n": 20,
+      "min": 8.98,
+      "p50": 13.28,
+      "p95": 16.69,
+      "max": 17.39
+    },
+    "static-js-parallel/js.4": {
+      "n": 20,
+      "min": 10.13,
+      "p50": 13.93,
+      "p95": 20.65,
+      "max": 20.83
+    },
+    "static-js-parallel/js.7": {
+      "n": 20,
+      "min": 10.79,
+      "p50": 13.94,
+      "p95": 20.39,
+      "max": 20.53
+    },
+    "static-js-parallel/js.9": {
+      "n": 20,
+      "min": 9.99,
+      "p50": 13.46,
+      "p95": 17.94,
+      "max": 19.48
+    },
+    "static-js-parallel/js.10": {
+      "n": 20,
+      "min": 9.76,
+      "p50": 12.86,
+      "p95": 16.06,
+      "max": 17.01
+    },
+    "static-js-parallel/js.11": {
+      "n": 20,
+      "min": 9.94,
+      "p50": 13.06,
+      "p95": 16.85,
+      "max": 18.8
+    },
+    "static-js-parallel/js.3": {
+      "n": 20,
+      "min": 11.63,
+      "p50": 14.71,
+      "p95": 22.11,
+      "max": 23.4
+    },
+    "static-js-parallel/js.12": {
+      "n": 20,
+      "min": 10.16,
+      "p50": 13.15,
+      "p95": 17.51,
+      "max": 20.02
+    },
+    "static-js-parallel/js.13": {
+      "n": 20,
+      "min": 10.58,
+      "p50": 13.39,
+      "p95": 19.64,
+      "max": 20.01
+    },
+    "static-js-parallel/js.17": {
+      "n": 20,
+      "min": 9.91,
+      "p50": 12.45,
+      "p95": 18.55,
+      "max": 19.36
+    },
+    "static-js-parallel/js.18": {
+      "n": 20,
+      "min": 9.78,
+      "p50": 12.32,
+      "p95": 18.87,
+      "max": 18.93
+    },
+    "static-js-parallel/js.16": {
+      "n": 20,
+      "min": 10.33,
+      "p50": 12.9,
+      "p95": 19.33,
+      "max": 19.96
+    },
+    "static-js-parallel/js.14": {
+      "n": 20,
+      "min": 11.34,
+      "p50": 14.61,
+      "p95": 21.17,
+      "max": 22.14
+    },
+    "static-js-parallel/js.2": {
+      "n": 20,
+      "min": 14.53,
+      "p50": 17.06,
+      "p95": 24.45,
+      "max": 25.69
+    },
+    "static-js-parallel/js.15": {
+      "n": 20,
+      "min": 12.29,
+      "p50": 15.59,
+      "p95": 22.6,
+      "max": 23.39
+    },
+    "realtime-subscribe/categories": {
+      "n": 1,
+      "min": 16.75,
+      "p50": 16.75,
+      "p95": 16.75,
+      "max": 16.75
+    },
+    "local-task-write/tasks.insert": {
+      "n": 20,
+      "min": 4.4,
+      "p50": 5.62,
+      "p95": 13.34,
+      "max": 17.04
+    },
+    "local-task-write/tasks.toggle": {
+      "n": 20,
+      "min": 4.61,
+      "p50": 5.03,
+      "p95": 7.82,
+      "max": 12.6
+    },
+    "local-task-write/tasks.delete": {
+      "n": 20,
+      "min": 4.03,
+      "p50": 4.4,
+      "p95": 7.86,
+      "max": 8.73
+    },
+    "fixture-cleanup/fixture.delete": {
+      "n": 42,
+      "min": 2.71,
+      "p50": 4.27,
+      "p95": 6.41,
+      "max": 25.29
+    }
+  },
+  "pathSummary": {
+    "isolated-endpoints": {
+      "n": 20,
+      "min": 109.46,
+      "p50": 117.66,
+      "p95": 139.69,
+      "max": 155.82
+    },
+    "cold-data-path": {
+      "n": 20,
+      "min": 13.47,
+      "p50": 15.75,
+      "p95": 34.4,
+      "max": 39.67
+    },
+    "known-household-refetch": {
+      "n": 20,
+      "min": 11.4,
+      "p50": 13.35,
+      "p95": 17.57,
+      "max": 18.46
+    },
+    "authenticated-document": {
+      "n": 20,
+      "min": 8.62,
+      "p50": 9.79,
+      "p95": 15.57,
+      "max": 19.13
+    },
+    "static-js-parallel": {
+      "n": 20,
+      "min": 14.94,
+      "p50": 17.7,
+      "p95": 25.06,
+      "max": 26.34
+    },
+    "sdk-getSession": {
+      "n": 20,
+      "min": 0.08,
+      "p50": 0.14,
+      "p95": 0.17,
+      "max": 0.18
+    },
+    "sdk-getClaims": {
+      "n": 20,
+      "min": 0.83,
+      "p50": 1.31,
+      "p95": 2.27,
+      "max": 13.54
+    },
+    "realtime-subscribe": {
+      "n": 5,
+      "min": 7.48,
+      "p50": 9.75,
+      "p95": 60.29,
+      "max": 60.29
+    },
+    "local-task-write": {
+      "n": 20,
+      "min": 24.7,
+      "p50": 27.23,
+      "p95": 44.62,
+      "max": 54.77
+    }
+  },
+  "realtimeSummary": {
+    "INSERT": {
+      "n": 20,
+      "min": 10.07,
+      "p50": 11.12,
+      "p95": 19.57,
+      "max": 31.95
+    },
+    "UPDATE": {
+      "n": 20,
+      "min": 10.12,
+      "p50": 10.75,
+      "p95": 13.7,
+      "max": 19.7
+    }
+  },
+  "failures": [],
+  "databaseMigrations": "001–020; local only",
+  "cleanupVerifiedRemainingTasks": 0,
+  "comparisonMigration012": {
+    "isolated-endpoints/profiles.self": {
+      "n": 20,
+      "min": 2.79,
+      "p50": 4.09,
+      "p95": 5.41,
+      "max": 6.02
+    },
+    "isolated-endpoints/tasks.initial": {
+      "n": 20,
+      "min": 8.54,
+      "p50": 10.33,
+      "p95": 12,
+      "max": 15.43
+    },
+    "isolated-endpoints/categories": {
+      "n": 20,
+      "min": 2.41,
+      "p50": 3.73,
+      "p95": 4.33,
+      "max": 5.12
+    },
+    "isolated-endpoints/profiles.members": {
+      "n": 20,
+      "min": 1.69,
+      "p50": 3.01,
+      "p95": 4.28,
+      "max": 4.45
+    },
+    "isolated-endpoints/households.name": {
+      "n": 20,
+      "min": 2.78,
+      "p50": 3.05,
+      "p95": 3.62,
+      "max": 4.03
+    },
+    "isolated-endpoints/staple_items": {
+      "n": 20,
+      "min": 1.65,
+      "p50": 3.2,
+      "p95": 4.04,
+      "max": 4.15
+    },
+    "isolated-endpoints/recommendations": {
+      "n": 20,
+      "min": 43.37,
+      "p50": 44.84,
+      "p95": 48.04,
+      "max": 51.95
+    },
+    "isolated-endpoints/title_suggestions": {
+      "n": 20,
+      "min": 3.74,
+      "p50": 4.94,
+      "p95": 7.82,
+      "max": 8.16
+    },
+    "isolated-endpoints/auth.getUser": {
+      "n": 20,
+      "min": 53.34,
+      "p50": 54.89,
+      "p95": 59.26,
+      "max": 61.23
+    }
+  },
+  "requestDetails": {
+    "profiles.self": {
+      "rows": 1,
+      "decodedBodyBytes": 250,
+      "headersP50Ms": 4.162103999999999,
+      "bodyP50Ms": 0.13102099999991879
+    },
+    "tasks.initial": {
+      "rows": 500,
+      "decodedBodyBytes": 404938,
+      "headersP50Ms": 6.589020500000061,
+      "bodyP50Ms": 2.521583000000078
+    },
+    "categories": {
+      "rows": 5,
+      "decodedBodyBytes": 1332,
+      "headersP50Ms": 3.7446454999998195,
+      "bodyP50Ms": 0.12158350000004248
+    },
+    "profiles.members": {
+      "rows": 1,
+      "decodedBodyBytes": 250,
+      "headersP50Ms": 3.2766245000000254,
+      "bodyP50Ms": 0.0868545000002996
+    },
+    "households.name": {
+      "rows": 1,
+      "decodedBodyBytes": 28,
+      "headersP50Ms": 3.3347919999999363,
+      "bodyP50Ms": 0.0797504999998182
+    },
+    "staple_items": {
+      "rows": 0,
+      "decodedBodyBytes": 2,
+      "headersP50Ms": 3.371187500000019,
+      "bodyP50Ms": 0.09262450000016997
+    },
+    "recommendations": {
+      "rows": 5,
+      "decodedBodyBytes": 3279,
+      "headersP50Ms": 25.85616649999986,
+      "bodyP50Ms": 0.13189599999986967
+    },
+    "title_suggestions": {
+      "rows": 500,
+      "decodedBodyBytes": 48248,
+      "headersP50Ms": 4.492209000000116,
+      "bodyP50Ms": 0.11837500000024193
+    },
+    "auth.getUser": {
+      "rows": null,
+      "decodedBodyBytes": 891,
+      "headersP50Ms": 56.271187500000025,
+      "bodyP50Ms": 0.1489165000000412
+    }
+  }
+}
