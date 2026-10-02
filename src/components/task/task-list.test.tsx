@@ -58,11 +58,11 @@ vi.mock("@/components/task/task-item", () => ({
     onToggle,
   }: {
     task: Task;
-    onToggle: (id: string) => void;
+    onToggle: (id: string, isDone: boolean) => void;
   }) => (
     <div data-testid={`task-${task.id}`} data-done={String(task.is_done)}>
       <span>{task.title}</span>
-      <button type="button" onClick={() => onToggle(task.id)}>
+      <button type="button" onClick={() => onToggle(task.id, task.is_done)}>
         {`toggle:${task.title}`}
       </button>
     </div>

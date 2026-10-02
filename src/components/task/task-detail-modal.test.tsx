@@ -63,6 +63,7 @@ function makeCategory(overrides: Partial<Category> = {}): Category {
 const defaultProps = {
   isOpen: true,
   onClose: vi.fn(),
+  onRestore: vi.fn(),
   categories: [] as Category[],
   members: [] as Profile[],
   onUpdate: vi.fn(),

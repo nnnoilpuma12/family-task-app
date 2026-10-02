@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useCallback, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryFunctionContext } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { createTaskWriteQueue } from "@/lib/task-write-queue";
 import { queryKeys } from "@/lib/query-keys";
 import { sendPushNotification } from "@/lib/push";
 import type { Task } from "@/types";
@@ -17,13 +18,30 @@ const COMPLETED_PAGE_SIZE = 30;
 // 上限を明示して打ち切りを検知できるようにする（後述の切り捨て検知）。
 const TASKS_FETCH_LIMIT = 1000;
 
-export function useTasks(householdId: string | null) {
+// Supabase の error 戻り値とネットワーク例外を同じロールバック経路で扱う。
+async function taskWrite<T>(request: PromiseLike<T>): Promise<T | { data: null; error: unknown }> {
+  try { return await request; }
+  catch (error) { return { data: null, error }; }
+}
+
+// 先行リクエストの応答で、次の操作の楽観的な値を消さない。
+function mergeTaskResponse(current: Task, optimistic: Task, server: Task): Task {
+  const fields = ["title", "memo", "url", "due_date", "is_done", "completed_at", "category_id", "sort_order"] as const;
+  let merged = server;
+  for (const key of fields) {
+    if (current[key] !== optimistic[key]) merged = { ...merged, [key]: current[key] };
+  }
+  return merged;
+}
+
+export function useTasks(householdId: string | null, managedResync = false) {
   const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
+  const writes = useMemo(() => createTaskWriteQueue(), []);
   const [hasMoreCompleted, setHasMoreCompleted] = useState(true);
   const [loadingMoreCompleted, setLoadingMoreCompleted] = useState(false);
 
-  const fetchTasks = useCallback(async (): Promise<Task[]> => {
+  const fetchTasks = useCallback(async ({ signal }: QueryFunctionContext): Promise<Task[]> => {
     if (!householdId) return [];
 
     const completedCutoff = new Date(
@@ -38,7 +56,8 @@ export function useTasks(householdId: string | null) {
       .order("is_done")
       .order("sort_order")
       .order("created_at", { ascending: false })
-      .limit(TASKS_FETCH_LIMIT);
+      .limit(TASKS_FETCH_LIMIT)
+      .abortSignal(signal);
 
     if (error) throw error;
 
@@ -60,6 +79,8 @@ export function useTasks(householdId: string | null) {
     queryKey: queryKeys.tasks(householdId),
     queryFn: fetchTasks,
     enabled: !!householdId,
+    refetchOnWindowFocus: !managedResync,
+    refetchOnReconnect: !managedResync,
   });
 
   const tasks = useMemo(() => query.data ?? [], [query.data]);
@@ -77,10 +98,16 @@ export function useTasks(householdId: string | null) {
       queryClient.setQueryData<Task[]>(queryKeys.tasks(householdId), (old) => {
         const prev = old ?? [];
         return typeof update === "function"
-          ? (update as (p: Task[]) => Task[])(prev)
+          ? update(prev)
           : update;
       });
     },
+    [queryClient, householdId]
+  );
+
+  // イベントハンドラを安定させつつ、操作時点の最新キャッシュを参照する。
+  const getTasks = useCallback(
+    () => queryClient.getQueryData<Task[]>(queryKeys.tasks(householdId)) ?? [],
     [queryClient, householdId]
   );
 
@@ -140,7 +167,7 @@ export function useTasks(householdId: string | null) {
     setLoadingMoreCompleted(false);
   }, [householdId, supabase, queryClient, setTasks]);
 
-  const addTask = async (task: {
+  const addTask = useCallback(async (task: {
     title: string;
     category_id?: string | null;
     due_date?: string | null;
@@ -148,7 +175,7 @@ export function useTasks(householdId: string | null) {
     url?: string | null;
     created_by?: string | null;
   }) => {
-    if (!householdId) return;
+    if (!householdId) return { data: null, error: new Error("世帯情報を取得できませんでした") };
 
     // Optimistic update with client-generated UUID (same ID used for DB insert)
     const taskId = crypto.randomUUID();
@@ -171,11 +198,11 @@ export function useTasks(householdId: string | null) {
 
     setTasks((prev) => [optimisticTask, ...prev]);
 
-    const { data, error } = await supabase
+    const { data, error } = await taskWrite(writes.run([taskId], () => supabase
       .from("tasks")
       .insert({ id: taskId, ...task, household_id: householdId })
       .select()
-      .single();
+      .single()));
 
     if (error) {
       // Rollback: remove optimistic task
@@ -183,7 +210,7 @@ export function useTasks(householdId: string | null) {
       toast.error("タスクの追加に失敗しました");
     } else if (data) {
       // Update optimistic task with server data (ID is already the same)
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? data : t)));
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? mergeTaskResponse(t, optimisticTask, data) : t)));
       sendPushNotification({
         title: "家族タスク",
         body: `「${data.title}」が追加されました`,
@@ -191,9 +218,10 @@ export function useTasks(householdId: string | null) {
       });
     }
     return { data, error };
-  };
+  }, [householdId, supabase, setTasks, writes]);
 
-  const updateTask = async (id: string, updates: Partial<Task>, options?: { skipNotification?: boolean }) => {
+  const updateTask = useCallback(async (id: string, updates: Partial<Task>, options?: { skipNotification?: boolean }) => {
+    updates = { ...updates };
     // If marking as done, set completed_at
     if (updates.is_done === true) {
       updates.completed_at = new Date().toISOString();
@@ -206,34 +234,45 @@ export function useTasks(householdId: string | null) {
       "title", "memo", "url", "due_date", "is_done", "completed_at",
       "category_id", "sort_order",
     ] as const;
-    const sanitized: Record<string, unknown> = {};
+    let sanitized: Partial<Task> = {};
     for (const key of allowedFields) {
       if (key in updates) {
-        sanitized[key] = updates[key as keyof Task];
+        sanitized = { ...sanitized, [key]: updates[key] };
       }
     }
 
     // Optimistic update
-    let snapshot = tasks;
+    let snapshot = getTasks();
     setTasks((prev) => {
       snapshot = prev;
-      return prev.map((t) => (t.id === id ? { ...t, ...updates } : t));
+      return prev.map((t) => (t.id === id ? { ...t, ...sanitized } : t));
     });
 
-    const { data, error } = await supabase
+    const { data, error } = await taskWrite(writes.run([id], () => supabase
       .from("tasks")
       .update(sanitized)
       .eq("id", id)
       .select()
-      .single();
+      .single()));
 
     if (error) {
-      // Rollback
-      setTasks(snapshot);
+      // 他のタスクへの並行操作は保持し、この更新で変えたフィールドだけ戻す。
+      const previous = snapshot.find((t) => t.id === id);
+      if (previous) setTasks((prev) => prev.map((t) => {
+        if (t.id !== id) return t;
+        let restored = t;
+        for (const key of allowedFields) {
+          if (key in sanitized && t[key] === sanitized[key]) {
+            restored = { ...restored, [key]: previous[key] };
+          }
+        }
+        return restored;
+      }));
       toast.error("タスクの更新に失敗しました");
     } else if (data) {
-      // Sync with server data
-      setTasks((prev) => prev.map((t) => (t.id === id ? data : t)));
+      const previous = snapshot.find((t) => t.id === id);
+      const optimistic = previous ? { ...previous, ...sanitized } : data;
+      setTasks((prev) => prev.map((t) => t.id === id ? mergeTaskResponse(t, optimistic, data) : t));
       if (!options?.skipNotification && householdId) {
         sendPushNotification({
           title: "家族タスク",
@@ -243,19 +282,19 @@ export function useTasks(householdId: string | null) {
       }
     }
     return { data, error };
-  };
+  }, [householdId, supabase, setTasks, getTasks, writes]);
 
-  const deleteTask = async (id: string, options?: { skipToast?: boolean }) => {
+  const deleteTask = useCallback(async (id: string, options?: { skipToast?: boolean }) => {
     // Optimistic update: remove task immediately
-    const previousTasks = tasks;
+    const previousTasks = getTasks();
     const deletedTask = previousTasks.find((t) => t.id === id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
 
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    const { error } = await taskWrite(writes.run([id], () => supabase.from("tasks").delete().eq("id", id)));
 
     if (error) {
       // Rollback
-      setTasks(previousTasks);
+      if (deletedTask) setTasks((prev) => prev.some((t) => t.id === id) ? prev : [...prev, deletedTask]);
       if (!options?.skipToast) {
         toast.error("タスクの削除に失敗しました");
       }
@@ -280,65 +319,87 @@ export function useTasks(householdId: string | null) {
       });
     }
     return { error };
-  };
+  }, [supabase, setTasks, getTasks, writes]);
 
   // 複数タスクをまとめて削除する。1 件 1 リクエストで並列発射すると
   // 「完了済みを全件削除」で数百リクエストが同時に飛ぶため、1 本の DELETE に集約する。
   // 戻り値の deleted は「元に戻す」用のスナップショット。
-  const deleteTasks = async (ids: string[]) => {
+  const deleteTasks = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return { deleted: [] as Task[], error: null };
 
-    const previousTasks = tasks;
+    const previousTasks = getTasks();
     const targetIds = new Set(ids);
     const deleted = previousTasks.filter((t) => targetIds.has(t.id));
 
     // Optimistic update
     setTasks((prev) => prev.filter((t) => !targetIds.has(t.id)));
 
-    const { error } = await supabase.from("tasks").delete().in("id", ids);
+    const { error } = await taskWrite(writes.run(ids, () => supabase.from("tasks").delete().in("id", ids)));
 
     if (error) {
       // Rollback
-      setTasks(previousTasks);
+      setTasks((prev) => {
+        const existingIds = new Set(prev.map((t) => t.id));
+        return [...prev, ...deleted.filter((t) => !existingIds.has(t.id))];
+      });
       return { deleted: [] as Task[], error };
     }
     return { deleted, error: null };
-  };
+  }, [supabase, setTasks, getTasks, writes]);
 
-  const toggleTask = async (id: string) => {
-    const task = tasks.find((t) => t.id === id);
+  const toggleTask = useCallback(async (id: string) => {
+    const task = getTasks().find((t) => t.id === id);
     if (!task) return;
     const result = await updateTask(id, { is_done: !task.is_done }, { skipNotification: true });
-    if (!task.is_done && result?.data) {
+    if (!task.is_done && result?.data && householdId) {
       sendPushNotification({
         title: "家族タスク",
         body: `「${task.title}」が完了しました`,
-        householdId: householdId!,
+        householdId,
       });
     }
     return result;
-  };
+  }, [getTasks, updateTask, householdId]);
 
-  const reorderTasks = async (orderedIds: string[]) => {
-    // Optimistic update
-    let snapshot = tasks;
+  const reorderTasks = useCallback(async (orderedIds: string[]) => {
+    const snapshot = getTasks();
+    const byId = new Map(snapshot.map((t) => [t.id, t]));
+    const ids = [...new Set(orderedIds)].filter((id) => byId.has(id));
+    const changed = ids.flatMap((id, index) => {
+      const task = byId.get(id);
+      return task && task.sort_order !== index ? [{ id, sort_order: index }] : [];
+    });
+    if (changed.length === 0) return;
+    const orders = new Map(changed.map((t) => [t.id, t.sort_order]));
+    const orderedSet = new Set(ids);
     setTasks((prev) => {
-      snapshot = prev;
-      const idToTask = new Map(prev.map((t) => [t.id, t]));
-      const reordered = orderedIds.map((id, i) => ({ ...idToTask.get(id)!, sort_order: i }));
-      const rest = prev.filter((t) => !orderedIds.includes(t.id));
-      return [...reordered, ...rest];
+      const current = new Map(prev.map((t) => [t.id, t]));
+      const reordered = ids.flatMap((id) => {
+        const task = current.get(id);
+        if (!task) return [];
+        const order = orders.get(id);
+        return [order === undefined ? task : { ...task, sort_order: order }];
+      });
+      return [...reordered, ...prev.filter((t) => !orderedSet.has(t.id))];
     });
 
-    const { error } = await supabase.rpc("reorder_tasks", {
-      p_task_ids: orderedIds,
-      p_sort_orders: orderedIds.map((_, i) => i),
-    });
+    const { error } = await taskWrite(writes.run(ids, () => supabase.rpc("reorder_tasks", {
+      p_task_ids: changed.map((t) => t.id),
+      p_sort_orders: changed.map((t) => t.sort_order),
+    })));
     if (error) {
-      setTasks(snapshot);
+      setTasks((prev) => {
+        const restored = prev.map((t) => {
+          const previous = byId.get(t.id);
+          return previous && orders.has(t.id) && t.sort_order === orders.get(t.id)
+            ? { ...t, sort_order: previous.sort_order } : t;
+        });
+        const positions = new Map(snapshot.map((t, index) => [t.id, index]));
+        return restored.sort((a, b) => (positions.get(a.id) ?? -1) - (positions.get(b.id) ?? -1));
+      });
       toast.error("タスクの並び替えに失敗しました");
     }
-  };
+  }, [supabase, setTasks, getTasks, writes]);
 
   return { tasks, setTasks, loading, addTask, updateTask, deleteTask, deleteTasks, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted, refetch: query.refetch };
 }

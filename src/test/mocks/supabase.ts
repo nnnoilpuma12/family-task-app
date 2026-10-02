@@ -29,6 +29,7 @@ export class MockQueryChain {
   order = vi.fn().mockReturnThis();
   limit = vi.fn().mockReturnThis();
   range = vi.fn().mockReturnThis();
+  abortSignal = vi.fn().mockReturnThis();
   single = vi.fn().mockResolvedValue({ data: null, error: null });
   maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
 

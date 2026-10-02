@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { runBackgroundTask } from "@/lib/background-task";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { CategoryPicker } from "@/components/task/category-picker";
@@ -10,6 +11,7 @@ import type { Category } from "@/types";
 interface TaskCreateSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  onReopen: () => void;
   categories: Category[];
   selectedCategoryId: string | null;
   getSuggestions?: (query: string, categoryId?: string | null) => string[];
@@ -24,6 +26,7 @@ interface TaskCreateSheetProps {
 export function TaskCreateSheet({
   isOpen,
   onClose,
+  onReopen,
   categories,
   selectedCategoryId,
   getSuggestions,
@@ -33,14 +36,13 @@ export function TaskCreateSheet({
   const [categoryId, setCategoryId] = useState<string | null>(selectedCategoryId);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setCategoryId(selectedCategoryId);
-    }
-  }, [isOpen, selectedCategoryId]);
+  const [previousCategoryId, setPreviousCategoryId] = useState(selectedCategoryId);
+  if (selectedCategoryId !== previousCategoryId) {
+    setPreviousCategoryId(selectedCategoryId);
+    setCategoryId(selectedCategoryId);
+  }
   const [dueDate, setDueDate] = useState<string>("");
   const [memo, setMemo] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   // タイトル変更時にサジェスト候補を算出
   const suggestions = useMemo(() => {
@@ -58,28 +60,25 @@ export function TaskCreateSheet({
     setSuggestionDismissed(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || submitting) return;
-
-    setSubmitting(true);
-    try {
-      const result = await onSubmit({
-        title: title.trim(),
-        category_id: categoryId,
-        due_date: dueDate || null,
-        memo: memo || null,
-      });
-
-      if (result && "error" in result && result.error) return;
-
-      setTitle("");
-      setDueDate("");
-      setMemo("");
-      onClose();
-    } finally {
-      setSubmitting(false);
-    }
+    if (!title.trim()) return;
+    const draft = {
+      title: title.trim(), category_id: categoryId,
+      due_date: dueDate || null, memo: memo || null,
+    };
+    setTitle("");
+    setDueDate("");
+    setMemo("");
+    setSuggestionDismissed(false);
+    onClose();
+    void runBackgroundTask(() => onSubmit(draft), () => {
+      setTitle(draft.title);
+      setCategoryId(draft.category_id);
+      setDueDate(draft.due_date ?? "");
+      setMemo(draft.memo ?? "");
+      onReopen();
+    }, "追加できませんでした。入力内容を復元できます");
   };
 
   return (
@@ -133,8 +132,8 @@ export function TaskCreateSheet({
           className="rounded border border-border-strong bg-surface px-4 py-3 text-sm text-foreground placeholder:text-subtle outline-none resize-none focus:border-focus focus:ring-2 focus:ring-focus/15"
         />
 
-        <Button type="submit" disabled={!title.trim() || submitting}>
-          {submitting ? "追加中..." : "追加"}
+        <Button type="submit" disabled={!title.trim()}>
+          追加
         </Button>
       </form>
     </BottomSheet>

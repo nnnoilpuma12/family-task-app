@@ -1,4 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
+import { createQueryWrapperWithClient } from "@/test/query-wrapper";
+import { queryKeys } from "@/lib/query-keys";
 import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
@@ -73,11 +75,13 @@ describe("useRealtimeTasks", () => {
     onRemoteChange?: () => void,
     onResync?: () => void
   ) {
+    const { wrapper, queryClient } = createQueryWrapperWithClient();
+    queryClient.setQueryData(queryKeys.tasks(householdId), initialTasks);
     return renderHook(() => {
       const [tasks, setTasks] = useState<Task[]>(initialTasks);
       useRealtimeTasks(householdId, setTasks, onRemoteChange, onResync);
       return { tasks };
-    });
+    }, { wrapper });
   }
 
   it("householdId がない場合はチャンネルを作成しない", () => {
@@ -141,13 +145,24 @@ describe("useRealtimeTasks", () => {
     expect(result.current.tasks[0].id).toBe("t-2");
   });
 
+  it("自分のINSERT echoと並び順・URL・期限だけのUPDATEではおすすめを再計算しない", () => {
+    const task = makeTask({ id: "existing" });
+    const changed = vi.fn();
+    renderWithState(HOUSEHOLD_ID, [task], changed);
+    act(() => { callbacks.INSERT({ new: task }); });
+    act(() => { callbacks.UPDATE({ new: { ...task, sort_order: 20, url: "https://example.com", due_date: "2026-10-02" } }); });
+    expect(changed).not.toHaveBeenCalled();
+    act(() => { callbacks.UPDATE({ new: { ...task, is_done: true } }); });
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
   it("各イベントで onRemoteChange が呼ばれる", () => {
     const onRemoteChange = vi.fn();
     const task = makeTask({ id: "t-1" });
     renderWithState(HOUSEHOLD_ID, [task], onRemoteChange);
 
     act(() => { callbacks.INSERT({ new: makeTask({ id: "t-99" }) }); });
-    act(() => { callbacks.UPDATE({ new: task }); });
+    act(() => { callbacks.UPDATE({ new: { ...task, title: "変更済み" } }); });
     act(() => { callbacks.DELETE({ old: { id: "t-1" } }); });
 
     expect(onRemoteChange).toHaveBeenCalledTimes(3);
@@ -187,7 +202,7 @@ describe("useRealtimeTasks", () => {
         useRealtimeTasks(id, setTasks, onRemoteChange, onResync);
         return { tasks };
       },
-      { initialProps: { id: HOUSEHOLD_ID } }
+      { initialProps: { id: HOUSEHOLD_ID }, wrapper: createQueryWrapperWithClient().wrapper }
     );
 
     rerender({ id: HOUSEHOLD_ID });
