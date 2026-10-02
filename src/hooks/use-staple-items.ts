@@ -1,25 +1,26 @@
 "use client";
 
 import { useEffect, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryFunctionContext, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
 import { useIdleReady } from "@/hooks/use-idle-ready";
 import type { StapleItem } from "@/types";
 
-export function useStapleItems(householdId: string | null) {
+export function useStapleItems(householdId: string | null, managedResync = false) {
   const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
 
-  const fetchStapleItems = useCallback(async (): Promise<StapleItem[]> => {
+  const fetchStapleItems = useCallback(async ({ signal }: QueryFunctionContext): Promise<StapleItem[]> => {
     if (!householdId) return [];
     const { data, error } = await supabase
       .from("staple_items")
       .select("*")
       .eq("household_id", householdId)
       .order("sort_order")
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .abortSignal(signal);
 
     if (error) throw error;
     return data ?? [];
@@ -33,6 +34,8 @@ export function useStapleItems(householdId: string | null) {
   const query = useQuery({
     queryKey: queryKeys.stapleItems(householdId),
     queryFn: fetchStapleItems,
+    refetchOnWindowFocus: !managedResync,
+    refetchOnReconnect: !managedResync,
     enabled: !!householdId && isReady,
   });
 

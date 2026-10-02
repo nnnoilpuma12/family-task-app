@@ -1,15 +1,15 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useEffect } from "react";
+import { useQuery, useQueryClient, type QueryFunctionContext } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { createQueryRefresh } from "@/lib/query-refresh";
 import { queryKeys } from "@/lib/query-keys";
 import { useIdleReady } from "@/hooks/use-idle-ready";
 import type { TaskRecommendation } from "@/types";
 
 // 完了履歴を集計する重い RPC なので、この時間内の再マウント・フォーカス復帰では取り直さない。
-// レコメンドの元になるタスク操作（追加・完了・削除）の直後は refetch() で明示的に
-// 取り直すため、鮮度はこの値に縛られない。
+// タスク操作時は refetch() で再取得を予約し、最後の変更から 2 秒後にまとめて集計する。
 const RECOMMENDATIONS_STALE_TIME_MS = 10 * 60 * 1000;
 
 export function useTaskRecommendations(householdId: string | null, profileId?: string | null) {
@@ -19,8 +19,8 @@ export function useTaskRecommendations(householdId: string | null, profileId?: s
   // 起動クリティカルパスから外してアイドル後に発火させる（RPC が重いため）
   const { isReady, markReady } = useIdleReady(!!householdId);
 
-  const fetchRecommendations = useCallback(async (): Promise<TaskRecommendation[]> => {
-    const { data, error } = await supabase.rpc("get_recurring_recommendations");
+  const fetchRecommendations = useCallback(async ({ signal }: QueryFunctionContext): Promise<TaskRecommendation[]> => {
+    const { data, error } = await supabase.rpc("get_recurring_recommendations").abortSignal(signal);
     if (error) throw error;
     return data ?? [];
   }, [supabase]);
@@ -65,14 +65,19 @@ export function useTaskRecommendations(householdId: string | null, profileId?: s
     [householdId, profileId, supabase, queryClient]
   );
 
-  // タスクの追加・完了・削除の直後に呼ばれる。まだアイドル待ちでもここで有効化して取り直す。
-  const refetch = useCallback(async () => {
+  // 自分の操作とその Realtime echo、連続操作を同じ 2 秒の窓でまとめる。
+  const refresh = useMemo(
+    () => createQueryRefresh(queryClient, queryKeys.recommendations(householdId), 2000),
+    [queryClient, householdId]
+  );
+  useEffect(() => () => refresh.cancel(), [refresh]);
+  const refetch = useCallback(() => {
     if (!householdId) return;
     markReady();
-    await queryClient.invalidateQueries({
-      queryKey: queryKeys.recommendations(householdId),
-    });
-  }, [householdId, markReady, queryClient]);
+    // 予約中に画面を離れても、次のマウントで古い候補を10分間使い続けない。
+    void queryClient.invalidateQueries({ queryKey: queryKeys.recommendations(householdId), refetchType: "none" });
+    refresh.request();
+  }, [householdId, markReady, refresh, queryClient]);
 
   return { recommendations, loading, dismiss, refetch };
 }

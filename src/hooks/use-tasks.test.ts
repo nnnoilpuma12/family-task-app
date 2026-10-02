@@ -44,6 +44,81 @@ describe("useTasks", () => {
     vi.mocked(createClient).mockReturnValue(mockClient as ReturnType<typeof createClient>);
   });
 
+  it("キャッシュ更新後も操作ハンドラは同一参照で、最新の完了状態を使う", async () => {
+    const task = makeTask({ id: "stable" });
+    chain._result = { data: [task], error: null };
+    const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const previous = result.current;
+    act(() => result.current.setTasks([{ ...task, is_done: true }]));
+    for (const name of ["addTask", "updateTask", "deleteTask", "deleteTasks", "toggleTask", "reorderTasks"] as const) {
+      expect(result.current[name]).toBe(previous[name]);
+    }
+    chain.single.mockResolvedValueOnce({ data: task, error: null });
+    await act(() => previous.toggleTask(task.id));
+    expect(chain.update).toHaveBeenCalledWith({ is_done: false, completed_at: null });
+  });
+
+  it("100件中2件の隣接入れ替えは2行だけ送信し、同じ順序では送信しない", async () => {
+    const tasks = Array.from({ length: 100 }, (_, i) => makeTask({ id: String(i), sort_order: i }));
+    chain._result = { data: tasks, error: null };
+    const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const ids = tasks.map((t) => t.id);
+    await act(() => result.current.reorderTasks(ids));
+    expect(mockClient.rpc).not.toHaveBeenCalled();
+    [ids[0], ids[1]] = [ids[1], ids[0]];
+    await act(() => result.current.reorderTasks(ids));
+    expect(mockClient.rpc).toHaveBeenCalledWith("reorder_tasks", { p_task_ids: ["1", "0"], p_sort_orders: [0, 1] });
+    expect(result.current.tasks.slice(0, 3).map((t) => t.id)).toEqual(["1", "0", "2"]);
+  });
+
+  it("更新失敗のロールバックが別タスクの変更・追加を巻き戻さない", async () => {
+    const tasks = [makeTask({ id: "a" }), makeTask({ id: "b" })];
+    chain._result = { data: tasks, error: null };
+    const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    let resolve: (value: { data: null; error: string }) => void = () => {};
+    chain.single.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+    let pending: ReturnType<typeof result.current.updateTask> | undefined;
+    await act(async () => { pending = result.current.updateTask("a", { title: "失敗する変更" }); await Promise.resolve(); });
+    act(() => result.current.setTasks((prev) => [...prev.map((t) => t.id === "b" ? { ...t, title: "別端末の変更" } : t), makeTask({ id: "c" })]));
+    await act(async () => { resolve({ data: null, error: "offline" }); await pending; });
+    expect(result.current.tasks.map((t) => t.id)).toEqual(["a", "b", "c"]);
+    expect(result.current.tasks[0].title).toBe(tasks[0].title);
+    expect(result.current.tasks[1].title).toBe("別端末の変更");
+  });
+
+  it("追加直後の編集はINSERTの後に送り、先行応答が新しい入力を消さない", async () => {
+    const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    let resolveInsert: (value: { data: Task; error: null }) => void = () => {};
+    let resolveUpdate: (value: { data: Task; error: null }) => void = () => {};
+    chain.single.mockImplementationOnce(() => new Promise((resolve) => { resolveInsert = resolve; }));
+    chain.single.mockImplementationOnce(() => new Promise((resolve) => { resolveUpdate = resolve; }));
+    let adding: ReturnType<typeof result.current.addTask> | undefined;
+    act(() => { adding = result.current.addTask({ title: "追加直後" }); });
+    const optimistic = result.current.tasks[0];
+    let updating: ReturnType<typeof result.current.updateTask> | undefined;
+    act(() => { updating = result.current.updateTask(optimistic.id, { title: "すぐ編集" }); });
+    await act(async () => { await Promise.resolve(); });
+    expect(chain.update).not.toHaveBeenCalled();
+    expect(result.current.tasks[0].title).toBe("すぐ編集");
+    await act(async () => { resolveInsert({ data: optimistic, error: null }); await adding; });
+    expect(chain.update).toHaveBeenCalledTimes(1);
+    expect(result.current.tasks[0].title).toBe("すぐ編集");
+    await act(async () => { resolveUpdate({ data: { ...optimistic, title: "すぐ編集" }, error: null }); await updating; });
+    expect(result.current.tasks[0].title).toBe("すぐ編集");
+  });
+
+  it("通信例外でも楽観的追加を残さない", async () => {
+    const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    chain.single.mockRejectedValueOnce(new Error("network failure"));
+    await act(() => result.current.addTask({ title: "通信失敗" }));
+    expect(result.current.tasks).toEqual([]);
+  });
+
   describe("fetchTasks", () => {
     it("タスクを取得してセットする", async () => {
       const task = makeTask();
@@ -345,7 +420,7 @@ describe("useTasks", () => {
 
   describe("reorderTasks", () => {
     it("reorder_tasks RPC が正しい引数で呼ばれる", async () => {
-      chain._result = { data: [], error: null };
+      chain._result = { data: [makeTask({ id: "id-a", sort_order: 0 }), makeTask({ id: "id-b", sort_order: 1 })], error: null };
       const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
       await waitFor(() => expect(result.current.loading).toBe(false));
 

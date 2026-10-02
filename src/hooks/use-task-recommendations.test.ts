@@ -2,7 +2,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useTaskRecommendations } from "@/hooks/use-task-recommendations";
 import { createClient } from "@/lib/supabase/client";
-import { MockQueryChain, createMockSupabase } from "@/test/mocks/supabase";
+import { MockQueryChain, createMockSupabase, type MockResult } from "@/test/mocks/supabase";
 import { createQueryWrapper } from "@/test/query-wrapper";
 import type { TaskRecommendation } from "@/types";
 
@@ -31,6 +31,12 @@ function makeRecommendation(overrides: Partial<TaskRecommendation> = {}): TaskRe
   };
 }
 
+function rpcResult(value: MockResult) {
+  const chain = new MockQueryChain();
+  chain._result = value;
+  return chain;
+}
+
 describe("useTaskRecommendations", () => {
   let chain: MockQueryChain;
   let mockClient: ReturnType<typeof createMockSupabase>;
@@ -45,7 +51,7 @@ describe("useTaskRecommendations", () => {
 
   it("householdId があれば RPC を呼び recommendations をセットする", async () => {
     const recs = [makeRecommendation()];
-    mockClient.rpc.mockResolvedValue({ data: recs, error: null });
+    mockClient.rpc.mockReturnValue(rpcResult({ data: recs, error: null }));
 
     const { result } = renderHook(
       () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),
@@ -66,7 +72,7 @@ describe("useTaskRecommendations", () => {
   });
 
   it("RPC エラーでも loading が false になる", async () => {
-    mockClient.rpc.mockResolvedValue({ data: null, error: { message: "RPC error" } });
+    mockClient.rpc.mockReturnValue(rpcResult({ data: null, error: { message: "RPC error" } }));
 
     const { result } = renderHook(() => useTaskRecommendations(HOUSEHOLD_ID), {
       wrapper: createQueryWrapper(),
@@ -77,7 +83,7 @@ describe("useTaskRecommendations", () => {
   });
 
   it("refetch でキャッシュを無効化して RPC を取り直す", async () => {
-    mockClient.rpc.mockResolvedValue({ data: [makeRecommendation()], error: null });
+    mockClient.rpc.mockReturnValue(rpcResult({ data: [makeRecommendation()], error: null }));
 
     const { result } = renderHook(
       () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),
@@ -86,17 +92,33 @@ describe("useTaskRecommendations", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockClient.rpc).toHaveBeenCalledTimes(1);
 
-    mockClient.rpc.mockResolvedValue({
+    mockClient.rpc.mockReturnValue(rpcResult({
       data: [makeRecommendation({ normalized_title: "洗濯" })],
       error: null,
-    });
+    }));
 
+    vi.useFakeTimers();
     await act(async () => {
-      await result.current.refetch();
+      result.current.refetch();
+      result.current.refetch(); // 操作の応答と Realtime echo
+      await vi.advanceTimersByTimeAsync(2000);
     });
+    vi.useRealTimers();
 
     await waitFor(() => expect(mockClient.rpc).toHaveBeenCalledTimes(2));
     expect(result.current.recommendations[0].normalized_title).toBe("洗濯");
+  });
+
+  it("アンマウント後に予約された集計を走らせない", async () => {
+    mockClient.rpc.mockReturnValue(rpcResult({ data: [], error: null }));
+    const { result, unmount } = renderHook(() => useTaskRecommendations(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    vi.useFakeTimers();
+    act(() => result.current.refetch());
+    unmount();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(mockClient.rpc).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 
   describe("dismiss", () => {
@@ -107,7 +129,7 @@ describe("useTaskRecommendations", () => {
     it("指定した normalized_title が state から除去される", async () => {
       const rec1 = makeRecommendation({ normalized_title: "掃除" });
       const rec2 = makeRecommendation({ normalized_title: "洗濯" });
-      mockClient.rpc.mockResolvedValue({ data: [rec1, rec2], error: null });
+      mockClient.rpc.mockReturnValue(rpcResult({ data: [rec1, rec2], error: null }));
 
       const { result } = renderHook(
         () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),
@@ -125,7 +147,7 @@ describe("useTaskRecommendations", () => {
 
     it("dismissed_until が medianDays 分後の日付になっている", async () => {
       const rec = makeRecommendation({ median_interval_days: 14 });
-      mockClient.rpc.mockResolvedValue({ data: [rec], error: null });
+      mockClient.rpc.mockReturnValue(rpcResult({ data: [rec], error: null }));
 
       const { result } = renderHook(
         () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),
@@ -150,7 +172,7 @@ describe("useTaskRecommendations", () => {
 
     it("profileId がある場合は dismissed_by に含まれる", async () => {
       const rec = makeRecommendation();
-      mockClient.rpc.mockResolvedValue({ data: [rec], error: null });
+      mockClient.rpc.mockReturnValue(rpcResult({ data: [rec], error: null }));
 
       const { result } = renderHook(
         () => useTaskRecommendations(HOUSEHOLD_ID, PROFILE_ID),

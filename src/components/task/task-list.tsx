@@ -15,9 +15,12 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { Trash2 } from "lucide-react";
-import { TaskItem } from "./task-item";
+import { TaskItem } from "@/components/task/task-item";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Task, Category, Profile } from "@/types";
+
+const POINTER_OPTIONS = { activationConstraint: { distance: 8 } };
+const TOUCH_OPTIONS = { activationConstraint: { delay: 250, tolerance: 5 } };
 
 interface TaskListProps {
   tasks: Task[];
@@ -65,9 +68,8 @@ export function TaskList({
   );
 
   const handleToggle = useCallback(
-    (id: string) => {
-      const task = tasks.find((t) => t.id === id);
-      if (task && !task.is_done) {
+    (id: string, isDone: boolean) => {
+      if (!isDone) {
         // Becoming done: hold in active list for 300ms to show done styling
         setPendingDoneIds((prev) => new Set([...prev, id]));
         onToggle(id);
@@ -83,7 +85,7 @@ export function TaskList({
         onToggle(id);
       }
     },
-    [tasks, onToggle]
+    [onToggle]
   );
 
   // Confetti on all tasks done
@@ -117,7 +119,7 @@ export function TaskList({
   const [prevActiveTaskIds, setPrevActiveTaskIds] = useState(activeTaskIds);
 
   // Reset DnD order when source tasks change (category switch or external update)
-  if (prevActiveTaskIds !== activeTaskIds) {
+  if (prevActiveTaskIds.length !== activeTaskIds.length || prevActiveTaskIds.some((id, index) => id !== activeTaskIds[index])) {
     setPrevActiveTaskIds(activeTaskIds);
     if (dndOrderedIds !== null) {
       setDndOrderedIds(null);
@@ -133,8 +135,8 @@ export function TaskList({
   }, [activeTasks, dndOrderedIds]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    useSensor(PointerSensor, POINTER_OPTIONS),
+    useSensor(TouchSensor, TOUCH_OPTIONS)
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -185,7 +187,7 @@ export function TaskList({
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={localActiveTasks.map((t) => t.id)}
+            items={dndOrderedIds ?? prevActiveTaskIds}
             strategy={verticalListSortingStrategy}
           >
             <AnimatePresence mode="popLayout" initial={false}>

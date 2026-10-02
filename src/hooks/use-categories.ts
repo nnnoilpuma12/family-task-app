@@ -1,23 +1,24 @@
 "use client";
 
 import { useEffect, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryFunctionContext, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
 import type { Category } from "@/types";
 
-export function useCategories(householdId: string | null) {
+export function useCategories(householdId: string | null, managedResync = false) {
   const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
 
-  const fetchCategories = useCallback(async (): Promise<Category[]> => {
+  const fetchCategories = useCallback(async ({ signal }: QueryFunctionContext): Promise<Category[]> => {
     if (!householdId) return [];
     const { data, error } = await supabase
       .from("categories")
       .select("*")
       .eq("household_id", householdId)
-      .order("sort_order");
+      .order("sort_order")
+      .abortSignal(signal);
 
     if (error) throw error;
     return data ?? [];
@@ -26,6 +27,8 @@ export function useCategories(householdId: string | null) {
   const query = useQuery({
     queryKey: queryKeys.categories(householdId),
     queryFn: fetchCategories,
+    refetchOnWindowFocus: !managedResync,
+    refetchOnReconnect: !managedResync,
     enabled: !!householdId,
   });
 

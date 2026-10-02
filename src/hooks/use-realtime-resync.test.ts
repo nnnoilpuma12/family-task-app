@@ -47,6 +47,7 @@ describe("useRealtimeResync", () => {
 
     document.dispatchEvent(new Event("visibilitychange"));
 
+    vi.advanceTimersByTime(50);
     expect(invalidatedKeys()).toEqual([
       queryKeys.tasks(HOUSEHOLD_ID),
       queryKeys.categories(HOUSEHOLD_ID),
@@ -59,6 +60,7 @@ describe("useRealtimeResync", () => {
 
     window.dispatchEvent(new Event("online"));
 
+    vi.advanceTimersByTime(50);
     expect(invalidate).toHaveBeenCalledTimes(3);
   });
 
@@ -69,6 +71,7 @@ describe("useRealtimeResync", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     window.dispatchEvent(new Event("online"));
 
+    vi.advanceTimersByTime(50);
     expect(invalidate).not.toHaveBeenCalled();
   });
 
@@ -77,6 +80,7 @@ describe("useRealtimeResync", () => {
 
     document.dispatchEvent(new Event("visibilitychange"));
 
+    vi.advanceTimersByTime(50);
     expect(invalidatedKeys()).not.toContainEqual(
       queryKeys.recommendations(HOUSEHOLD_ID)
     );
@@ -89,16 +93,18 @@ describe("useRealtimeResync", () => {
     window.dispatchEvent(new Event("online"));
     window.dispatchEvent(new Event("online"));
 
+    vi.advanceTimersByTime(50);
     expect(invalidate).toHaveBeenCalledTimes(3); // 1 回分（3 キー）のみ
   });
 
-  it("最小間隔を過ぎれば再び取り直す", () => {
+  it("最小間隔を過ぎれば再び取り直す", async () => {
     renderHook(() => useRealtimeResync(HOUSEHOLD_ID), { wrapper });
 
     window.dispatchEvent(new Event("online"));
-    vi.advanceTimersByTime(2000);
+    await vi.advanceTimersByTimeAsync(2000);
     window.dispatchEvent(new Event("online"));
 
+    vi.advanceTimersByTime(50);
     expect(invalidate).toHaveBeenCalledTimes(6); // 2 回分
   });
 
@@ -108,6 +114,7 @@ describe("useRealtimeResync", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     window.dispatchEvent(new Event("online"));
 
+    vi.advanceTimersByTime(50);
     expect(invalidate).not.toHaveBeenCalled();
   });
 
@@ -120,6 +127,7 @@ describe("useRealtimeResync", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     window.dispatchEvent(new Event("online"));
 
+    vi.advanceTimersByTime(50);
     expect(invalidate).not.toHaveBeenCalled();
   });
 });

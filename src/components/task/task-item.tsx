@@ -20,7 +20,7 @@ interface TaskItemProps {
   task: Task;
   category?: Category | null;
   createdBy?: Profile | null;
-  onToggle: (id: string) => void;
+  onToggle: (id: string, isDone: boolean) => void;
   onTap: (task: Task) => void;
   onDelete: (id: string) => void;
   isDragging: boolean;
@@ -40,8 +40,8 @@ export const TaskItem = memo(function TaskItem({
 }: TaskItemProps) {
 
   const handleToggle = useCallback(() => {
-    onToggle(task.id);
-  }, [task.id, onToggle]);
+    onToggle(task.id, task.is_done);
+  }, [task.id, task.is_done, onToggle]);
 
   const showDone = task.is_done;
 

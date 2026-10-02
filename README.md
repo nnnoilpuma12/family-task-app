@@ -172,6 +172,7 @@ VAPID 鍵は `npx web-push generate-vapid-keys` で生成できる。
 
 ## パフォーマンス調査
 
+- [操作・再同期の改善実装と検証結果（2026-10-02）](docs/performance-implementation-2026-10-02.md)
 - [コード全体のボトルネック調査・改善優先度（2026-10-01）](docs/performance-audit-2026-10-01.md)
 - [通信クリティカルパス・ローカル実測・再測定手順（2026-10-01）](docs/network-critical-path-2026-10-01.md)
 - [測定結果の集計JSON](docs/network-measurement-2026-10-01.json)
