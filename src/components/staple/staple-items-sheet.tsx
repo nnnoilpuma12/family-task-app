@@ -35,7 +35,7 @@ interface StapleItemsSheetProps {
     title: string;
     category_id: string | null;
     memo: string | null;
-  }) => void;
+  }) => Promise<{ error: unknown | null } | void>;
   onAddStapleItem: (data: {
     name: string;
     category_id?: string | null;
@@ -99,17 +99,19 @@ export function StapleItemsSheet({
   const sortedItems = isEditMode && orderedIds.length > 0
     ? orderedIds
         .map((id) => displayItems.find((si) => si.id === id))
-        .filter((si): si is StapleItem => si !== null)
+        .filter((si): si is StapleItem => si !== undefined)
+        .concat(displayItems.filter((si) => !orderedIds.includes(si.id)))
     : displayItems;
 
   const handleAddToTask = useCallback(
-    (item: StapleItem) => {
+    async (item: StapleItem) => {
       const title = buildTaskTitle(item);
-      onAddToTask({
+      const result = await onAddToTask({
         title,
         category_id: item.category_id,
         memo: item.note,
       });
+      if (result && "error" in result && result.error) return;
       onRecordUsage(item.id);
       const cat = categories.find((c) => c.id === item.category_id);
       toast.success(`「${item.name}」を${cat?.name ?? "リスト"}に追加しました`);
@@ -124,7 +126,7 @@ export function StapleItemsSheet({
   }, [isEditMode]);
 
   const handleQuickAddConfirm = useCallback(
-    (item: StapleItem, overrideQuantity: number | null, overrideNote: string | null) => {
+    async (item: StapleItem, overrideQuantity: number | null, overrideNote: string | null) => {
       const quantity = overrideQuantity ?? item.default_quantity;
       const note = overrideNote ?? item.note;
       let title = item.name;
@@ -133,7 +135,8 @@ export function StapleItemsSheet({
         const unit = item.default_unit ?? "";
         title = `${item.name} ${q}${unit}`.trim();
       }
-      onAddToTask({ title, category_id: item.category_id, memo: note });
+      const result = await onAddToTask({ title, category_id: item.category_id, memo: note });
+      if (result && "error" in result && result.error) return;
       onRecordUsage(item.id);
       const cat = categories.find((c) => c.id === item.category_id);
       toast.success(`「${item.name}」を${cat?.name ?? "リスト"}に追加しました`);

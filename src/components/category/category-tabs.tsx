@@ -30,9 +30,8 @@ export function CategoryTabs({
   const indicatorRef = externalIndicatorRef ?? internalIndicatorRef;
   const tabButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Tab IDs in order: category ids only (no "すべて")
-  const tabIds: string[] = categories.map((c) => c.id);
-  const activeIndex = selectedId ? tabIds.indexOf(selectedId) : -1;
+  const tabIds = categories.map((category) => category.id);
+  const activeIndex = selectedId === null ? -1 : tabIds.indexOf(selectedId);
   const safeIndex = activeIndex === -1 ? 0 : activeIndex;
 
   const measureTabs = useCallback(() => {
@@ -47,7 +46,9 @@ export function CategoryTabs({
       if (btn) {
         const rect = btn.getBoundingClientRect();
         widths.push(rect.width);
-        offsets.push(rect.left - containerRect.left);
+        // getBoundingClientRect() is viewport-relative. Add scrollLeft so the
+        // indicator remains aligned with tabs after horizontal scrolling.
+        offsets.push(rect.left - containerRect.left + container.scrollLeft);
       }
     });
 
@@ -79,6 +80,29 @@ export function CategoryTabs({
     }
   }, [indicatorRef, measureTabs]);
 
+  const revealTab = useCallback((index: number, behavior: ScrollBehavior) => {
+    const container = containerRef.current;
+    const tab = tabButtonRefs.current[index];
+    if (!container || !tab) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const tabRect = tab.getBoundingClientRect();
+    const leftPadding = 16;
+    const rightPadding = 16;
+
+    if (tabRect.left < containerRect.left + leftPadding) {
+      container.scrollTo({
+        left: Math.max(0, container.scrollLeft - (containerRect.left + leftPadding - tabRect.left)),
+        behavior,
+      });
+    } else if (tabRect.right > containerRect.right - rightPadding) {
+      container.scrollTo({
+        left: container.scrollLeft + (tabRect.right - containerRect.right + rightPadding),
+        behavior,
+      });
+    }
+  }, []);
+
   // Report measurements to parent for swipe indicator sync
   useEffect(() => {
     if (!onTabMeasure) return;
@@ -90,6 +114,8 @@ export function CategoryTabs({
 
   // Position indicator when selection changes
   useEffect(() => {
+    if (activeIndex === -1) return;
+    revealTab(activeIndex, "smooth");
     requestAnimationFrame(() => {
       const bar = indicatorRef.current;
       // If a swipe transition is still in progress, skip repositioning
@@ -103,7 +129,7 @@ export function CategoryTabs({
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, categories.length]);
+  }, [selectedId, categories.length, activeIndex, revealTab]);
 
   // Initial position (no animation) + re-measure on layout changes (e.g. font load)
   useEffect(() => {
@@ -127,6 +153,7 @@ export function CategoryTabs({
 
   const handleSelect = (id: string | null, index: number) => {
     positionIndicator(index, true);
+    revealTab(index, "smooth");
     onSelect(id);
   };
 
@@ -152,7 +179,12 @@ export function CategoryTabs({
 
   return (
     <div className="relative">
-      <div ref={containerRef} className="relative flex px-4 py-2">
+      <div
+        ref={containerRef}
+        role="tablist"
+        aria-label="カテゴリ"
+        className="relative flex snap-x snap-proximity overflow-x-auto no-scrollbar px-4 py-2"
+      >
         {/* Indicator bar */}
         <div
           ref={indicatorRef}
@@ -163,13 +195,14 @@ export function CategoryTabs({
           }}
         />
 
-        {/* Tab buttons */}
         {categories.map((cat, i) => (
           <button
             key={cat.id}
             ref={(el) => { tabButtonRefs.current[i] = el; }}
             onClick={() => handleSelect(cat.id, i)}
-            className="relative z-10 flex-1 flex items-center justify-center rounded-full py-1.5 text-sm font-medium transition-colors"
+            aria-selected={selectedId === cat.id}
+            role="tab"
+            className="relative z-10 flex shrink-0 snap-start items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
           >
             <span style={{ color: selectedId === cat.id ? cat.color : "var(--text-muted)" }}>
               {cat.name}

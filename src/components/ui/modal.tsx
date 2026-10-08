@@ -37,6 +37,9 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             onClick={onClose}
           />
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={title ?? "ダイアログ"}
             className="relative w-full max-w-lg bg-surface rounded-t-xl sm:rounded-xl border border-border max-h-[90dvh] overflow-y-auto"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}

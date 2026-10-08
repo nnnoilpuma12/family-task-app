@@ -171,3 +171,12 @@ VAPID 鍵は `npx web-push generate-vapid-keys` で生成できる。
 詳細な開発ルールは `CLAUDE.md` および `.claude/rules/` を参照。
 
 UI/UXの調査結果・優先順位・実施計画は [UI/UX改善計画](docs/UI_UX_IMPROVEMENT_PLAN.md) を参照。
+
+## パフォーマンス調査
+
+- [操作・再同期の改善実装と検証結果（2026-10-02）](docs/performance-implementation-2026-10-02.md)
+- [コード全体のボトルネック調査・改善優先度（2026-10-01）](docs/performance-audit-2026-10-01.md)
+- [通信クリティカルパス・ローカル実測・再測定手順（2026-10-01）](docs/network-critical-path-2026-10-01.md)
+- [測定結果の集計JSON](docs/network-measurement-2026-10-01.json)
+
+測定値はローカル環境での結果であり、本番回線やブラウザ描画の性能を示すものではありません。

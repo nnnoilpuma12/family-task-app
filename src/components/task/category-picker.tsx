@@ -27,6 +27,7 @@ export function CategoryPicker({
           <button
             type="button"
             onClick={() => onChange(null)}
+            aria-pressed={selectedId === null}
             className={`rounded-full px-3 py-1 text-xs font-medium ${
               selectedId === null ? "bg-foreground text-white" : "bg-surface-strong text-muted"
             }`}
@@ -39,6 +40,7 @@ export function CategoryPicker({
             key={cat.id}
             type="button"
             onClick={() => onChange(cat.id)}
+            aria-pressed={selectedId === cat.id}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               selectedId === cat.id ? "text-white" : "bg-surface-strong text-muted"
             }`}

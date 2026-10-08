@@ -87,9 +87,9 @@ export default function Home() {
   // profile 確定後はそちらを正とする（世帯切替時はキー変更で自動再取得される）
   const householdId = profile?.household_id ?? cachedHouseholdId;
   const supabase = useMemo(() => createClient(), []);
-  const { categories, setCategories, refetch: refetchCategories } = useCategories(householdId);
-  const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, deleteTasks, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted, refetch: refetchTasks } =
-    useTasks(householdId);
+  const { categories, setCategories } = useCategories(householdId, true);
+  const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, deleteTasks, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted } =
+    useTasks(householdId, true);
 
   const { recommendations, loading: recsLoading, dismiss: dismissRecommendation, refetch: refetchRecommendations } =
     useTaskRecommendations(householdId, profile?.id);
@@ -104,33 +104,34 @@ export default function Home() {
     deleteStapleItem,
     reorderStapleItems,
     recordUsage,
-    refetch: refetchStapleItems,
-  } = useStapleItems(householdId);
-  useRealtimeStapleItems(householdId, setStapleItems, refetchStapleItems);
-  useRealtimeCategories(householdId, setCategories, refetchCategories);
-  // WebSocket が無言で切れているあいだの取りこぼしを、復帰契機で回収する
-  useRealtimeResync(householdId);
+  } = useStapleItems(householdId, true);
+  const resync = useRealtimeResync(householdId);
+  useRealtimeStapleItems(householdId, setStapleItems, resync.stapleItems);
+  useRealtimeCategories(householdId, setCategories, resync.categories);
+  useRealtimeTasks(householdId, setTasks, refetchRecommendations, resync.tasks);
 
-  // Debounced refetch for realtime events from other household members
-  const recsTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const onRemoteChange = useCallback(() => {
-    if (recsTimerRef.current) clearTimeout(recsTimerRef.current);
-    recsTimerRef.current = setTimeout(() => refetchRecommendations(), 2000);
-  }, [refetchRecommendations]);
+  // 楽観的追加の時点で候補から外す。RPC の再計算を待たず、失敗時は自然に戻る。
+  const visibleRecommendations = useMemo(() => {
+    const pendingTitles = new Set(allTasks.filter((t) => !t.is_done).map((t) => t.title.trim().toLowerCase()));
+    return recommendations.filter((rec) => !pendingTitles.has(rec.normalized_title));
+  }, [recommendations, allTasks]);
 
-  useRealtimeTasks(householdId, setTasks, onRemoteChange, refetchTasks);
-
-  // 選択中のカテゴリが未設定、または（他メンバーの削除で）消えたら先頭へ寄せる
+  // 初回取得時と選択中カテゴリの削除時は、先頭のユーザー定義カテゴリへ寄せる。
   useEffect(() => {
-    if (categories.length === 0) return;
-    if (categories.some((c) => c.id === selectedCategoryId)) return;
-    setSelectedCategoryId(categories[0].id);
+    if (categories.length === 0) {
+      if (selectedCategoryId !== null) setSelectedCategoryId(null);
+      return;
+    }
+
+    const selectionExists = categories.some((category) => category.id === selectedCategoryId);
+    if (!selectionExists) setSelectedCategoryId(categories[0].id);
   }, [categories, selectedCategoryId]);
 
+  // 一覧に表示するのは、選択中のユーザー定義カテゴリに属するタスクだけ。
   const tasks = useMemo(() => {
     const filtered = selectedCategoryId
-      ? allTasks.filter((t) => t.category_id === selectedCategoryId)
-      : allTasks;
+      ? allTasks.filter((task) => task.category_id === selectedCategoryId)
+      : [];
 
     if (sortOption === "manual") return filtered;
 
@@ -164,14 +165,23 @@ export default function Home() {
     setIsStapleMounted(true);
     setIsStapleOpen(true);
   }, []);
-  const handleDeleteTask = useCallback(async (id: string) => { await deleteTask(id); refetchRecommendations(); }, [deleteTask, refetchRecommendations]);
+  const handleDeleteTask = useCallback(async (id: string) => {
+    const result = await deleteTask(id);
+    refetchRecommendations();
+    return result;
+  }, [deleteTask, refetchRecommendations]);
   const handleCloseCreate = useCallback(() => setIsCreateOpen(false), []);
   const handleSubmit = useCallback(async (task: { title: string; category_id?: string | null; due_date?: string | null; memo?: string | null; url?: string | null }) => {
-    await addTask({ ...task, created_by: profile?.id ?? null });
+    const result = await addTask({ ...task, created_by: profile?.id ?? null });
     refetchRecommendations();
+    return result;
   }, [addTask, profile?.id, refetchRecommendations]);
   const handleCloseDetail = useCallback(() => setSelectedTask(null), []);
-  const handleUpdate = useCallback(async (id: string, updates: Partial<Task>) => { await updateTask(id, updates); }, [updateTask]);
+  const handleUpdate = useCallback(async (id: string, updates: Partial<Task>) => {
+    const result = await updateTask(id, updates);
+    if (!result.error) refetchRecommendations();
+    return result;
+  }, [updateTask, refetchRecommendations]);
   const handleAcceptRecommendation = useCallback(async (rec: TaskRecommendation) => {
     await addTask({
       title: rec.latest_title,
@@ -205,6 +215,7 @@ export default function Home() {
             .then(({ error: insertError }) => {
               if (!insertError) {
                 setTasks((prev) => [...deleted, ...prev]);
+                refetchRecommendations();
               } else {
                 toast.error("元に戻せませんでした");
               }
@@ -281,9 +292,9 @@ export default function Home() {
 
       {/* Task List */}
       <main className="pt-2 mx-auto w-full md:max-w-2xl">
-        {!tasksLoading && !recsLoading && recommendations.length > 0 && (
+        {!tasksLoading && !recsLoading && visibleRecommendations.length > 0 && (
           <RecommendationSection
-            recommendations={recommendations}
+            recommendations={visibleRecommendations}
             categories={categories}
             onAccept={handleAcceptRecommendation}
             onDismiss={dismissRecommendation}
@@ -339,6 +350,7 @@ export default function Home() {
         <TaskCreateSheet
           isOpen={isCreateOpen}
           onClose={handleCloseCreate}
+          onReopen={handleOpenCreate}
           categories={categories}
           selectedCategoryId={selectedCategoryId}
           getSuggestions={getSuggestions}
@@ -352,6 +364,7 @@ export default function Home() {
           task={selectedTask}
           isOpen={!!selectedTask}
           onClose={handleCloseDetail}
+          onRestore={handleTap}
           categories={categories}
           members={members}
           onUpdate={handleUpdate}
@@ -369,7 +382,7 @@ export default function Home() {
           categories={categories}
           selectedCategoryId={selectedCategoryId}
           profileId={profile?.id ?? null}
-          onAddToTask={(task) => addTask({ ...task, created_by: profile?.id ?? null })}
+          onAddToTask={handleSubmit}
           onAddStapleItem={addStapleItem}
           onUpdateStapleItem={updateStapleItem}
           onDeleteStapleItem={deleteStapleItem}

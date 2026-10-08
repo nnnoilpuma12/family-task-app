@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { runBackgroundTask } from "@/lib/background-task";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { CategoryPicker } from "@/components/task/category-picker";
@@ -10,6 +11,7 @@ import type { Category } from "@/types";
 interface TaskCreateSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  onReopen: () => void;
   categories: Category[];
   selectedCategoryId: string | null;
   getSuggestions?: (query: string, categoryId?: string | null) => string[];
@@ -18,12 +20,13 @@ interface TaskCreateSheetProps {
     category_id?: string | null;
     due_date?: string | null;
     memo?: string | null;
-  }) => void;
+  }) => Promise<{ error: unknown | null } | void>;
 }
 
 export function TaskCreateSheet({
   isOpen,
   onClose,
+  onReopen,
   categories,
   selectedCategoryId,
   getSuggestions,
@@ -33,11 +36,11 @@ export function TaskCreateSheet({
   const [categoryId, setCategoryId] = useState<string | null>(selectedCategoryId);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setCategoryId(selectedCategoryId);
-    }
-  }, [isOpen, selectedCategoryId]);
+  const [previousCategoryId, setPreviousCategoryId] = useState(selectedCategoryId);
+  if (selectedCategoryId !== previousCategoryId) {
+    setPreviousCategoryId(selectedCategoryId);
+    setCategoryId(selectedCategoryId);
+  }
   const [dueDate, setDueDate] = useState<string>("");
   const [memo, setMemo] = useState("");
 
@@ -60,18 +63,22 @@ export function TaskCreateSheet({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-
-    onSubmit({
-      title: title.trim(),
-      category_id: categoryId,
-      due_date: dueDate || null,
-      memo: memo || null,
-    });
-
+    const draft = {
+      title: title.trim(), category_id: categoryId,
+      due_date: dueDate || null, memo: memo || null,
+    };
     setTitle("");
     setDueDate("");
     setMemo("");
+    setSuggestionDismissed(false);
     onClose();
+    void runBackgroundTask(() => onSubmit(draft), () => {
+      setTitle(draft.title);
+      setCategoryId(draft.category_id);
+      setDueDate(draft.due_date ?? "");
+      setMemo(draft.memo ?? "");
+      onReopen();
+    }, "追加できませんでした。入力内容を復元できます");
   };
 
   return (

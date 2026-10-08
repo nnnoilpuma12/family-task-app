@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { runBackgroundTask } from "@/lib/background-task";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Trash2 } from "lucide-react";
@@ -13,37 +14,42 @@ interface TaskDetailModalProps {
   task: Task | null;
   isOpen: boolean;
   onClose: () => void;
+  onRestore: (task: Task) => void;
   categories: Category[];
   members: Profile[];
-  onUpdate: (id: string, updates: Partial<Task>) => void;
-  onDelete: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<Task>) => Promise<{ error: unknown | null } | void>;
+  onDelete: (id: string) => Promise<{ error: unknown | null } | void>;
 }
 
 export function TaskDetailModal({
   task,
   isOpen,
   onClose,
+  onRestore,
   categories,
   members,
   onUpdate,
   onDelete,
 }: TaskDetailModalProps) {
-  const [title, setTitle] = useState("");
-  const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [dueDate, setDueDate] = useState("");
-  const [memo, setMemo] = useState("");
-  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState(task?.title ?? "");
+  const [categoryId, setCategoryId] = useState<string | null>(task?.category_id ?? null);
+  const [dueDate, setDueDate] = useState(task?.due_date ?? "");
+  const [memo, setMemo] = useState(task?.memo ?? "");
+  const [url, setUrl] = useState(task?.url ?? "");
   const [urlError, setUrlError] = useState("");
 
-  useEffect(() => {
+  const [previousTask, setPreviousTask] = useState(task);
+  if (task !== previousTask) {
+    setPreviousTask(task);
     if (task) {
       setTitle(task.title);
       setCategoryId(task.category_id);
       setDueDate(task.due_date ?? "");
       setMemo(task.memo ?? "");
       setUrl(task.url ?? "");
+      setUrlError("");
     }
-  }, [task]);
+  }
 
   if (!task) return null;
 
@@ -54,19 +60,20 @@ export function TaskDetailModal({
       return;
     }
     setUrlError("");
-    onUpdate(task.id, {
-      title: title.trim(),
-      category_id: categoryId,
-      due_date: dueDate || null,
-      memo: memo || null,
-      url: url || null,
-    });
+    const updates = {
+      title: title.trim(), category_id: categoryId, due_date: dueDate || null,
+      memo: memo || null, url: url || null,
+    };
+    const draft = { ...task, ...updates };
     onClose();
+    void runBackgroundTask(() => onUpdate(task.id, updates), () => onRestore(draft),
+      "保存できませんでした。入力内容を復元できます");
   };
 
   const handleDelete = () => {
-    onDelete(task.id);
     onClose();
+    void runBackgroundTask(() => onDelete(task.id), () => onRestore(task),
+      "削除できませんでした。タスク詳細を開いて再試行できます");
   };
 
   const createdByMember = members.find((m) => m.id === task.created_by);
@@ -150,7 +157,7 @@ export function TaskDetailModal({
           <Button onClick={handleSave} disabled={!title.trim()} className="flex-1">
             保存
           </Button>
-          <Button variant="danger" onClick={handleDelete} className="shrink-0">
+          <Button variant="danger" onClick={handleDelete} className="shrink-0" aria-label="タスクを削除">
             <Trash2 size={18} />
           </Button>
         </div>

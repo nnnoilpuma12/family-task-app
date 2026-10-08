@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo, type RefObject } from "react";
+import { useRef, useMemo } from "react";
 import { useSwipeableTab, type IndicatorRefs } from "@/hooks/use-swipeable-tab";
 import type { Category } from "@/types";
 
@@ -21,13 +21,10 @@ export function SwipeableTaskContainer({
 }: SwipeableTaskContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Build ordered category id list: category ids only
-  const categoryOrder = useMemo(
-    () => categories.map((c) => c.id),
-    [categories]
-  );
+  // Keep swipe order aligned with the user-defined category tabs.
+  const categoryOrder = useMemo(() => categories.map((category) => category.id), [categories]);
 
-  const activeIndex = selectedCategoryId ? categoryOrder.indexOf(selectedCategoryId) : -1;
+  const activeIndex = selectedCategoryId === null ? -1 : categoryOrder.indexOf(selectedCategoryId);
   const safeIndex = activeIndex === -1 ? 0 : activeIndex;
 
   useSwipeableTab({
@@ -35,7 +32,8 @@ export function SwipeableTaskContainer({
     tabCount: categoryOrder.length,
     activeIndex: safeIndex,
     onChangeIndex: (index: number) => {
-      onCategoryChange(categoryOrder[index] ?? null);
+      const next = categoryOrder[index];
+      if (next) onCategoryChange(next);
     },
     indicatorRefs,
   });

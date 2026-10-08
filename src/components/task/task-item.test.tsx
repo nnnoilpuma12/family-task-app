@@ -162,7 +162,7 @@ describe("TaskItem", () => {
 
       await user.click(screen.getAllByRole("button")[0]);
 
-      expect(onToggle).toHaveBeenCalledWith("t-9");
+      expect(onToggle).toHaveBeenCalledWith("t-9", false);
       // stopPropagation でカードのタップは発火しない
       expect(onTap).not.toHaveBeenCalled();
     });

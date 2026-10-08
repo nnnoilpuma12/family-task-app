@@ -75,6 +75,9 @@ export function BottomSheet({ isOpen, onClose, title, children, elevated = false
             onClick={onClose}
           />
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={title ?? "ダイアログ"}
             className="relative w-full max-w-lg bg-surface rounded-t-xl md:rounded-xl border border-border overflow-y-auto"
             style={{
               maxHeight: !isTablet && effectiveKeyboardHeight > 0

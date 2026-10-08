@@ -58,11 +58,11 @@ vi.mock("@/components/task/task-item", () => ({
     onToggle,
   }: {
     task: Task;
-    onToggle: (id: string) => void;
+    onToggle: (id: string, isDone: boolean) => void;
   }) => (
     <div data-testid={`task-${task.id}`} data-done={String(task.is_done)}>
       <span>{task.title}</span>
-      <button type="button" onClick={() => onToggle(task.id)}>
+      <button type="button" onClick={() => onToggle(task.id, task.is_done)}>
         {`toggle:${task.title}`}
       </button>
     </div>
@@ -147,6 +147,13 @@ describe("TaskList", () => {
 
       expect(screen.getByText("タスクがありません")).toBeInTheDocument();
       expect(screen.queryByText("すべて削除")).not.toBeInTheDocument();
+    });
+
+    it("表示中の完了が0件でも履歴の追加読み込み導線を出す", () => {
+      renderList([], { hasMoreCompleted: true });
+
+      expect(screen.getByText("タスクがありません")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "完了済みをもっと見る" })).toBeInTheDocument();
     });
   });
 

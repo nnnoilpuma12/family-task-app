@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { type QueryFunctionContext, useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
 import { useIdleReady } from "@/hooks/use-idle-ready";
@@ -23,7 +23,7 @@ export function useTitleSuggestions(householdId: string | null) {
   // 作成シートを開くまで不要な取得のため、起動クリティカルパスから外してアイドル後に発火させる
   const { isReady } = useIdleReady(!!householdId);
 
-  const fetchPastTasks = useCallback(async (): Promise<PastTask[]> => {
+  const fetchPastTasks = useCallback(async ({ signal }: QueryFunctionContext): Promise<PastTask[]> => {
     if (!householdId) return [];
 
     const { data, error } = await supabase
@@ -31,7 +31,8 @@ export function useTitleSuggestions(householdId: string | null) {
       .select("title, category_id")
       .eq("household_id", householdId)
       .order("created_at", { ascending: false })
-      .limit(PAST_TASKS_LIMIT);
+      .limit(PAST_TASKS_LIMIT)
+      .abortSignal(signal);
 
     if (error) throw error;
 
