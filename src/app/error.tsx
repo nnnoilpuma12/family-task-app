@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { reportClientError } from "@/lib/report-client-error";
 
 export default function Error({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => { reportClientError(error); }, [error]);
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="text-center">

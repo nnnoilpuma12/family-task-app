@@ -10,6 +10,8 @@ export type MockResult = { data: unknown; error: unknown };
  */
 export class MockQueryChain {
   _result: MockResult = { data: [], error: null };
+  _results: MockResult[] = [];
+  _waitForResult: Promise<void> | null = null;
 
   select = vi.fn().mockReturnThis();
   insert = vi.fn().mockReturnThis();
@@ -38,7 +40,7 @@ export class MockQueryChain {
     onfulfilled?: ((value: MockResult) => T | PromiseLike<T>) | null,
     onrejected?: ((reason: unknown) => never) | null
   ): Promise<T> {
-    return Promise.resolve(this._result).then(
+    return (this._waitForResult ?? Promise.resolve()).then(() => this._results.shift() ?? this._result).then(
       onfulfilled ?? undefined,
       onrejected ?? undefined
     );

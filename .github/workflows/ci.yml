@@ -43,3 +43,33 @@ jobs:
       - name: Typecheck
         if: always()
         run: npm run typecheck
+
+  integration:
+    name: Database and browser
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+      - name: Start local Supabase
+        run: supabase start
+      - name: Test database policies and RPCs
+        run: supabase test db
+      - name: Export local app credentials
+        shell: bash
+        run: |
+          supabase status -o env > /tmp/family-task-supabase.env
+          source /tmp/family-task-supabase.env
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test login and household screen
+        run: npm run test:e2e

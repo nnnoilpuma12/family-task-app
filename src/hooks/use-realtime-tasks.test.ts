@@ -5,6 +5,7 @@ import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { useRealtimeTasks } from "@/hooks/use-realtime-tasks";
+import { beginTaskWrite } from "@/lib/task-pending-writes";
 import { createClient } from "@/lib/supabase/client";
 import type { Task } from "@/types";
 
@@ -130,6 +131,35 @@ describe("useRealtimeTasks", () => {
     });
 
     expect(result.current.tasks[0].title).toBe("新タイトル");
+  });
+
+  it("未読込のタスクが未完了になったら追加し、手動順に置く", () => {
+    const later = makeTask({ id: "later", sort_order: 5 });
+    const { result } = renderWithState(HOUSEHOLD_ID, [later]);
+    const restored = makeTask({ id: "restored", sort_order: 1, is_done: false });
+    act(() => callbacks.UPDATE({ new: restored }));
+    expect(result.current.tasks.map((task) => task.id)).toEqual(["restored", "later"]);
+  });
+
+  it("読み込んでいない古い完了履歴は Realtime UPDATE で追加しない", () => {
+    const { result } = renderWithState(HOUSEHOLD_ID);
+    act(() => callbacks.UPDATE({ new: makeTask({ id: "old", is_done: true, completed_at: "2023-01-01T00:00:00Z" }) }));
+    expect(result.current.tasks).toEqual([]);
+  });
+
+  it("未確定の自分の編集は Realtime echo で巻き戻さず、別フィールドの更新は受け取る", () => {
+    const task = makeTask({ id: "t-1", title: "編集中", memo: "旧メモ" });
+    const { result } = renderWithState(HOUSEHOLD_ID, [task]);
+    const finish = beginTaskWrite(HOUSEHOLD_ID, task.id, ["title"]);
+    try {
+      act(() => {
+        callbacks.UPDATE({ new: { ...task, title: "古いタイトル", memo: "新メモ" } });
+      });
+      expect(result.current.tasks[0].title).toBe("編集中");
+      expect(result.current.tasks[0].memo).toBe("新メモ");
+    } finally {
+      finish();
+    }
   });
 
   it("DELETE: 指定した id のタスクが削除される", () => {

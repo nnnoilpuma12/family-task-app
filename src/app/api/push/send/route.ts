@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isValidPushEndpoint, pushHttpsAgent } from "@/lib/push-endpoint";
 
 let vapidConfigured = false;
 
@@ -171,12 +172,16 @@ export async function POST(request: Request) {
   const results = await Promise.allSettled(
     subscriptions.map(async (sub) => {
       try {
+        if (!isValidPushEndpoint(sub.endpoint)) {
+          throw new Error("Invalid stored push endpoint");
+        }
         await webpush.sendNotification(
           {
             endpoint: sub.endpoint,
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
-          payload
+          payload,
+          { agent: pushHttpsAgent, timeout: 10_000 }
         );
       } catch (err: unknown) {
         const errObj = err as { statusCode?: number; body?: string } | null;

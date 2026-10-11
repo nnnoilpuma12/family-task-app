@@ -130,14 +130,12 @@ describe("useTasks", () => {
       expect(result.current.tasks).toEqual([task]);
     });
 
-    it("ソート順: is_done, sort_order, created_at DESC で order を呼ぶ", async () => {
+    it("編集で変わらない ID 順でページを取得する", async () => {
       chain._result = { data: [], error: null };
       renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
 
       await waitFor(() => expect(chain.order).toHaveBeenCalled());
-      expect(chain.order).toHaveBeenNthCalledWith(1, "is_done");
-      expect(chain.order).toHaveBeenNthCalledWith(2, "sort_order");
-      expect(chain.order).toHaveBeenNthCalledWith(3, "created_at", { ascending: false });
+      expect(chain.order.mock.calls).toEqual([["id"]]);
     });
 
     it("完了済みは直近のみ: 未完了 OR 直近完了に絞る or フィルタを呼ぶ", async () => {
@@ -150,22 +148,112 @@ describe("useTasks", () => {
       );
     });
 
-    it("取得上限を明示する（PostgREST の max_rows によるサイレント切り捨て対策）", async () => {
+    it("PostgREST の max_rows 内でページを取得する", async () => {
       chain._result = { data: [], error: null };
       renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
 
       await waitFor(() => expect(chain.limit).toHaveBeenCalledWith(1000));
     });
 
-    it("上限に到達したら警告を出す", async () => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      chain._result = { data: Array.from({ length: 1000 }, () => makeTask()), error: null };
+    it("1000 件を超えても次ページを取得し、全件を保持する", async () => {
+      const first = Array.from({ length: 1000 }, (_, index) => makeTask({ id: `task-${String(index).padStart(4, "0")}` }));
+      const second = Array.from({ length: 20 }, (_, index) => makeTask({ id: `task-${index + 1000}` }));
+      chain._results = [{ data: first, error: null }, { data: second, error: null }];
 
       const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining("1000"));
-      warn.mockRestore();
+      expect(chain.gt).toHaveBeenCalledWith("id", first[999].id);
+      expect(chain.range).not.toHaveBeenCalled();
+      expect(result.current.tasks).toHaveLength(1020);
+    });
+
+    it.each(["delete", "reorder", "complete"] as const)(
+      "ページ取得中の %s で未取得タスクを飛ばさない",
+      async (change) => {
+        const original = Array.from({ length: 1020 }, (_, index) => makeTask({
+          id: `00000000-0000-0000-0000-${String(index).padStart(12, "0")}`,
+          sort_order: index,
+        }));
+        let rows = [...original];
+        let requests = 0;
+        // 実際に要求されたフィルタ・並び順・範囲を評価する。
+        // offset 方式へ戻すと削除や表示順変更による欠落を再現できる。
+        mockClient.from.mockImplementation(() => {
+          const page = new MockQueryChain();
+          const orders: { field: keyof Task; ascending: boolean }[] = [];
+          let after: string | undefined;
+          let start = 0;
+          let end = 1000;
+          page.gt.mockImplementation((field: string, value: string) => {
+            if (field === "id") after = value;
+            return page;
+          });
+          page.order.mockImplementation((field: keyof Task, options?: { ascending?: boolean }) => {
+            orders.push({ field, ascending: options?.ascending !== false });
+            return page;
+          });
+          page.range.mockImplementation((from: number, to: number) => {
+            start = from;
+            end = to + 1;
+            return page;
+          });
+          page.limit.mockImplementation((count: number) => { end = count; return page; });
+          page.abortSignal.mockImplementation(() => {
+            const data = rows.filter((task) => !after || task.id > after).sort((a, b) => {
+              for (const { field, ascending } of orders) {
+                const left = a[field]!;
+                const right = b[field]!;
+                const comparison = left < right ? -1 : left > right ? 1 : 0;
+                if (comparison) return ascending ? comparison : -comparison;
+              }
+              return 0;
+            }).slice(start, end);
+            page._result = { data, error: null };
+            requests++;
+            if (requests === 1) {
+              if (change === "delete") rows = rows.slice(1);
+              if (change === "reorder") rows = rows.map((task, index) => index >= 1000 ? { ...task, sort_order: -1 } : task);
+              if (change === "complete") rows = rows.map((task, index) => index === 0 ? { ...task, is_done: true, completed_at: new Date().toISOString() } : task);
+            }
+            return page;
+          });
+          return page;
+        });
+
+        const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(requests).toBe(2);
+        expect(new Set(result.current.tasks.map((task) => task.id))).toEqual(new Set(original.map((task) => task.id)));
+      }
+    );
+
+    it("取得用の ID 順にかかわらず従来の表示順を保つ", async () => {
+      const tasks = [
+        makeTask({ id: "a", is_done: true }),
+        makeTask({ id: "b", sort_order: 1 }),
+        makeTask({ id: "c", created_at: "2024-01-01T00:00:00Z" }),
+        makeTask({ id: "d", created_at: "2024-02-01T00:00:00Z" }),
+        makeTask({ id: "e", created_at: "2024-02-01T00:00:00Z" }),
+      ];
+      chain._result = { data: tasks, error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.tasks.map((task) => task.id)).toEqual(["d", "e", "c", "b", "a"]);
+    });
+
+    it("途中ページの取得失敗ではキャッシュを部分的な結果に置き換えない", async () => {
+      const previous = makeTask({ id: "previous" });
+      chain._result = { data: [previous], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      chain._results = [
+        { data: Array.from({ length: 1000 }, (_, i) => makeTask({ id: `task-${i}` })), error: null },
+        { data: null, error: new Error("network failure") },
+      ];
+      await act(() => result.current.refetch());
+      expect(result.current.tasks).toEqual([previous]);
+      expect(toast.error).toHaveBeenCalledWith("タスクの取得に失敗しました");
     });
   });
 
@@ -561,11 +649,11 @@ describe("useTasks", () => {
       expect(result.current.tasks[1].id).toBe("older");
     });
 
-    it("最古の completed_at をカーソルに lt で絞り込む", async () => {
+    it("初回は直近30日より古い完了タスクから取得する", async () => {
       const recent = makeTask({
         id: "recent",
         is_done: true,
-        completed_at: "2024-02-01T00:00:00Z",
+        completed_at: new Date().toISOString(),
       });
       chain._result = { data: [recent], error: null };
       const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
@@ -577,7 +665,21 @@ describe("useTasks", () => {
         await result.current.loadMoreCompleted();
       });
 
-      expect(chain.lt).toHaveBeenCalledWith("completed_at", "2024-02-01T00:00:00Z");
+      expect(chain.lt).toHaveBeenCalledWith("completed_at", expect.any(String));
+    });
+
+    it("再取得しても追加で開いた完了履歴を保持する", async () => {
+      const recent = makeTask({ id: "recent", is_done: true, completed_at: new Date().toISOString() });
+      const older = makeTask({ id: "older", is_done: true, completed_at: "2023-12-01T00:00:00Z" });
+      chain._result = { data: [recent], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+      chain._result = { data: [older], error: null };
+      await act(() => result.current.loadMoreCompleted());
+      expect(result.current.tasks).toHaveLength(2);
+      chain._result = { data: [recent], error: null };
+      await act(() => result.current.refetch());
+      expect(result.current.tasks.map((task) => task.id)).toEqual(["recent", "older"]);
     });
 
     it("ページサイズ未満の取得で hasMoreCompleted が false になる", async () => {
@@ -633,6 +735,18 @@ describe("useTasks", () => {
       });
 
       expect(result.current.tasks).toHaveLength(1);
+    });
+
+    it("同じ完了日時のページ境界で ID をカーソルに含める", async () => {
+      const older = makeTask({ id: "00000000-0000-0000-0000-000000000002", is_done: true, completed_at: "2023-01-01T00:00:00Z" });
+      chain._result = { data: [], error: null };
+      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      chain._result = { data: [older], error: null };
+      await act(() => result.current.loadMoreCompleted());
+      chain._result = { data: [], error: null };
+      await act(() => result.current.loadMoreCompleted());
+      expect(chain.or).toHaveBeenCalledWith(expect.stringContaining(`id.lt.${older.id}`));
     });
   });
 });

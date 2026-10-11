@@ -6,16 +6,11 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 // framer-motion は jsdom でアニメーションが動作しないためモック
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({
-      children,
-      initial: _i,
-      animate: _a,
-      exit: _e,
-      transition: _t,
-      ...props
-    }: React.ComponentProps<"div"> & Record<string, unknown>) => (
-      <div {...props}>{children}</div>
-    ),
+    div: ({ children, ...props }: React.ComponentProps<"div"> & Record<string, unknown>) => {
+      const motionProps = new Set(["initial", "animate", "exit", "transition"]);
+      const domProps = Object.fromEntries(Object.entries(props).filter(([key]) => !motionProps.has(key)));
+      return <div {...domProps}>{children}</div>;
+    },
   },
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));

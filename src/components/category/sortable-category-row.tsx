@@ -18,6 +18,7 @@ interface SortableCategoryRowProps {
   onUpdate: (id: string) => void;
   onCancelEdit: () => void;
   onDelete: (id: string) => void;
+  canDelete: boolean;
 }
 
 export function SortableCategoryRow({
@@ -31,6 +32,7 @@ export function SortableCategoryRow({
   onUpdate,
   onCancelEdit,
   onDelete,
+  canDelete,
 }: SortableCategoryRowProps) {
   const isEditing = editingId === cat.id;
   const {
@@ -83,7 +85,14 @@ export function SortableCategoryRow({
           <button onClick={() => onStartEdit(cat)} className="p-1 text-subtle hover:text-foreground">
             <Pencil size={16} />
           </button>
-          <button onClick={() => onDelete(cat.id)} className="p-1 text-subtle hover:text-danger">
+          <button
+            type="button"
+            onClick={() => onDelete(cat.id)}
+            disabled={!canDelete}
+            aria-label={`${cat.name}を削除`}
+            title={canDelete ? `${cat.name}を削除` : "最後のカテゴリは削除できません"}
+            className="p-1 text-subtle hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
+          >
             <Trash2 size={16} />
           </button>
         </>

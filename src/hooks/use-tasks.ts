@@ -5,6 +5,8 @@ import { useQuery, useQueryClient, type QueryFunctionContext } from "@tanstack/r
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { createTaskWriteQueue } from "@/lib/task-write-queue";
+import { beginTaskWrite, mergeTaskWithPending } from "@/lib/task-pending-writes";
+import { taskOrder } from "@/lib/task-order";
 import { queryKeys } from "@/lib/query-keys";
 import { sendPushNotification } from "@/lib/push";
 import type { Task } from "@/types";
@@ -13,10 +15,8 @@ import type { Task } from "@/types";
 const COMPLETED_TASKS_WINDOW_DAYS = 30;
 // 「もっと見る」で追加取得する古い完了済みタスクの 1 ページ件数
 const COMPLETED_PAGE_SIZE = 30;
-// 初期取得の明示的な上限。PostgREST の max_rows（supabase/config.toml）と同値にしてある。
-// .limit() を省くとサーバ側の max_rows で「エラーにならずに」打ち切られるため、
-// 上限を明示して打ち切りを検知できるようにする（後述の切り捨て検知）。
-const TASKS_FETCH_LIMIT = 1000;
+// PostgREST の max_rows 以下で全ページを取得する。
+const TASKS_PAGE_SIZE = 1000;
 
 // Supabase の error 戻り値とネットワーク例外を同じロールバック経路で扱う。
 async function taskWrite<T>(request: PromiseLike<T>): Promise<T | { data: null; error: unknown }> {
@@ -48,32 +48,45 @@ export function useTasks(householdId: string | null, managedResync = false) {
       Date.now() - COMPLETED_TASKS_WINDOW_DAYS * 24 * 60 * 60 * 1000
     ).toISOString();
 
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("household_id", householdId)
-      .or(`is_done.eq.false,completed_at.gte.${completedCutoff}`)
-      .order("is_done")
-      .order("sort_order")
-      .order("created_at", { ascending: false })
-      .limit(TASKS_FETCH_LIMIT)
-      .abortSignal(signal);
+    const fetched = new Map<string, Task>();
+    let cursor: string | undefined;
+    for (;;) {
+      // 表示順や件数に依存する offset は、取得中の削除・並び替えで未取得行を飛ばす。
+      // 一意な ID をカーソルにし、表示順は全ページ取得後に整える。
+      let builder = supabase
+        .from("tasks")
+        .select("*")
+        .eq("household_id", householdId)
+        .or(`is_done.eq.false,completed_at.gte.${completedCutoff}`);
+      if (cursor) builder = builder.gt("id", cursor);
+      const { data, error } = await builder
+        .order("id")
+        .limit(TASKS_PAGE_SIZE)
+        .abortSignal(signal);
 
-    if (error) throw error;
-
-    // 上限に到達＝取得しきれていない。is_done 昇順なので未完了が先に入り、
-    // 溢れるのは 30 日ウィンドウ内の古い完了済みから（loadMoreCompleted で辿れる）。
-    // 表示は縮退で済むが、未完了だけで上限に達する世帯が出たらページングが必要になるため、
-    // 気づけるようにログを残す。
-    if (data && data.length === TASKS_FETCH_LIMIT) {
-      console.warn(
-        `[useTasks] 初期取得が上限 ${TASKS_FETCH_LIMIT} 件に到達しました。` +
-          "未完了タスクが上限に迫っている場合はページングの導入を検討してください。"
-      );
+      if (error) throw error;
+      const batch = data ?? [];
+      for (const task of batch) fetched.set(task.id, task);
+      if (batch.length < TASKS_PAGE_SIZE) break;
+      cursor = batch[batch.length - 1].id;
     }
 
-    return data ?? [];
-  }, [householdId, supabase]);
+    // React Query の再取得で「もっと見る」で開いた履歴を消さない。
+    // 最近のタスクはサーバーの最新値を優先し、初期取得範囲外だけを保持する。
+    const previous = queryClient.getQueryData<Task[]>(queryKeys.tasks(householdId)) ?? [];
+    const previousById = new Map(previous.map((task) => [task.id, task]));
+    for (const [id, incoming] of fetched) {
+      const current = previousById.get(id);
+      if (current) fetched.set(id, mergeTaskWithPending(householdId, current, incoming));
+    }
+    const sorted = [...fetched.values()].sort(taskOrder);
+    for (const task of previous) {
+      if (task.is_done && task.completed_at && task.completed_at < completedCutoff && !fetched.has(task.id)) {
+        sorted.push(task);
+      }
+    }
+    return sorted;
+  }, [householdId, supabase, queryClient]);
 
   const query = useQuery({
     queryKey: queryKeys.tasks(householdId),
@@ -128,9 +141,14 @@ export function useTasks(householdId: string | null, managedResync = false) {
     setLoadingMoreCompleted(true);
 
     const current = queryClient.getQueryData<Task[]>(queryKeys.tasks(householdId)) ?? [];
-    const oldestCompletedAt = current.reduce<string | null>((min, t) => {
-      if (!t.is_done || !t.completed_at) return min;
-      return min === null || t.completed_at < min ? t.completed_at : min;
+    const completedCutoff = new Date(
+      Date.now() - COMPLETED_TASKS_WINDOW_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+    const oldest = current.reduce<Task | null>((min, task) => {
+      if (!task.is_done || !task.completed_at || task.completed_at >= completedCutoff) return min;
+      if (!min || task.completed_at < min.completed_at! ||
+          (task.completed_at === min.completed_at && task.id < min.id)) return task;
+      return min;
     }, null);
 
     let builder = supabase
@@ -139,12 +157,17 @@ export function useTasks(householdId: string | null, managedResync = false) {
       .eq("household_id", householdId)
       .eq("is_done", true)
       .not("completed_at", "is", null);
-    if (oldestCompletedAt) {
-      builder = builder.lt("completed_at", oldestCompletedAt);
+    if (oldest) {
+      builder = builder.or(
+        `completed_at.lt.${oldest.completed_at},and(completed_at.eq.${oldest.completed_at},id.lt.${oldest.id})`
+      );
+    } else {
+      builder = builder.lt("completed_at", completedCutoff);
     }
 
     const { data, error } = await builder
       .order("completed_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(COMPLETED_PAGE_SIZE);
 
     if (error) {
@@ -240,6 +263,8 @@ export function useTasks(householdId: string | null, managedResync = false) {
         sanitized = { ...sanitized, [key]: updates[key] };
       }
     }
+    if (!householdId) return { data: null, error: new Error("世帯情報を取得できませんでした") };
+    const finishWrite = beginTaskWrite(householdId, id, Object.keys(sanitized) as (keyof Task)[]);
 
     // Optimistic update
     let snapshot = getTasks();
@@ -281,6 +306,7 @@ export function useTasks(householdId: string | null, managedResync = false) {
         });
       }
     }
+    finishWrite();
     return { data, error };
   }, [householdId, supabase, setTasks, getTasks, writes]);
 
@@ -371,6 +397,9 @@ export function useTasks(householdId: string | null, managedResync = false) {
     });
     if (changed.length === 0) return;
     const orders = new Map(changed.map((t) => [t.id, t.sort_order]));
+    const finishWrites = householdId
+      ? changed.map((task) => beginTaskWrite(householdId, task.id, ["sort_order"]))
+      : [];
     const orderedSet = new Set(ids);
     setTasks((prev) => {
       const current = new Map(prev.map((t) => [t.id, t]));
@@ -399,7 +428,8 @@ export function useTasks(householdId: string | null, managedResync = false) {
       });
       toast.error("タスクの並び替えに失敗しました");
     }
-  }, [supabase, setTasks, getTasks, writes]);
+    finishWrites.forEach((finish) => finish());
+  }, [householdId, supabase, setTasks, getTasks, writes]);
 
   return { tasks, setTasks, loading, addTask, updateTask, deleteTask, deleteTasks, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted, refetch: query.refetch };
 }

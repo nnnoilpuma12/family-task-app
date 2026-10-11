@@ -13,7 +13,7 @@
 | DnD | @dnd-kit |
 | Backend | Supabase（Postgres + Auth + Realtime + Storage） |
 | Push | web-push（VAPID） |
-| Test | Vitest + Testing Library（happy-dom / jsdom） |
+| Test | Vitest + Testing Library / Playwright / pgTAP |
 | Lint | ESLint 9 |
 | Language | TypeScript 5（strict） |
 
@@ -93,7 +93,9 @@ npx supabase stop
 | `npm run lint` | ESLint 実行 |
 | `npm test` | Vitest をウォッチモードで実行 |
 | `npm run test:run` | Vitest を 1 回だけ実行（CI 用） |
+| `npm run test:e2e` | Chromium でログイン画面から世帯画面まで確認（ローカル Supabase が必要） |
 | `npm run test:ui` | Vitest UI を起動 |
+| `npx supabase test db` | DB の認可・カテゴリ移動・使用回数を pgTAP で確認 |
 
 ### Supabase CLI
 
@@ -174,6 +176,7 @@ UI/UXの調査結果・優先順位・実施計画は [UI/UX改善計画](docs/U
 
 ## パフォーマンス調査
 
+- [コードベース TODO 監査・対応状況（2026-10-09）](docs/codebase-todo-audit-2026-10-09.md)
 - [操作・再同期の改善実装と検証結果（2026-10-02）](docs/performance-implementation-2026-10-02.md)
 - [コード全体のボトルネック調査・改善優先度（2026-10-01）](docs/performance-audit-2026-10-01.md)
 - [通信クリティカルパス・ローカル実測・再測定手順（2026-10-01）](docs/network-critical-path-2026-10-01.md)

@@ -21,6 +21,7 @@ import type { Task, Category, Profile } from "@/types";
 
 const POINTER_OPTIONS = { activationConstraint: { distance: 8 } };
 const TOUCH_OPTIONS = { activationConstraint: { delay: 250, tolerance: 5 } };
+const COMPLETED_RENDER_CHUNK = 100;
 
 interface TaskListProps {
   tasks: Task[];
@@ -66,6 +67,9 @@ export function TaskList({
     () => tasks.filter((t) => t.is_done && !pendingDoneIds.has(t.id)),
     [tasks, pendingDoneIds]
   );
+  const [visibleDoneCount, setVisibleDoneCount] = useState(COMPLETED_RENDER_CHUNK);
+  const visibleDoneTasks = doneTasks.slice(0, visibleDoneCount);
+  const hasHiddenDoneTasks = visibleDoneCount < doneTasks.length;
 
   const handleToggle = useCallback(
     (id: string, isDone: boolean) => {
@@ -248,7 +252,7 @@ export function TaskList({
               onCancel={() => setShowConfirm(false)}
             />
             <AnimatePresence mode="popLayout" initial={false}>
-              {doneTasks.map((task) => (
+              {visibleDoneTasks.map((task) => (
                 <TaskItem
                   key={task.id}
                   task={task}
@@ -263,14 +267,16 @@ export function TaskList({
             </AnimatePresence>
           </>
         )}
-        {onLoadMoreCompleted && hasMoreCompleted && (
+        {(hasHiddenDoneTasks || (onLoadMoreCompleted && hasMoreCompleted)) && (
           <button
             type="button"
-            onClick={onLoadMoreCompleted}
-            disabled={loadingMoreCompleted}
+            onClick={hasHiddenDoneTasks
+              ? () => setVisibleDoneCount((count) => count + COMPLETED_RENDER_CHUNK)
+              : onLoadMoreCompleted}
+            disabled={!hasHiddenDoneTasks && loadingMoreCompleted}
             className="mx-auto mt-4 inline-flex min-h-[44px] items-center justify-center rounded-full bg-surface-strong px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-border-strong disabled:opacity-50"
           >
-            {loadingMoreCompleted ? "読み込み中..." : "完了済みをもっと見る"}
+            {!hasHiddenDoneTasks && loadingMoreCompleted ? "読み込み中..." : "完了済みをもっと見る"}
           </button>
         )}
       </div>

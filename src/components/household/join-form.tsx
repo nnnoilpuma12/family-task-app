@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { clearCachedHousehold } from "@/lib/household-cache";
 import { clearPersistedQueryCache } from "@/lib/query-persist";
 
 export function JoinHouseholdForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -33,6 +35,7 @@ export function JoinHouseholdForm() {
     // usePageData の再取得に任せる（誤った世帯名の表示を防ぐ）。
     // 前世帯のタスク等が端末に残らないよう永続キャッシュも破棄する
     clearCachedHousehold();
+    queryClient.clear();
     clearPersistedQueryCache();
     router.push("/");
     router.refresh();

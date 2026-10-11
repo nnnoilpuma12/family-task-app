@@ -44,11 +44,11 @@ interface StapleItemsSheetProps {
     note?: string | null;
     icon?: string | null;
     created_by?: string | null;
-  }) => void;
+  }) => Promise<{ error: unknown | null } | void>;
   onUpdateStapleItem: (
     id: string,
     updates: Partial<Pick<StapleItem, "name" | "category_id" | "default_quantity" | "default_unit" | "note" | "icon" | "sort_order">>
-  ) => void;
+  ) => Promise<{ error: unknown | null } | void>;
   onDeleteStapleItem: (id: string) => void;
   onReorderStapleItems: (orderedIds: string[]) => void;
   onRecordUsage: (id: string) => void;
@@ -158,12 +158,9 @@ export function StapleItemsSheet({
       note: string | null;
       icon: string | null;
     }) => {
-      if (editingItem) {
-        onUpdateStapleItem(editingItem.id, data);
-      } else {
-        onAddStapleItem({ ...data, created_by: profileId });
-      }
-      setEditingItem(null);
+      return editingItem
+        ? onUpdateStapleItem(editingItem.id, data)
+        : onAddStapleItem({ ...data, created_by: profileId });
     },
     [editingItem, onUpdateStapleItem, onAddStapleItem, profileId]
   );
