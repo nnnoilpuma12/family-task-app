@@ -19,14 +19,15 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ColorPicker, PRESET_COLORS } from "@/components/category/color-picker";
 import { SortableCategoryRow, CategoryRowOverlay } from "@/components/category/sortable-category-row";
 import type { Category } from "@/types";
 
 interface CategoryManagerProps {
   categories: Category[];
-  onAdd: (name: string, color: string) => Promise<void>;
-  onUpdate: (id: string, updates: { name?: string; color?: string }) => Promise<void>;
+  onAdd: (name: string, color: string) => Promise<{ error: unknown | null } | void>;
+  onUpdate: (id: string, updates: { name?: string; color?: string }) => Promise<{ error: unknown | null } | void>;
   onDelete: (id: string) => Promise<void>;
   onReorder: (orderedIds: string[]) => Promise<void>;
 }
@@ -37,6 +38,7 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete, onReord
   const [name, setName] = useState("");
   const [color, setColor] = useState(PRESET_COLORS[0]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -59,7 +61,8 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete, onReord
 
   const handleAdd = async () => {
     if (!name.trim()) return;
-    await onAdd(name.trim(), color);
+    const result = await onAdd(name.trim(), color);
+    if (result?.error) return;
     setName("");
     setColor(PRESET_COLORS[0]);
     setIsAdding(false);
@@ -67,7 +70,8 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete, onReord
 
   const handleUpdate = async (id: string) => {
     if (!name.trim()) return;
-    await onUpdate(id, { name: name.trim(), color });
+    const result = await onUpdate(id, { name: name.trim(), color });
+    if (result?.error) return;
     setEditingId(null);
     setName("");
   };
@@ -80,6 +84,8 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete, onReord
   };
 
   const activeCategory = activeId ? categories.find((c) => c.id === activeId) : null;
+  const pendingCategory = categories.find((c) => c.id === pendingDeleteId);
+  const fallbackCategory = categories.find((c) => c.id !== pendingDeleteId);
 
   return (
     <div className="flex flex-col gap-3">
@@ -102,7 +108,8 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete, onReord
               onStartEdit={startEdit}
               onUpdate={handleUpdate}
               onCancelEdit={() => setEditingId(null)}
-              onDelete={onDelete}
+              onDelete={setPendingDeleteId}
+              canDelete={categories.length > 1}
             />
           ))}
         </SortableContext>
@@ -136,6 +143,20 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDelete, onReord
           カテゴリを追加
         </button>
       )}
+      <ConfirmDialog
+        isOpen={!!pendingCategory && !!fallbackCategory}
+        title="カテゴリを削除しますか？"
+        description={pendingCategory && fallbackCategory
+          ? `「${pendingCategory.name}」のタスクと定番アイテムは「${fallbackCategory.name}」に移動します。`
+          : undefined}
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={() => {
+          if (pendingDeleteId) void onDelete(pendingDeleteId);
+          setPendingDeleteId(null);
+        }}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }

@@ -76,18 +76,39 @@ describe("useCategories", () => {
   });
 
   describe("deleteCategory", () => {
-    it("正常系: categories から除外される", async () => {
+    it("残すカテゴリへ移してから削除し、カテゴリを参照するキャッシュを破棄する", async () => {
       const cat = makeCategory({ id: "c-1" });
-      chain._result = { data: [cat], error: null };
+      const fallback = makeCategory({ id: "c-2" });
+      chain._result = { data: [cat, fallback], error: null };
 
-      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
-      await waitFor(() => expect(result.current.categories).toHaveLength(1));
+      const wrapper = createQueryWrapper();
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper });
+      await waitFor(() => expect(result.current.categories).toHaveLength(2));
 
       await act(async () => {
         await result.current.deleteCategory("c-1");
       });
 
-      await waitFor(() => expect(result.current.categories).toHaveLength(0));
+      expect(mockClient.rpc).toHaveBeenCalledWith("delete_category_with_fallback", {
+        p_category_id: "c-1",
+        p_fallback_id: "c-2",
+      });
+      expect(chain.delete).not.toHaveBeenCalled();
+      await waitFor(() => expect(result.current.categories.map((c) => c.id)).toEqual(["c-2"]));
+    });
+
+    it("最後のカテゴリは削除しない", async () => {
+      chain._result = { data: [makeCategory({ id: "c-1" })], error: null };
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.categories).toHaveLength(1));
+
+      await act(async () => {
+        const response = await result.current.deleteCategory("c-1");
+        expect(response.error).toBeTruthy();
+      });
+
+      expect(mockClient.rpc).not.toHaveBeenCalled();
+      expect(result.current.categories).toHaveLength(1);
     });
   });
 
@@ -137,6 +158,22 @@ describe("useCategories", () => {
 
       expect(result.current.categories[0].name).toBe("元の名前");
     });
+
+    it("更新失敗時も待機中に追加された別カテゴリを残す", async () => {
+      const original = makeCategory({ id: "c-1", name: "元の名前" });
+      chain._result = { data: [original], error: null };
+      const { result } = renderHook(() => useCategories(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(result.current.categories).toHaveLength(1));
+      let release = () => {};
+      chain._waitForResult = new Promise<void>((resolve) => { release = resolve; });
+      chain._result = { data: null, error: { message: "DB error" } };
+      let pending: ReturnType<typeof result.current.updateCategory>;
+      act(() => { pending = result.current.updateCategory("c-1", { name: "失敗する名前" }); });
+      act(() => result.current.setCategories((prev) => [...prev, makeCategory({ id: "c-2" })]));
+      await act(async () => { release(); await pending; });
+      expect(result.current.categories.map((category) => category.id)).toEqual(["c-1", "c-2"]);
+      expect(result.current.categories[0].name).toBe("元の名前");
+    });
   });
 
   describe("reorderCategories", () => {
@@ -180,6 +217,7 @@ describe("useCategories", () => {
       await waitFor(() => expect(result.current.categories).toHaveLength(2));
 
       chain._result = { data: null, error: { message: "DB error" } };
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { message: "RPC error" } });
 
       await act(async () => {
         await result.current.reorderCategories(["c-2", "c-1"]);

@@ -175,6 +175,20 @@ describe("useStapleItems", () => {
       expect(result.current.stapleItems[0].name).toBe("元の名前");
       expect(toast.error).toHaveBeenCalledWith("定番品の更新に失敗しました");
     });
+
+    it("更新失敗時も待機中に追加された別アイテムを残す", async () => {
+      const original = makeStapleItem({ id: "s-1", name: "元の名前" });
+      const { result, chain } = await renderLoaded([original]);
+      let release = () => {};
+      chain._waitForResult = new Promise<void>((resolve) => { release = resolve; });
+      chain._result = { data: null, error: { message: "DB error" } };
+      let pending: ReturnType<typeof result.current.updateStapleItem>;
+      act(() => { pending = result.current.updateStapleItem("s-1", { name: "失敗する名前" }); });
+      act(() => result.current.setStapleItems((prev) => [...prev, makeStapleItem({ id: "s-2" })]));
+      await act(async () => { release(); await pending; });
+      expect(result.current.stapleItems.map((item) => item.id)).toEqual(["s-1", "s-2"]);
+      expect(result.current.stapleItems[0].name).toBe("元の名前");
+    });
   });
 
   describe("deleteStapleItem", () => {
@@ -261,18 +275,17 @@ describe("useStapleItems", () => {
   });
 
   describe("recordUsage", () => {
-    it("use_count を +1 し last_used_at を更新する", async () => {
+    it("DB 側の原子的な加算 RPC を呼び、使用回数を +1 する", async () => {
       const item = makeStapleItem({ id: "s-1", use_count: 4, last_used_at: null });
       const { result, chain } = await renderLoaded([item]);
+      mockClient.rpc.mockResolvedValueOnce({ data: [{ use_count: 5, last_used_at: "2026-01-01T00:00:00Z" }], error: null });
 
       await act(async () => {
         await result.current.recordUsage("s-1");
       });
 
-      expect(chain.update).toHaveBeenCalledWith(
-        expect.objectContaining({ use_count: 5, last_used_at: expect.any(String) })
-      );
-      expect(chain.eq).toHaveBeenCalledWith("id", "s-1");
+      expect(mockClient.rpc).toHaveBeenCalledWith("record_staple_usage", { p_item_id: "s-1" });
+      expect(chain.update).not.toHaveBeenCalled();
       await waitFor(() => expect(result.current.stapleItems[0].use_count).toBe(5));
       expect(result.current.stapleItems[0].last_used_at).not.toBeNull();
     });

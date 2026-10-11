@@ -12,29 +12,36 @@ interface StapleQuickAddSheetProps {
 }
 
 export function StapleQuickAddSheet({ isOpen, item, onClose, onConfirm }: StapleQuickAddSheetProps) {
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={item?.name ?? ""} elevated>
+      {isOpen && item && (
+        <QuickAddForm key={item.id} item={item} onClose={onClose} onConfirm={onConfirm} />
+      )}
+    </BottomSheet>
+  );
+}
+
+function QuickAddForm({ item, onClose, onConfirm }: {
+  item: StapleItem;
+  onClose: () => void;
+  onConfirm: StapleQuickAddSheetProps["onConfirm"];
+}) {
   const [quantityStr, setQuantityStr] = useState(
-    () => item?.default_quantity !== null && item?.default_quantity !== undefined
+    () => item.default_quantity !== null
       ? String(item.default_quantity)
       : ""
   );
-  const [note, setNote] = useState(() => item?.note ?? "");
+  const [note, setNote] = useState(() => item.note ?? "");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!item) return;
     const quantity = quantityStr ? parseFloat(quantityStr) : null;
     onConfirm(item, quantity !== null && !isNaN(quantity) ? quantity : null, note.trim() || null);
     onClose();
   };
 
   return (
-    <BottomSheet
-      isOpen={isOpen}
-      onClose={onClose}
-      title={item?.name ?? ""}
-      elevated
-    >
-      <form key={`${item?.id ?? "empty"}-${isOpen ? "open" : "closed"}`} onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <p className="text-sm text-muted">数量・メモを調整してリストに追加できます</p>
         <div className="flex items-center gap-2">
           <input
@@ -47,7 +54,7 @@ export function StapleQuickAddSheet({ isOpen, item, onClose, onConfirm }: Staple
             step="0.5"
             className="flex-1 rounded border border-border-strong bg-surface px-4 py-3 text-sm text-foreground placeholder:text-subtle outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
           />
-          {item?.default_unit && (
+          {item.default_unit && (
             <span className="text-sm text-muted">{item.default_unit}</span>
           )}
         </div>
@@ -66,6 +73,5 @@ export function StapleQuickAddSheet({ isOpen, item, onClose, onConfirm }: Staple
           リストに追加
         </button>
       </form>
-    </BottomSheet>
   );
 }

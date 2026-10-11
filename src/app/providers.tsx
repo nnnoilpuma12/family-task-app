@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAppPersister, APP_CACHE_VERSION } from "@/lib/query-persist";
+import { createClient } from "@/lib/supabase/client";
+import { syncCacheOwner } from "@/lib/cache-identity";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -27,6 +29,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // localStorage への永続化 persister（初回マウント時に一度だけ生成）
   const [persister] = useState(() => createAppPersister());
+  const [identityReady, setIdentityReady] = useState(false);
+
+  useEffect(() => {
+    const { data: { subscription } } = createClient().auth.onAuthStateChange((_event, session) => {
+      if (!syncCacheOwner(session?.user.id ?? null)) queryClient.clear();
+      setIdentityReady(true);
+    });
+    return () => subscription.unsubscribe();
+  }, [queryClient]);
+
+  // Authenticate the owner before restoring the persisted household queries.
+  if (!identityReady) return null;
 
   return (
     <PersistQueryClientProvider

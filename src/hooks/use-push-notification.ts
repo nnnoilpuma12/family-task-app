@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { removeCurrentPushSubscription } from "@/lib/push-subscription";
 
 function getInitialPermission(): NotificationPermission {
   if (typeof window !== "undefined" && "Notification" in window) {
@@ -78,22 +79,7 @@ export function usePushNotification() {
 
     setIsLoading(true);
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        setIsSubscribed(false);
-        return;
-      }
-
-      const endpoint = sub.endpoint;
-      await sub.unsubscribe();
-
-      await fetch("/api/push/subscribe", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint }),
-      });
-
+      await removeCurrentPushSubscription();
       setIsSubscribed(false);
     } catch {
       // unsubscribe failed, keep current state

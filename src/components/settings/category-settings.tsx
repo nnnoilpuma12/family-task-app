@@ -5,8 +5,8 @@ import type { Category } from "@/types";
 
 interface CategorySettingsProps {
   categories: Category[];
-  onAdd: (name: string, color: string) => Promise<void>;
-  onUpdate: (id: string, updates: { name?: string; color?: string }) => Promise<void>;
+  onAdd: (name: string, color: string) => Promise<{ error: unknown | null } | void>;
+  onUpdate: (id: string, updates: { name?: string; color?: string }) => Promise<{ error: unknown | null } | void>;
   onDelete: (id: string) => Promise<void>;
   onReorder: (orderedIds: string[]) => Promise<void>;
 }

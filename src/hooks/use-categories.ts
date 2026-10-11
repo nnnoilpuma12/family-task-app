@@ -68,9 +68,9 @@ export function useCategories(householdId: string | null, managedResync = false)
   };
 
   const updateCategory = async (id: string, updates: Partial<Pick<Category, "name" | "color" | "icon" | "sort_order">>) => {
-    let snapshot = categories;
+    let previous: Category | undefined;
     setCategories((prev) => {
-      snapshot = prev;
+      previous = prev.find((category) => category.id === id);
       return prev.map((c) => (c.id === id ? { ...c, ...updates } : c));
     });
 
@@ -80,18 +80,39 @@ export function useCategories(householdId: string | null, managedResync = false)
       .eq("id", id);
 
     if (error) {
-      setCategories(snapshot);
+      const before = previous;
+      if (before) setCategories((prev) => prev.map((category) => {
+        if (category.id !== id) return category;
+        const restored = { ...category };
+        for (const key of Object.keys(updates) as (keyof typeof updates)[]) {
+          if (restored[key] === updates[key]) Object.assign(restored, { [key]: before[key] });
+        }
+        return restored;
+      }));
       toast.error("カテゴリの更新に失敗しました");
     }
     return { error };
   };
 
   const deleteCategory = async (id: string) => {
-    const { error } = await supabase.from("categories").delete().eq("id", id);
+    const fallback = categories.find((category) => category.id !== id);
+    if (!fallback) {
+      const error = new Error("最後のカテゴリは削除できません");
+      toast.error("先に別のカテゴリを作成してください");
+      return { error };
+    }
+    const { error } = await supabase.rpc("delete_category_with_fallback", {
+      p_category_id: id,
+      p_fallback_id: fallback.id,
+    });
 
     if (error) toast.error("カテゴリの削除に失敗しました");
     if (!error) {
       setCategories((prev) => prev.filter((c) => c.id !== id));
+      queryClient.removeQueries({ queryKey: queryKeys.tasks(householdId), exact: true });
+      queryClient.removeQueries({ queryKey: queryKeys.stapleItems(householdId), exact: true });
+      queryClient.removeQueries({ queryKey: queryKeys.recommendations(householdId), exact: true });
+      queryClient.removeQueries({ queryKey: queryKeys.titleSuggestions(householdId), exact: true });
     }
     return { error };
   };
@@ -101,15 +122,25 @@ export function useCategories(householdId: string | null, managedResync = false)
     setCategories((prev) => {
       snapshot = prev;
       const map = new Map(prev.map((c) => [c.id, c]));
-      return orderedIds.map((id, i) => ({ ...map.get(id)!, sort_order: i }));
+      const reordered = orderedIds.flatMap((id, i) => {
+        const category = map.get(id);
+        return category ? [{ ...category, sort_order: i }] : [];
+      });
+      return [...reordered, ...prev.filter((category) => !orderedIds.includes(category.id))];
     });
-    const results = await Promise.all(
-      orderedIds.map((id, i) =>
-        supabase.from("categories").update({ sort_order: i }).eq("id", id)
-      )
-    );
-    if (results.some((r) => r.error)) {
-      setCategories(snapshot);
+    const { error } = await supabase.rpc("reorder_categories", {
+      p_category_ids: orderedIds,
+      p_sort_orders: orderedIds.map((_, index) => index),
+    });
+    if (error) {
+      const previousOrder = new Map(snapshot.map((category, index) => [category.id, index]));
+      const previousCategories = new Map(snapshot.map((category) => [category.id, category]));
+      setCategories((prev) => [...prev].map((category) => {
+        const old = previousCategories.get(category.id);
+        const optimisticOrder = orderedIds.indexOf(category.id);
+        return old && optimisticOrder >= 0 && category.sort_order === optimisticOrder
+          ? { ...category, sort_order: old.sort_order } : category;
+      }).sort((a, b) => (previousOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (previousOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER)));
       toast.error("カテゴリの並び替えに失敗しました");
     }
   };

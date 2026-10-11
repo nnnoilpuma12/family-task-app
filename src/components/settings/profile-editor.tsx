@@ -83,7 +83,12 @@ export function ProfileEditor({ profile, onUpdate }: ProfileEditorProps) {
       .select()
       .single();
 
-    if (error) toast.error("プロフィールの保存に失敗しました");
+    if (error) {
+      if (pendingImage && nextAvatarUrl) {
+        await deleteAvatarImage(nextAvatarUrl);
+      }
+      toast.error("プロフィールの保存に失敗しました");
+    }
     if (!error && data) {
       replacePendingImage(null);
       setAvatarUrl(nextAvatarUrl);

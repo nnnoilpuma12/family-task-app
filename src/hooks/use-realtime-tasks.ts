@@ -6,6 +6,8 @@ import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useIdleReady } from "@/hooks/use-idle-ready";
 import { createSubscribeHandler } from "@/lib/realtime";
+import { mergeTaskWithPending } from "@/lib/task-pending-writes";
+import { taskOrder } from "@/lib/task-order";
 import type { Task } from "@/types";
 
 export function useRealtimeTasks(
@@ -57,14 +59,23 @@ export function useRealtimeTasks(
           filter: `household_id=eq.${householdId}`,
         },
         (payload) => {
-          const updated = payload.new as Task;
-          const previous = queryClient.getQueryData<Task[]>(queryKeys.tasks(householdId))?.find((t) => t.id === updated.id);
+          const incoming = payload.new as Task;
+          const previous = queryClient.getQueryData<Task[]>(queryKeys.tasks(householdId))?.find((t) => t.id === incoming.id);
+          const updated = previous ? mergeTaskWithPending(householdId, previous, incoming) : incoming;
           // RPC が参照する列だけを見る。並び替え・URL・期限だけの変更では集計しない。
           const relevantFields = ["title", "is_done", "completed_at", "category_id", "memo"] as const;
           const affectsRecommendations = !previous || relevantFields.some((key) => previous[key] !== updated[key]);
-          setTasks((prev) =>
-            prev.map((t) => (t.id === updated.id ? updated : t))
-          );
+          setTasks((prev) => {
+            const exists = prev.some((task) => task.id === updated.id);
+            const recentCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+            if (!exists && updated.is_done && (!updated.completed_at || updated.completed_at < recentCutoff)) {
+              return prev;
+            }
+            const next = exists
+              ? prev.map((task) => task.id === updated.id ? updated : task)
+              : [...prev, updated];
+            return next.sort(taskOrder);
+          });
           if (affectsRecommendations) onRemoteChange?.();
         }
       )

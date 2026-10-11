@@ -63,16 +63,18 @@ describe("updateSession", () => {
   });
 
   describe("ログイン済み", () => {
-    // 現行挙動の固定であって、望ましい仕様の宣言ではない。
-    // /auth/callback もここに含まれるため、ログイン済みのまま
-    // パスワード再設定リンクを踏むと code 交換の前に / へ飛ばされる
-    // （= /reset-password に辿り着けない）。修正は別 PR で扱う。
-    it.each(PUBLIC_PATHS)("%s へのアクセスは / にリダイレクトする", async (path) => {
+    it.each(PUBLIC_PATHS.filter((path) => path !== "/auth/callback"))("%s へのアクセスは / にリダイレクトする", async (path) => {
       mocks.claims = { sub: "user-1" };
 
       const res = await updateSession(makeRequest(path));
 
       expect(locationOf(res)).toBe("/");
+    });
+
+    it("既にログインしていても認証コールバックで再設定コードを交換できる", async () => {
+      mocks.claims = { sub: "user-1" };
+      const res = await updateSession(makeRequest("/auth/callback?code=recovery&next=/reset-password"));
+      expect(locationOf(res)).toBeNull();
     });
 
     it.each(PROTECTED_PATHS)("%s はリダイレクトせず通す", async (path) => {

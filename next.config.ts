@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 
+const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
+  : null;
+const supabaseSocketOrigin = supabaseOrigin?.replace(/^http/, "ws");
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
@@ -30,13 +35,15 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https:",
-              "font-src 'self'",
               process.env.NODE_ENV === "development"
-                ? "connect-src 'self' https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 ws://127.0.0.1:54321"
-                : "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+                ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+                : "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              `img-src 'self' data: blob: ${supabaseOrigin ?? "https://*.supabase.co"}`,
+              "font-src 'self'",
+              `connect-src 'self' ${supabaseOrigin ?? "https://*.supabase.co"} ${supabaseSocketOrigin ?? "wss://*.supabase.co"}`,
+              "object-src 'none'",
+              "worker-src 'self'",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

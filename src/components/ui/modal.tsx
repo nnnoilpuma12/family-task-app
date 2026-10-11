@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDialogAccessibility } from "@/hooks/use-dialog-accessibility";
 
 interface ModalProps {
   isOpen: boolean;
@@ -11,25 +12,14 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children }: ModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogAccessibility(isOpen, onClose, dialogRef);
 
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <motion.div
-            ref={overlayRef}
             className="absolute inset-0 bg-black/40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -37,9 +27,11 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             onClick={onClose}
           />
           <motion.div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label={title ?? "ダイアログ"}
+            tabIndex={-1}
             className="relative w-full max-w-lg bg-surface rounded-t-xl sm:rounded-xl border border-border max-h-[90dvh] overflow-y-auto"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}

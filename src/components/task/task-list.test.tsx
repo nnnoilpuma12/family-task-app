@@ -257,6 +257,20 @@ describe("TaskList", () => {
   });
 
   describe("完了済みの追加読み込み", () => {
+    it("大量の完了履歴は100件ずつ描画する", async () => {
+      const user = userEvent.setup();
+      const completed = Array.from({ length: 120 }, (_, index) =>
+        makeTask({ id: `done-${index}`, title: `完了 ${index}`, is_done: true })
+      );
+      const { onLoadMoreCompleted } = renderList(completed, { hasMoreCompleted: true });
+      expect(screen.getAllByTestId(/^task-done-/)).toHaveLength(100);
+      await user.click(screen.getByRole("button", { name: "完了済みをもっと見る" }));
+      expect(screen.getAllByTestId(/^task-done-/)).toHaveLength(120);
+      expect(onLoadMoreCompleted).not.toHaveBeenCalled();
+      await user.click(screen.getByRole("button", { name: "完了済みをもっと見る" }));
+      expect(onLoadMoreCompleted).toHaveBeenCalledTimes(1);
+    });
+
     it("hasMoreCompleted なら追加読み込みボタンを出す", () => {
       renderList([makeTask({ id: "t-1", is_done: true })], { hasMoreCompleted: true });
 

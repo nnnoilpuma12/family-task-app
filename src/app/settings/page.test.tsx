@@ -6,6 +6,7 @@ import SettingsPage from "@/app/settings/page";
 import { createClient } from "@/lib/supabase/client";
 import { clearCachedHousehold } from "@/lib/household-cache";
 import { clearPersistedQueryCache } from "@/lib/query-persist";
+import { removeCurrentPushSubscription } from "@/lib/push-subscription";
 import { createMockSupabase } from "@/test/mocks/supabase";
 import { createQueryWrapper } from "@/test/query-wrapper";
 
@@ -18,6 +19,7 @@ import { createQueryWrapper } from "@/test/query-wrapper";
 vi.mock("@/lib/supabase/client");
 vi.mock("@/lib/household-cache", () => ({ clearCachedHousehold: vi.fn() }));
 vi.mock("@/lib/query-persist", () => ({ clearPersistedQueryCache: vi.fn() }));
+vi.mock("@/lib/push-subscription", () => ({ removeCurrentPushSubscription: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock("@/hooks/use-page-data", () => ({
   usePageData: () => ({
@@ -93,6 +95,15 @@ describe("SettingsPage のログアウト", () => {
 
     await waitFor(() => expect(signOut).toHaveBeenCalled());
     expect(mockRouter.push).toHaveBeenCalledWith("/login");
+  });
+
+  it("認証が有効な間にプッシュ購読を解除する", async () => {
+    const order: string[] = [];
+    vi.mocked(removeCurrentPushSubscription).mockImplementation(async () => { order.push("unsubscribe"); });
+    signOut.mockImplementation(async () => { order.push("signOut"); return { error: null }; });
+    await clickLogout();
+    await waitFor(() => expect(order).toContain("signOut"));
+    expect(order).toEqual(["unsubscribe", "signOut"]);
   });
 
   it("キャッシュ破棄は signOut より先に行う", async () => {

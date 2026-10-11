@@ -263,6 +263,18 @@ describe("POST /api/push/send", () => {
   });
 
   describe("送信", () => {
+    it("DB に直接保存された不正な送信先へは接続しない", async () => {
+      mocks.admin = buildAdminClient({
+        subscriptions: [makeSubscription({ endpoint: "https://127.0.0.1/internal" })],
+      });
+
+      const POST = await loadPost();
+      const res = await POST(makeRequest(validBody()));
+
+      await expect(res.json()).resolves.toEqual({ success: true, sent: 0 });
+      expect(mocks.sendNotification).not.toHaveBeenCalled();
+    });
+
     it("自分以外の世帯メンバーの購読へ送る", async () => {
       const subs = [
         makeSubscription({ endpoint: "https://push.example.com/a", profile_id: "user-2" }),

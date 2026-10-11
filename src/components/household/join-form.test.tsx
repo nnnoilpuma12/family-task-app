@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { clearCachedHousehold } from "@/lib/household-cache";
 import { clearPersistedQueryCache } from "@/lib/query-persist";
 import { createMockSupabase } from "@/test/mocks/supabase";
+import { createQueryWrapper } from "@/test/query-wrapper";
+import { QueryClient } from "@tanstack/react-query";
 
 /**
  * 世帯参加は「前世帯のデータを端末に残さない」境界。
@@ -38,7 +40,7 @@ function setupClient(rpcResult: { data: unknown; error: unknown }) {
 
 async function submitCode(code: string) {
   const user = userEvent.setup();
-  render(<JoinHouseholdForm />);
+  render(<JoinHouseholdForm />, { wrapper: createQueryWrapper() });
   await user.type(screen.getByLabelText("招待コード"), code);
   await user.click(screen.getByRole("button", { name: "ハウスホールドに参加" }));
 }
@@ -64,10 +66,13 @@ describe("JoinHouseholdForm", () => {
     });
 
     it("前世帯のキャッシュを両方とも破棄する", async () => {
+      const clearSpy = vi.spyOn(QueryClient.prototype, "clear");
       await submitCode(VALID_CODE);
 
       await waitFor(() => expect(clearCachedHousehold).toHaveBeenCalled());
+      expect(clearSpy).toHaveBeenCalled();
       expect(clearPersistedQueryCache).toHaveBeenCalled();
+      clearSpy.mockRestore();
     });
 
     it("ホームへ遷移する", async () => {
@@ -104,7 +109,7 @@ describe("JoinHouseholdForm", () => {
     it("16 文字未満では送信ボタンが押せない", async () => {
       setupClient({ data: JOINED_HOUSEHOLD_ID, error: null });
       const user = userEvent.setup();
-      render(<JoinHouseholdForm />);
+      render(<JoinHouseholdForm />, { wrapper: createQueryWrapper() });
 
       await user.type(screen.getByLabelText("招待コード"), "a1b2c3");
 

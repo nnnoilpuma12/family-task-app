@@ -12,6 +12,8 @@ import { useCategories } from "@/hooks/use-categories";
 import { usePageData } from "@/hooks/use-page-data";
 import { clearCachedHousehold } from "@/lib/household-cache";
 import { clearPersistedQueryCache } from "@/lib/query-persist";
+import { removeCurrentPushSubscription } from "@/lib/push-subscription";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -26,6 +28,11 @@ export default function SettingsPage() {
 
   const handleLogout = async () => {
     const supabase = createClient();
+    try {
+      await removeCurrentPushSubscription();
+    } catch {
+      toast.error("この端末の通知解除を確認できませんでした");
+    }
     // 別ユーザーがメモリ/端末に前ユーザーのデータを見ないよう、in-memory と永続キャッシュを破棄
     clearCachedHousehold();
     queryClient.clear();
@@ -69,8 +76,8 @@ export default function SettingsPage() {
         <div className="rounded-xl bg-surface p-4 border border-border">
           <CategorySettings
             categories={categories}
-            onAdd={async (name, color) => { await addCategory(name, color); }}
-            onUpdate={async (id, updates) => { await updateCategory(id, updates); }}
+            onAdd={addCategory}
+            onUpdate={updateCategory}
             onDelete={async (id) => { await deleteCategory(id); }}
             onReorder={async (ids) => { await reorderCategories(ids); }}
           />

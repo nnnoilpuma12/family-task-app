@@ -50,7 +50,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isAuthenticated && isPublicPath) {
+  // A recovery link must exchange its code even when another account is
+  // already signed in on this browser.
+  if (isAuthenticated && isPublicPath && !request.nextUrl.pathname.startsWith("/auth/callback")) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

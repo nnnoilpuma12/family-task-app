@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { useDialogAccessibility } from "@/hooks/use-dialog-accessibility";
 
 // マウント判定用（サーバでは false、クライアントでは true）。
 // 値は変化しないので購読は no-op でよい。
@@ -32,6 +33,8 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogAccessibility(isOpen, onCancel, dialogRef, cancelButtonRef);
 
   // `transform` / `will-change` を持つ祖先（SwipeableTaskContainer など）は
   // position: fixed の包含ブロックになり、表示位置がリスト量に応じてずれる。
@@ -41,38 +44,6 @@ export function ConfirmDialog({
     getMountedSnapshot,
     getServerSnapshot
   );
-
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCancel();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-
-    const focusTimer = window.setTimeout(() => {
-      cancelButtonRef.current?.focus();
-    }, 50);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.clearTimeout(focusTimer);
-    };
-  }, [isOpen, onCancel]);
 
   const confirmClass =
     variant === "destructive"
@@ -85,9 +56,11 @@ export function ConfirmDialog({
     <AnimatePresence>
       {isOpen && (
         <div
+          ref={dialogRef}
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
           role="dialog"
           aria-modal="true"
+          tabIndex={-1}
           aria-labelledby="confirm-dialog-title"
           aria-describedby={description ? "confirm-dialog-description" : undefined}
         >

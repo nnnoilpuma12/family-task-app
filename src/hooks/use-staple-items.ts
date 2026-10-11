@@ -113,29 +113,44 @@ export function useStapleItems(householdId: string | null, managedResync = false
       Pick<StapleItem, "name" | "category_id" | "default_quantity" | "default_unit" | "note" | "icon" | "sort_order">
     >
   ) => {
-    let snapshot = stapleItems;
+    let previous: StapleItem | undefined;
     setStapleItems((prev) => {
-      snapshot = prev;
+      previous = prev.find((item) => item.id === id);
       return prev.map((si) => (si.id === id ? { ...si, ...updates } : si));
     });
 
     const { error } = await supabase.from("staple_items").update(updates).eq("id", id);
 
     if (error) {
-      setStapleItems(snapshot);
+      const before = previous;
+      if (before) setStapleItems((prev) => prev.map((item) => {
+        if (item.id !== id) return item;
+        const restored = { ...item };
+        for (const key of Object.keys(updates) as (keyof typeof updates)[]) {
+          if (restored[key] === updates[key]) Object.assign(restored, { [key]: before[key] });
+        }
+        return restored;
+      }));
       toast.error("定番品の更新に失敗しました");
     }
     return { error };
   };
 
   const deleteStapleItem = async (id: string) => {
-    const previousItems = stapleItems;
+    const previousItems = queryClient.getQueryData<StapleItem[]>(queryKeys.stapleItems(householdId)) ?? stapleItems;
+    const deletedItem = previousItems.find((item) => item.id === id);
+    const previousIndex = previousItems.findIndex((item) => item.id === id);
     setStapleItems((prev) => prev.filter((si) => si.id !== id));
 
     const { error } = await supabase.from("staple_items").delete().eq("id", id);
 
     if (error) {
-      setStapleItems(previousItems);
+      if (deletedItem) setStapleItems((prev) => {
+        if (prev.some((item) => item.id === id)) return prev;
+        const next = [...prev];
+        next.splice(Math.min(previousIndex, next.length), 0, deletedItem);
+        return next;
+      });
       toast.error("定番品の削除に失敗しました");
     }
     return { error };
@@ -161,28 +176,41 @@ export function useStapleItems(householdId: string | null, managedResync = false
     });
 
     if (error) {
-      setStapleItems(snapshot);
+      const previousOrder = new Map(snapshot.map((item, index) => [item.id, index]));
+      const previousItems = new Map(snapshot.map((item) => [item.id, item]));
+      setStapleItems((prev) => [...prev].map((item) => {
+        const old = previousItems.get(item.id);
+        const optimisticOrder = orderedIds.indexOf(item.id);
+        return old && optimisticOrder >= 0 && item.sort_order === optimisticOrder
+          ? { ...item, sort_order: old.sort_order } : item;
+      }).sort((a, b) => (previousOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (previousOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER)));
       toast.error("定番品の並び替えに失敗しました");
     }
   };
 
   const recordUsage = async (id: string) => {
-    const item = stapleItems.find((si) => si.id === id);
+    const item = queryClient.getQueryData<StapleItem[]>(queryKeys.stapleItems(householdId))?.find((si) => si.id === id);
     if (!item) return;
 
     const now = new Date().toISOString();
-    const newCount = item.use_count + 1;
-
     setStapleItems((prev) =>
       prev.map((si) =>
-        si.id === id ? { ...si, use_count: newCount, last_used_at: now } : si
+        si.id === id ? { ...si, use_count: si.use_count + 1, last_used_at: now } : si
       )
     );
 
-    await supabase
-      .from("staple_items")
-      .update({ use_count: newCount, last_used_at: now })
-      .eq("id", id);
+    const { data, error } = await supabase.rpc("record_staple_usage", { p_item_id: id });
+    if (error) {
+      setStapleItems((prev) => prev.map((si) => si.id === id
+        ? { ...si, use_count: Math.max(0, si.use_count - 1), last_used_at: si.last_used_at === now ? item.last_used_at : si.last_used_at }
+        : si));
+      toast.error("使用回数の更新に失敗しました");
+      return;
+    }
+    const saved = data?.[0];
+    if (saved) setStapleItems((prev) => prev.map((si) => si.id === id
+      ? { ...si, use_count: Math.max(si.use_count, saved.use_count), last_used_at: saved.last_used_at }
+      : si));
   };
 
   return {

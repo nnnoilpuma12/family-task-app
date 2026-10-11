@@ -27,7 +27,7 @@ interface StapleItemFormSheetProps {
     default_unit: string | null;
     note: string | null;
     icon: string | null;
-  }) => void;
+  }) => Promise<{ error: unknown | null } | void>;
 }
 
 export function StapleItemFormSheet({
@@ -45,6 +45,8 @@ export function StapleItemFormSheet({
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     if (isOpen) {
@@ -64,25 +66,37 @@ export function StapleItemFormSheet({
         setNote("");
       }
       setShowIconPicker(false);
+      setSaveError("");
     }
   }, [isOpen, item, defaultCategoryId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || isSaving) return;
 
     const quantity = quantityStr ? parseFloat(quantityStr) : null;
 
-    onSubmit({
-      name: name.trim(),
-      category_id: categoryId,
-      default_quantity: quantity !== null && !isNaN(quantity) ? quantity : null,
-      default_unit: unit.trim() || null,
-      note: note.trim() || null,
-      icon: icon || null,
-    });
-
-    onClose();
+    setIsSaving(true);
+    setSaveError("");
+    try {
+      const result = await onSubmit({
+        name: name.trim(),
+        category_id: categoryId,
+        default_quantity: quantity !== null && !isNaN(quantity) ? quantity : null,
+        default_unit: unit.trim() || null,
+        note: note.trim() || null,
+        icon: icon || null,
+      });
+      if (result?.error) {
+        setSaveError("保存できませんでした。入力内容を確認して再試行してください。");
+        return;
+      }
+      onClose();
+    } catch {
+      setSaveError("保存できませんでした。入力内容を確認して再試行してください。");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const title = item ? "定番品を編集" : "定番品を追加";
@@ -182,8 +196,9 @@ export function StapleItemFormSheet({
           className="rounded border border-border-strong bg-surface px-4 py-3 text-sm text-foreground placeholder:text-subtle outline-none resize-none focus:border-focus focus:ring-2 focus:ring-focus/15"
         />
 
-        <Button type="submit" disabled={!name.trim()}>
-          {item ? "保存" : "追加"}
+        {saveError && <p role="alert" className="text-sm text-danger">{saveError}</p>}
+        <Button type="submit" disabled={!name.trim() || isSaving}>
+          {isSaving ? "保存中..." : item ? "保存" : "追加"}
         </Button>
       </form>
     </BottomSheet>

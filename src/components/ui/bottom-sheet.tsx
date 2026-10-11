@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDialogAccessibility } from "@/hooks/use-dialog-accessibility";
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface BottomSheetProps {
 export function BottomSheet({ isOpen, onClose, title, children, elevated = false }: BottomSheetProps) {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isTablet, setIsTablet] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogAccessibility(isOpen, onClose, dialogRef);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -22,17 +25,6 @@ export function BottomSheet({ isOpen, onClose, title, children, elevated = false
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
-
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -75,9 +67,11 @@ export function BottomSheet({ isOpen, onClose, title, children, elevated = false
             onClick={onClose}
           />
           <motion.div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label={title ?? "ダイアログ"}
+            tabIndex={-1}
             className="relative w-full max-w-lg bg-surface rounded-t-xl md:rounded-xl border border-border overflow-y-auto"
             style={{
               maxHeight: !isTablet && effectiveKeyboardHeight > 0

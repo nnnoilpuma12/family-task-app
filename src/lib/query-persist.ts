@@ -19,8 +19,14 @@ export const APP_CACHE_VERSION = "v1";
  * SSR 時は storage を undefined にし、ライブラリ側で no-op として扱わせる。
  */
 export function createAppPersister() {
+  let storage: Storage | undefined;
+  try {
+    storage = typeof window !== "undefined" ? window.localStorage : undefined;
+  } catch {
+    storage = undefined;
+  }
   return createSyncStoragePersister({
-    storage: typeof window !== "undefined" ? window.localStorage : undefined,
+    storage,
     key: PERSIST_KEY,
   });
 }
