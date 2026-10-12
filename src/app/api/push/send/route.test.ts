@@ -55,8 +55,13 @@ function makeSubscription(overrides: Partial<Subscription> = {}): Subscription {
 
 /** リクエスト元（通常権限）クライアント */
 function buildServerClient({
-  userId = SENDER_ID as string | null,
-  senderHouseholdId = HOUSEHOLD_ID as string | null,
+  userId = SENDER_ID,
+  senderHouseholdId = HOUSEHOLD_ID,
+  senderAvatarUrl = null,
+}: {
+  userId?: string | null;
+  senderHouseholdId?: string | null;
+  senderAvatarUrl?: string | null;
 } = {}) {
   const client = createMockSupabase({ profiles: {} });
   client.auth.getUser.mockResolvedValue({
@@ -64,7 +69,7 @@ function buildServerClient({
     error: null,
   });
   client._table("profiles").single.mockResolvedValue({
-    data: senderHouseholdId === null ? null : { household_id: senderHouseholdId },
+    data: senderHouseholdId === null ? null : { household_id: senderHouseholdId, avatar_url: senderAvatarUrl },
     error: null,
   });
   return client;
@@ -121,6 +126,7 @@ describe("POST /api/push/send", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   describe("設定", () => {
@@ -263,6 +269,31 @@ describe("POST /api/push/send", () => {
   });
 
   describe("送信", () => {
+    it.each([
+      ["https://project.supabase.co/storage/v1/object/public/avatars/user-1/photo.webp", "https://project.supabase.co/storage/v1/object/public/avatars/user-1/photo.webp"],
+      ["emoji:cat", "/notification-avatars/cat.png?v=1"],
+      [null, "/icon-192x192.png?v=3"],
+    ])("送信者の設定 %s を通知アイコンに使う", async (senderAvatarUrl, expectedIcon) => {
+      vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+      const server = buildServerClient({ senderAvatarUrl });
+      mocks.server = server;
+      const POST = await loadPost();
+      const res = await POST(makeRequest(validBody({
+        icon: "https://untrusted.example/receiver.png",
+        avatar_url: "emoji:dog",
+      })));
+
+      expect(res.status).toBe(200);
+      expect(server._table("profiles").select).toHaveBeenCalledWith("household_id, avatar_url");
+      expect(server._table("profiles").eq).toHaveBeenCalledWith("id", SENDER_ID);
+      const payload = mocks.sendNotification.mock.calls[0]?.[1];
+      expect(typeof payload).toBe("string");
+      if (typeof payload !== "string") throw new Error("Missing push payload");
+      expect(JSON.parse(payload)).toEqual({
+        title: "家族タスク", body: "「掃除」が追加されました", url: "/", icon: expectedIcon,
+      });
+    });
+
     it("DB に直接保存された不正な送信先へは接続しない", async () => {
       mocks.admin = buildAdminClient({
         subscriptions: [makeSubscription({ endpoint: "https://127.0.0.1/internal" })],

@@ -3,6 +3,7 @@ import webpush from "web-push";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isValidPushEndpoint, pushHttpsAgent } from "@/lib/push-endpoint";
+import { getNotificationIcon } from "@/lib/notification-icon";
 
 let vapidConfigured = false;
 
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
   // P2-4: Verify sender belongs to the requested household
   const { data: senderProfile } = await supabase
     .from("profiles")
-    .select("household_id")
+    .select("household_id, avatar_url")
     .eq("id", user.id)
     .single();
 
@@ -167,7 +168,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, sent: 0 });
   }
 
-  const payload = JSON.stringify({ title: sanitizedTitle, body: sanitizedBody, url: "/" });
+  const payload = JSON.stringify({
+    title: sanitizedTitle,
+    body: sanitizedBody,
+    url: "/",
+    icon: getNotificationIcon(senderProfile.avatar_url, user.id, process.env.NEXT_PUBLIC_SUPABASE_URL),
+  });
 
   const results = await Promise.allSettled(
     subscriptions.map(async (sub) => {
