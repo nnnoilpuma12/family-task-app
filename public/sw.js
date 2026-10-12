@@ -1,6 +1,58 @@
-const SW_VERSION = "5";
+const SW_VERSION = "6";
 const SHELL_CACHE = `family-task-shell-${SW_VERSION}`;
 const STATIC_CACHE = `family-task-static-${SW_VERSION}`;
+const DEFAULT_NOTIFICATION_ICON = "/icon-192x192.png?v=3";
+const ICON_TIMEOUT_MS = 3000;
+
+async function loadNotificationIcon(icon, signal) {
+  const response = await fetch(icon, { signal, credentials: "omit", redirect: "error" });
+  if (!response.ok) throw new Error("Icon unavailable");
+  const blob = await response.blob();
+  if (!/^image\/(png|jpeg|webp)$/.test(blob.type) || blob.size > 2 * 1024 * 1024) {
+    throw new Error("Invalid icon");
+  }
+  // Reject corrupt images too. showNotification can silently ignore a broken icon.
+  const bitmap = await createImageBitmap(blob);
+  bitmap.close();
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+  }
+  // Service workers have no URL.createObjectURL. A data URL also avoids a
+  // second network request when the browser constructs the notification.
+  return `data:${blob.type};base64,${btoa(binary)}`;
+}
+
+async function resolveNotificationIcon(icon) {
+  if (typeof icon !== "string" || icon === DEFAULT_NOTIFICATION_ICON) return DEFAULT_NOTIFICATION_ICON;
+  try {
+    const url = new URL(icon, self.location.origin);
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && self.location.protocol === "http:")) {
+      return DEFAULT_NOTIFICATION_ICON;
+    }
+    if (url.username || url.password) return DEFAULT_NOTIFICATION_ICON;
+  } catch {
+    return DEFAULT_NOTIFICATION_ICON;
+  }
+  const controller = new AbortController();
+  let timeout;
+  try {
+    return await Promise.race([
+      loadNotificationIcon(icon, controller.signal),
+      new Promise((resolve) => {
+        timeout = setTimeout(() => {
+          controller.abort();
+          resolve(DEFAULT_NOTIFICATION_ICON);
+        }, ICON_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    return DEFAULT_NOTIFICATION_ICON;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -33,13 +85,21 @@ self.addEventListener("push", (event) => {
   const title = data.title || "家族タスク";
   const options = {
     body: data.body || "",
-    icon: "/icon-192x192.png?v=3",
+    icon: DEFAULT_NOTIFICATION_ICON,
     badge: "/icon-badge.png?v=3",
     data: {
       url: data.url || "/",
     },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((async () => {
+    options.icon = await resolveNotificationIcon(data.icon);
+    try {
+      await self.registration.showNotification(title, options);
+    } catch (error) {
+      if (options.icon === DEFAULT_NOTIFICATION_ICON) throw error;
+      await self.registration.showNotification(title, { ...options, icon: DEFAULT_NOTIFICATION_ICON });
+    }
+  })());
 });
 
 self.addEventListener("fetch", (event) => {
