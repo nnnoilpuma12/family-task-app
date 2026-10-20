@@ -1,10 +1,10 @@
 # アプリ起動〜初回描画のフロー
 
 家族タスクアプリを開いてからタスクが表示されるまでの流れ。
-「対応前」は profiles 取得を待ってからタスク取得が始まる直列構造、
-「対応後」は householdId を localStorage にキャッシュして並列化した構造。
+現在は、最初に最新の profile を取得して所属世帯を確認してから世帯データを取得する。
+同一ユーザーが別端末で所属を変更しても、旧世帯のキャッシュを表示しないための順序である。
 
-## 対応前：profiles を待ってからタスク取得（直列）
+## 現在：所属を確認してから世帯データを取得
 
 ```mermaid
 sequenceDiagram
@@ -14,68 +14,58 @@ sequenceDiagram
     participant SB as Supabase
 
     U->>MW: アプリを開く
-    MW->>SB: 認証チェック(getUser)
-    SB-->>MW: OK
-    MW-->>U: ページ返却
-
-    Note over U: usePageData 実行
+    MW-->>U: 認証済みページ返却
     U->>SB: profiles取得(どの家族?)
     SB-->>U: household_id 判明
-    Note over U: ここで初めて家族IDが分かる
 
-    U->>SB: tasks取得
-    U->>SB: categories取得
-    U->>SB: staple取得
-    SB-->>U: データ返却
-    Note over U: 描画（往復が直列に積み上がる）
-```
-
-## 対応後：キャッシュ済みIDで即並列取得
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant U as ブラウザ(画面)
-    participant LS as localStorage
-    participant SB as Supabase
-
-    U->>LS: household_id を読む(即時・往復なし)
-    LS-->>U: household_id
-
-    par 同時に開始
+    par 確認済み household_id で取得
         U->>SB: tasks取得
     and
         U->>SB: categories取得
     and
         U->>SB: staple取得
     and
-        U->>SB: profiles取得(確認・是正用)
+        U->>SB: household・members取得
     end
     SB-->>U: データ返却
-    Note over U: 描画（profiles待ちが消え往復1回分速い）
+    Note over U: 描画・Realtime購読
+```
 
-    Note over U,SB: 万一IDが古ければ profiles の結果で自動的に取り直す
+## 別端末で変更された場合
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as ブラウザ(画面)
+    participant SB as Supabase
+
+    SB-->>U: profiles / households の変更イベント
+    U->>SB: profile・household・membersを再取得
+    SB-->>U: 最新の所属と共有情報
+    Note over U: 所属相違なら旧キャッシュと購読を破棄
+
+    Note over U,SB: 切断中の変更は focus / visibilitychange / online で再取得
 ```
 
 ## ポイント
 
-- 変わったのは「タスク取得の開始タイミング」。対応前は profiles の応答を待ってから、
-  対応後はキャッシュした household_id を使って profiles と同時にスタートする。
-- 初回（キャッシュ無し）は対応前と同じ流れ。2回目以降の起動が速くなる。
-- ログアウト・世帯切り替え時はキャッシュを消すため、別の家族の情報が混ざらない。
+- オンラインでは世帯名キャッシュをヘッダーの初期表示だけに使い、データアクセスには使わない。
+- 完全オフラインでの再起動だけは、最後に確認済みの世帯IDと永続データを復元する。再接続後はprofileを再取得して相違があれば破棄する。
+- Realtimeを反映の早い経路、画面復帰・オンライン復帰の再取得を取りこぼし回収に使う。
+- ログアウト・世帯切り替え・サーバーとの所属相違で旧キャッシュを消す。
 
 ## 関連ファイル
 
 - `src/lib/household-cache.ts` — localStorage への id/名前キャッシュ（get/set/clear）
 - `src/hooks/use-page-data.ts` — キャッシュ反映・更新・無効化
-- `src/app/page.tsx` — キャッシュ済み householdId をフォールバックに各クエリを早期発火
+- `src/app/page.tsx` — 確認済みの profile.household_id で各クエリを開始
 
 ---
 
 ## 追加対応：ドキュメント応答と起動直後の接続競合を削る
 
-上の並列化は「householdId が分かってから」の往復を減らすものだった。
-残っていたのは、その手前（HTML が返るまで）と、初回ペイント直後の接続競合。
+所属確認後の取得は世帯IDが分かってから並列に行う。
+その手前（HTML が返るまで）と、初回ペイント直後の接続競合には以下の対策を使う。
 
 ### 1. proxy の認証チェックをローカル検証にする
 
@@ -112,7 +102,8 @@ JWKS はキャッシュされるため往復が消える。`getSession()` と違
 
 Realtime を遅らせると「初期取得のスナップショットと購読開始のあいだ」のイベントを
 取りこぼす窓がわずかに広がる。この窓は同時に開始しても元々存在し（取得結果は購読前の状態）、
-アイドルは初回ペイント直後に来るため実害は小さい。取りこぼしは `refetchOnWindowFocus` で回収される。
+アイドルは初回ペイント直後に来るため実害は小さい。取りこぼしは購読成立時の再取得と
+`visibilitychange` / `online` で回収される。
 
 ### 残っている改善余地（未対応）
 

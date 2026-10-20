@@ -114,13 +114,14 @@ src/app/page.tsx（Client Component）
 ```
 
 - **サーバーステートは React Query が保持**。`useTasks` / `useCategories` / `useStapleItems` は `useQuery` でフェッチし、キャッシュは `queryClient.setQueryData(queryKeys.xxx(householdId), ...)` で直接書き換える。ページ遷移で戻ってきたときの再取得を避けるのが目的。キャッシュは localStorage に永続化され（`src/lib/query-persist.ts`）、再訪時は即時表示 → 裏で再検証となる。
-- **起動フロー（並列化）**：`page.tsx` はマウント直後に `getCachedHouseholdId()`（localStorage）を読み、`householdId = profile?.household_id ?? cachedHouseholdId` として tasks / categories / staple / Realtime を profiles 取得を待たずに並列発火させる。profile 確定後はそちらが正となり、世帯が変わればキー変更で自動再取得される。`usePageData` はネットワーク往復のない `getSession()` を使う（サーバ側検証は middleware 済み）。詳細は `docs/startup-flow.md`。
-- **キャッシュのクリア境界**：別ユーザー / 別世帯に切り替わる箇所（ログアウト＝`settings/page.tsx`、世帯参加＝`household/join-form.tsx`）では `clearCachedHousehold()` と `clearPersistedQueryCache()` を必ず呼び、端末に前世帯のデータを残さない。
+- **起動時の所属確認**：オンラインでは tasks / categories / staple / Realtime の世帯スコープに最新の `profiles.household_id` だけを使う。localStorage の世帯IDをオンラインで先行利用すると、同じユーザーが別端末で所属を変更した際に旧世帯データを表示できるため禁止。完全オフラインでの再起動に限り、最後に確認済みの世帯IDと永続クエリを復元する。`usePageData` はネットワーク往復のない `getSession()` を使う（サーバ側検証は middleware 済み）。詳細は `docs/startup-flow.md`。
+- **キャッシュのクリア境界**：ログアウト・世帯参加に加え、`usePageData` がキャッシュとサーバーの所属不一致を検知した場合も `clearCachedHousehold()` と `clearPersistedQueryCache()` を呼ぶ。世帯変更イベントと `storage` イベントで、同一タブ/別タブの in-memory キャッシュも破棄する。
 - **楽観的更新**：`setQueryData` でキャッシュを先に更新 → Supabase 呼び出し。`useCategories` などはエラー時にスナップショットへロールバックする（既存パターンに合わせる）。
 - **Realtime と楽観的更新の競合**は id ベースの dedupe で解決（`useRealtimeTasks` / `useRealtimeStapleItems` / `useRealtimeCategories` 参照）。
 - **Realtime の取りこぼしは必ず回収する**。WebSocket は端末のスリープ・アプリ切り替え・回線切り替えで無言のまま切れ、postgres_changes には切断中のイベントを再送する仕組みが無い。回収は 2 系統：
   - 購読成立時（`createSubscribeHandler` の `onResync`）— 再接続のたびに当該クエリを取り直す。初期取得と購読開始のあいだに空く窓もこれで埋まる
   - `useRealtimeResync` — `visibilitychange` / `online` を拾って世帯スコープのクエリを invalidate する
+  - `usePageData` — profiles / households を購読し、`visibilitychange` / `focus` / `online` でもプロフィール・世帯・メンバーを再取得する
 - **`refetchOnWindowFocus` を取りこぼしの保険として当てにしない**。`refetchOnWindowFocus: true` は stale なクエリしか取り直さず、さらに `setQueryData` は呼ばれるたび `dataUpdatedAt` を更新する。`setTasks` などは中身が `setQueryData` なので、**Realtime イベントや楽観的更新のたびに `staleTime`（30 秒）のタイマーが振り出しに戻る**。操作が活発なときほど保険が効かなくなるため、回収は上の 2 系統で明示的に行う。
 - **完了済みタスクは段階ロード**。初期は未完了 + 直近の完了のみ表示し、`loadMoreCompleted()`（`COMPLETED_PAGE_SIZE = 30`）で追加取得する。
 - **タスク完了時**は `canvas-confetti` でアニメーションを再生し、他メンバーへ Web Push 通知を送信。

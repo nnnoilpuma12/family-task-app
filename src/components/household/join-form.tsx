@@ -26,7 +26,14 @@ export function JoinHouseholdForm() {
       .rpc("join_household_with_code", { p_code: code.toUpperCase() });
 
     if (joinError || !householdId) {
-      setError("招待コードが無効か期限切れです");
+      const alreadyInAnotherHousehold = joinError?.message?.includes(
+        "Already a member of another household"
+      );
+      setError(
+        alreadyInAnotherHousehold
+          ? "すでに別の家族グループに参加しています"
+          : "招待コードが無効か期限切れです"
+      );
       setLoading(false);
       return;
     }

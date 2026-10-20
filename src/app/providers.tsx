@@ -6,6 +6,10 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createAppPersister, APP_CACHE_VERSION } from "@/lib/query-persist";
 import { createClient } from "@/lib/supabase/client";
 import { syncCacheOwner } from "@/lib/cache-identity";
+import {
+  HOUSEHOLD_CACHE_KEY,
+  HOUSEHOLD_CHANGED_EVENT,
+} from "@/lib/household-cache";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -37,6 +41,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
       setIdentityReady(true);
     });
     return () => subscription.unsubscribe();
+  }, [queryClient]);
+
+  useEffect(() => {
+    const clearHouseholdQueries = () => queryClient.clear();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === HOUSEHOLD_CACHE_KEY) clearHouseholdQueries();
+    };
+    window.addEventListener(HOUSEHOLD_CHANGED_EVENT, clearHouseholdQueries);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(HOUSEHOLD_CHANGED_EVENT, clearHouseholdQueries);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, [queryClient]);
 
   // Authenticate the owner before restoring the persisted household queries.

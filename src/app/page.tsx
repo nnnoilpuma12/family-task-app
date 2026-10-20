@@ -77,15 +77,13 @@ export default function Home() {
     tabMeasurementsRef.current = m;
   }, []);
 
-  // 前回セッションでキャッシュした householdId をマウント後に読み出し、
-  // profiles 取得を待たずに tasks/categories/staple/Realtime を並列発火させる。
-  // （useEffect で読むことで SSR とのハイドレーション不整合を避ける）
-  const [cachedHouseholdId, setCachedHouseholdId] = useState<string | null>(null);
+  // オンラインでは必ず最新の profile で所属を確認してから使う。
+  // 完全オフラインで起動した場合だけ、最後に確認済みの世帯を復元する。
+  const [offlineHouseholdId, setOfflineHouseholdId] = useState<string | null>(null);
   useEffect(() => {
-    setCachedHouseholdId(getCachedHouseholdId());
+    if (!navigator.onLine) setOfflineHouseholdId(getCachedHouseholdId());
   }, []);
-  // profile 確定後はそちらを正とする（世帯切替時はキー変更で自動再取得される）
-  const householdId = profile?.household_id ?? cachedHouseholdId;
+  const householdId = profile?.household_id ?? offlineHouseholdId;
   const supabase = useMemo(() => createClient(), []);
   const { categories, setCategories } = useCategories(householdId, true);
   const { tasks: allTasks, setTasks, loading: tasksLoading, addTask, updateTask, deleteTask, deleteTasks, toggleTask, reorderTasks, loadMoreCompleted, hasMoreCompleted, loadingMoreCompleted } =
