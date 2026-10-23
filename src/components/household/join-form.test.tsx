@@ -83,6 +83,19 @@ describe("JoinHouseholdForm", () => {
   });
 
   describe("参加失敗", () => {
+    it("別世帯に所属済みなら移動できないことを表示する", async () => {
+      setupClient({
+        data: null,
+        error: { message: "Already a member of another household" },
+      });
+
+      await submitCode(VALID_CODE);
+
+      expect(await screen.findByText("すでに別の家族グループに参加しています")).toBeInTheDocument();
+      expect(clearCachedHousehold).not.toHaveBeenCalled();
+      expect(mockRouter.push).not.toHaveBeenCalled();
+    });
+
     it("RPC がエラーならエラー文言を出し、キャッシュを消さない", async () => {
       setupClient({ data: null, error: { message: "invalid code" } });
 

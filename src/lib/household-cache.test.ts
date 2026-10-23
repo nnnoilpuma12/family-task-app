@@ -4,6 +4,7 @@ import {
   getCachedHouseholdName,
   setCachedHousehold,
   clearCachedHousehold,
+  HOUSEHOLD_CHANGED_EVENT,
 } from "@/lib/household-cache";
 
 describe("household-cache", () => {
@@ -53,5 +54,17 @@ describe("household-cache", () => {
       throw new Error("QuotaExceeded");
     });
     expect(() => setCachedHousehold("household-1", "わが家")).not.toThrow();
+  });
+
+  it("別の世帯へ切り替わったら同一タブへ変更を通知する", () => {
+    const listener = vi.fn();
+    window.addEventListener(HOUSEHOLD_CHANGED_EVENT, listener);
+    setCachedHousehold("household-1", "わが家");
+    setCachedHousehold("household-1", "新しい名前");
+    expect(listener).not.toHaveBeenCalled();
+
+    setCachedHousehold("household-2", "別の家族");
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener(HOUSEHOLD_CHANGED_EVENT, listener);
   });
 });

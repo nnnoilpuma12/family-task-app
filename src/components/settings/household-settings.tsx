@@ -21,10 +21,18 @@ export function HouseholdSettings({
   members,
   currentUserId,
 }: HouseholdSettingsProps) {
-  const [name, setName] = useState(household.name);
+  const [draftName, setDraftName] = useState<string | null>(null);
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState(household.updated_at);
   const [saving, setSaving] = useState(false);
-  const [inviteCode, setInviteCode] = useState(household.invite_code);
+  const [inviteOverride, setInviteOverride] = useState<{
+    code: string;
+    sourceUpdatedAt: string;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
+  const name = draftName ?? household.name;
+  const inviteCode = inviteOverride?.sourceUpdatedAt === household.updated_at
+    ? inviteOverride.code
+    : household.invite_code;
 
   const handleSave = async () => {
     const trimmedName = name.trim();
@@ -35,11 +43,21 @@ export function HouseholdSettings({
       .from("households")
       .update({ name: trimmedName })
       .eq("id", household.id)
+      .eq("updated_at", baseUpdatedAt)
       .select()
       .single();
 
-    if (error) toast.error("ハウスホールド名の保存に失敗しました");
-    if (!error && data) onUpdate(data);
+    if (error?.code === "PGRST116") {
+      toast.error("別の端末で家族の名前が更新されました。最新の内容を表示します");
+      setDraftName(null);
+      setBaseUpdatedAt(household.updated_at);
+    } else if (error) {
+      toast.error("ハウスホールド名の保存に失敗しました");
+    } else if (data) {
+      onUpdate(data);
+      setDraftName(null);
+      setBaseUpdatedAt(data.updated_at);
+    }
     setSaving(false);
   };
 
@@ -49,7 +67,7 @@ export function HouseholdSettings({
       p_household_id: household.id,
     });
     if (error) toast.error("招待コードの生成に失敗しました");
-    if (data) setInviteCode(data);
+    if (data) setInviteOverride({ code: data, sourceUpdatedAt: household.updated_at });
   };
 
   const copyCode = async () => {
@@ -71,7 +89,10 @@ export function HouseholdSettings({
           <input
             id="household-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              if (draftName === null) setBaseUpdatedAt(household.updated_at);
+              setDraftName(e.target.value);
+            }}
             maxLength={50}
             className="flex-1 rounded border border-border-strong bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-focus focus:ring-2 focus:ring-focus/15"
           />
