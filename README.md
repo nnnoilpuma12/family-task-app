@@ -22,7 +22,7 @@
 ## 前提条件
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)（Supabase のローカル実行に必要）
-- Node.js 20+
+- Node.js 24.22.1 LTS
 - npm
 
 ---
