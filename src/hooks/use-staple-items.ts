@@ -5,6 +5,7 @@ import { type QueryFunctionContext, useQuery, useQueryClient } from "@tanstack/r
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
+import { recordStapleUsage } from "@/lib/record-staple-usage";
 import { useIdleReady } from "@/hooks/use-idle-ready";
 import type { StapleItem } from "@/types";
 
@@ -189,6 +190,7 @@ export function useStapleItems(householdId: string | null, managedResync = false
   };
 
   const recordUsage = async (id: string) => {
+    if (!householdId) return;
     const item = queryClient.getQueryData<StapleItem[]>(queryKeys.stapleItems(householdId))?.find((si) => si.id === id);
     if (!item) return;
 
@@ -199,15 +201,15 @@ export function useStapleItems(householdId: string | null, managedResync = false
       )
     );
 
-    const { data, error } = await supabase.rpc("record_staple_usage", { p_item_id: id });
+    const { data: saved, error } = await recordStapleUsage(supabase, householdId, id);
     if (error) {
       setStapleItems((prev) => prev.map((si) => si.id === id
         ? { ...si, use_count: Math.max(0, si.use_count - 1), last_used_at: si.last_used_at === now ? item.last_used_at : si.last_used_at }
         : si));
-      toast.error("使用回数の更新に失敗しました");
+      console.error("Failed to record staple usage", { code: error.code, message: error.message });
+      toast.error("リストへの追加は完了しましたが、使用回数を更新できませんでした");
       return;
     }
-    const saved = data?.[0];
     if (saved) setStapleItems((prev) => prev.map((si) => si.id === id
       ? { ...si, use_count: Math.max(si.use_count, saved.use_count), last_used_at: saved.last_used_at }
       : si));

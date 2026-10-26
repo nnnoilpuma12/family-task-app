@@ -299,5 +299,103 @@ describe("useStapleItems", () => {
 
       expect(chain.update).not.toHaveBeenCalled();
     });
+
+    it("RPC 未適用なら DB の最新値を条件付きで加算する", async () => {
+      const { result, chain } = await renderLoaded([makeStapleItem({ id: "s-1", use_count: 4 })]);
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST202", message: "Function not found" } });
+      chain.maybeSingle
+        .mockResolvedValueOnce({ data: { use_count: 9 }, error: null })
+        .mockResolvedValueOnce({ data: { use_count: 10, last_used_at: "2026-10-26T00:00:00Z" }, error: null });
+
+      await act(async () => { await result.current.recordUsage("s-1"); });
+
+      expect(chain.update).toHaveBeenCalledWith({ use_count: 10, last_used_at: expect.any(String) });
+      expect(chain.eq).toHaveBeenCalledWith("id", "s-1");
+      expect(chain.eq).toHaveBeenCalledWith("household_id", HOUSEHOLD_ID);
+      expect(chain.eq).toHaveBeenCalledWith("use_count", 9);
+      await waitFor(() => expect(result.current.stapleItems[0].use_count).toBe(10));
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it("条件付き加算が競合したら再取得し、他端末の加算を保持する", async () => {
+      const { result, chain } = await renderLoaded([makeStapleItem({ id: "s-1", use_count: 4 })]);
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST202" } });
+      chain.maybeSingle
+        .mockResolvedValueOnce({ data: { use_count: 4 }, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: { use_count: 5 }, error: null })
+        .mockResolvedValueOnce({ data: { use_count: 6, last_used_at: "2026-10-26T00:00:00Z" }, error: null });
+
+      await act(async () => { await result.current.recordUsage("s-1"); });
+
+      expect(chain.update).toHaveBeenNthCalledWith(1, expect.objectContaining({ use_count: 5 }));
+      expect(chain.update).toHaveBeenNthCalledWith(2, expect.objectContaining({ use_count: 6 }));
+      expect(chain.eq).toHaveBeenCalledWith("use_count", 4);
+      expect(chain.eq).toHaveBeenCalledWith("use_count", 5);
+      await waitFor(() => expect(result.current.stapleItems[0].use_count).toBe(6));
+    });
+
+    it.each(["42501", "PGRST301", "57014"])("RPC エラー %s では再加算しない", async (code) => {
+      const { result, chain } = await renderLoaded([makeStapleItem({ id: "s-1", use_count: 4 })]);
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { code, message: "RPC failed" } });
+
+      await act(async () => { await result.current.recordUsage("s-1"); });
+
+      expect(chain.update).not.toHaveBeenCalled();
+      expect(result.current.stapleItems[0].use_count).toBe(4);
+      expect(toast.error).toHaveBeenCalledWith("リストへの追加は完了しましたが、使用回数を更新できませんでした");
+      expect(log).toHaveBeenCalledWith("Failed to record staple usage", { code, message: "RPC failed" });
+      log.mockRestore();
+    });
+
+    it("RPC 未適用で対象行が見えない場合は書き込まない", async () => {
+      const { result, chain } = await renderLoaded([makeStapleItem({ id: "s-1", use_count: 4 })]);
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST202" } });
+      chain.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+      await act(async () => { await result.current.recordUsage("s-1"); });
+
+      expect(chain.update).not.toHaveBeenCalled();
+      expect(result.current.stapleItems[0].use_count).toBe(4);
+      expect(toast.error).toHaveBeenCalled();
+      log.mockRestore();
+    });
+
+    it("フォールバックの書き込みエラーを再試行せず、元の表示に戻す", async () => {
+      const item = makeStapleItem({ id: "s-1", use_count: 4, last_used_at: "2026-01-01T00:00:00Z" });
+      const { result, chain } = await renderLoaded([item]);
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST202" } });
+      chain.maybeSingle
+        .mockResolvedValueOnce({ data: { use_count: 4 }, error: null })
+        .mockResolvedValueOnce({ data: null, error: { code: "42501", message: "denied" } });
+
+      await act(async () => { await result.current.recordUsage("s-1"); });
+
+      expect(chain.update).toHaveBeenCalledTimes(1);
+      expect(result.current.stapleItems[0].use_count).toBe(4);
+      expect(result.current.stapleItems[0].last_used_at).toBe(item.last_used_at);
+      expect(toast.error).toHaveBeenCalled();
+      log.mockRestore();
+    });
+
+    it("競合の再試行に上限を設け、無制限に更新しない", async () => {
+      const { result, chain } = await renderLoaded([makeStapleItem({ id: "s-1", use_count: 4 })]);
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST202" } });
+      for (const use_count of [4, 5, 6]) {
+        chain.maybeSingle
+          .mockResolvedValueOnce({ data: { use_count }, error: null })
+          .mockResolvedValueOnce({ data: null, error: null });
+      }
+
+      await act(async () => { await result.current.recordUsage("s-1"); });
+
+      expect(chain.update).toHaveBeenCalledTimes(3);
+      expect(toast.error).toHaveBeenCalled();
+      log.mockRestore();
+    });
   });
 });
