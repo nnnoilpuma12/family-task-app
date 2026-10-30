@@ -70,6 +70,7 @@ describe("useTasks", () => {
     [ids[0], ids[1]] = [ids[1], ids[0]];
     await act(() => result.current.reorderTasks(ids));
     expect(mockClient.rpc).toHaveBeenCalledWith("reorder_tasks", { p_task_ids: ["1", "0"], p_sort_orders: [0, 1] });
+    expect(mockClient.rpc).toHaveBeenCalledTimes(1);
     expect(result.current.tasks.slice(0, 3).map((t) => t.id)).toEqual(["1", "0", "2"]);
   });
 
@@ -130,14 +131,6 @@ describe("useTasks", () => {
       expect(result.current.tasks).toEqual([task]);
     });
 
-    it("編集で変わらない ID 順でページを取得する", async () => {
-      chain._result = { data: [], error: null };
-      renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
-
-      await waitFor(() => expect(chain.order).toHaveBeenCalled());
-      expect(chain.order.mock.calls).toEqual([["id"]]);
-    });
-
     it("完了済みは直近のみ: 未完了 OR 直近完了に絞る or フィルタを呼ぶ", async () => {
       chain._result = { data: [], error: null };
       renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
@@ -146,13 +139,6 @@ describe("useTasks", () => {
       expect(chain.or).toHaveBeenCalledWith(
         expect.stringMatching(/^is_done\.eq\.false,completed_at\.gte\./)
       );
-    });
-
-    it("PostgREST の max_rows 内でページを取得する", async () => {
-      chain._result = { data: [], error: null };
-      renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
-
-      await waitFor(() => expect(chain.limit).toHaveBeenCalledWith(1000));
     });
 
     it("1000 件を超えても次ページを取得し、全件を保持する", async () => {
@@ -164,6 +150,8 @@ describe("useTasks", () => {
 
       await waitFor(() => expect(result.current.loading).toBe(false));
       expect(chain.gt).toHaveBeenCalledWith("id", first[999].id);
+      expect(chain.order.mock.calls).toEqual([["id"], ["id"]]);
+      expect(chain.limit.mock.calls).toEqual([[1000], [1000]]);
       expect(chain.range).not.toHaveBeenCalled();
       expect(result.current.tasks).toHaveLength(1020);
     });
@@ -507,21 +495,6 @@ describe("useTasks", () => {
   });
 
   describe("reorderTasks", () => {
-    it("reorder_tasks RPC が正しい引数で呼ばれる", async () => {
-      chain._result = { data: [makeTask({ id: "id-a", sort_order: 0 }), makeTask({ id: "id-b", sort_order: 1 })], error: null };
-      const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      await act(async () => {
-        await result.current.reorderTasks(["id-b", "id-a"]);
-      });
-
-      expect(mockClient.rpc).toHaveBeenCalledWith("reorder_tasks", {
-        p_task_ids: ["id-b", "id-a"],
-        p_sort_orders: [0, 1],
-      });
-    });
-
     it("エラー時: snapshot にロールバックする", async () => {
       const tasks = [
         makeTask({ id: "t-1", sort_order: 0 }),
@@ -623,6 +596,38 @@ describe("useTasks", () => {
   });
 
   describe("loadMoreCompleted", () => {
+    it.each(["API error", "network exception"])(
+      "%s でも読み込み状態を戻し、履歴を保持して再試行できる", async (failure) => {
+        const existing = makeTask({ id: "existing" });
+        chain._result = { data: [existing], error: null };
+        const { result } = renderHook(() => useTasks(HOUSEHOLD_ID), { wrapper: createQueryWrapper() });
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        const gate = Promise.withResolvers<void>();
+        chain._waitForResult = gate.promise;
+        chain._result = { data: null, error: { message: "unavailable" } };
+        let pending: Promise<void> | undefined;
+        act(() => { pending = result.current.loadMoreCompleted(); });
+        expect(result.current.loadingMoreCompleted).toBe(true);
+        await act(async () => {
+          if (failure === "network exception") gate.reject(new Error("offline"));
+          else gate.resolve();
+          await pending;
+        });
+        expect(result.current.loadingMoreCompleted).toBe(false);
+        expect(result.current.hasMoreCompleted).toBe(true);
+        expect(result.current.tasks).toEqual([existing]);
+        expect(toast.error).toHaveBeenCalledWith("完了済みタスクの取得に失敗しました");
+
+        const older = makeTask({ id: "older", is_done: true, completed_at: "2023-01-01T00:00:00Z" });
+        chain._waitForResult = null;
+        chain._result = { data: [older], error: null };
+        await act(() => result.current.loadMoreCompleted());
+        expect(result.current.tasks).toEqual([existing, older]);
+        expect(result.current.hasMoreCompleted).toBe(false);
+      }
+    );
+
     it("取得した古い完了済みタスクをキャッシュ末尾に追記する", async () => {
       const recent = makeTask({
         id: "recent",
@@ -705,7 +710,7 @@ describe("useTasks", () => {
         makeTask({
           id: `batch-${i}`,
           is_done: true,
-          completed_at: `2023-${String(i + 1).padStart(2, "0")}-01T00:00:00Z`,
+          completed_at: `2023-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
         })
       );
       chain._result = { data: batch30, error: null };

@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let reqBody;
+  let reqBody: unknown;
   try {
     reqBody = await request.json();
   } catch {
@@ -94,14 +94,16 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const { title, body, householdId } = reqBody;
-
-  if (!title || !body || !householdId) {
+  if (typeof reqBody !== "object" || reqBody === null
+    || !("title" in reqBody) || typeof reqBody.title !== "string" || !reqBody.title
+    || !("body" in reqBody) || typeof reqBody.body !== "string" || !reqBody.body
+    || !("householdId" in reqBody) || typeof reqBody.householdId !== "string" || !reqBody.householdId) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 }
     );
   }
+  const { title, body, householdId } = reqBody;
 
   // Truncate title/body to prevent abuse
   const sanitizedTitle = String(title).slice(0, 200);
