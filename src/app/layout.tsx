@@ -21,9 +21,9 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/favicon.png?v=3", sizes: "32x32", type: "image/png" },
-      { url: "/icon-96x96.png?v=3", sizes: "96x96", type: "image/png" },
-      { url: "/icon-192x192.png?v=3", sizes: "192x192", type: "image/png" },
+      { url: "/favicon.png?v=4", sizes: "32x32", type: "image/png" },
+      { url: "/icon-96x96.png?v=4", sizes: "96x96", type: "image/png" },
+      { url: "/icon-192x192.png?v=4", sizes: "192x192", type: "image/png" },
     ],
     apple: [
       { url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" },

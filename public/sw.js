@@ -1,4 +1,4 @@
-const SW_VERSION = "6";
+const SW_VERSION = "7";
 const SHELL_CACHE = `family-task-shell-${SW_VERSION}`;
 const STATIC_CACHE = `family-task-static-${SW_VERSION}`;
 const DEFAULT_NOTIFICATION_ICON = "/icon-192x192.png?v=3";
@@ -107,6 +107,13 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Installation metadata and icons must use the HTTP revalidation policy.
+  // Cache-first here hides icon updates even when the server sends no-cache.
+  // Installed WebAPKs keep their own launch icons, including while offline.
+  if (/^\/(?:manifest\.json|favicon\.(?:ico|png)|apple-touch-icon\.png|icon-[^/]+\.png)$/.test(url.pathname)) {
+    return;
+  }
 
   if (request.mode === "navigate") {
     event.respondWith(
