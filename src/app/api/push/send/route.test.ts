@@ -109,9 +109,9 @@ describe("POST /api/push/send", () => {
     vi.resetModules();
     vi.clearAllMocks();
 
-    process.env.VAPID_SUBJECT = "mailto:test@example.com";
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = "test-public-key";
-    process.env.VAPID_PRIVATE_KEY = "test-private-key";
+    vi.stubEnv("VAPID_SUBJECT", "mailto:test@example.com");
+    vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", "test-public-key");
+    vi.stubEnv("VAPID_PRIVATE_KEY", "test-private-key");
 
     mocks.adminThrows = false;
     mocks.sendNotification.mockResolvedValue(undefined);
@@ -125,13 +125,14 @@ describe("POST /api/push/send", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
 
   describe("設定", () => {
     it("VAPID 環境変数が無ければ 500 を返し送信しない", async () => {
-      delete process.env.VAPID_SUBJECT;
+      vi.stubEnv("VAPID_SUBJECT", "");
 
       const POST = await loadPost();
       const res = await POST(makeRequest(validBody()));
@@ -191,6 +192,24 @@ describe("POST /api/push/send", () => {
   });
 
   describe("リクエスト検証", () => {
+    it.each([
+      null, [], "notification",
+      validBody({ title: {} }),
+      validBody({ body: 123 }),
+      validBody({ householdId: [HOUSEHOLD_ID] }),
+    ].map((body) => ({ body })))("不正な本文 $body は送信や管理者 DB アクセスの前に拒否する", async ({ body }) => {
+      const server = buildServerClient();
+      const admin = buildAdminClient();
+      mocks.server = server;
+      mocks.admin = admin;
+      const POST = await loadPost();
+      const res = await POST(makeRequest(body));
+      expect(res.status).toBe(400);
+      expect(server.from).not.toHaveBeenCalled();
+      expect(admin.from).not.toHaveBeenCalled();
+      expect(mocks.sendNotification).not.toHaveBeenCalled();
+    });
+
     it("JSON として不正なら 400 を返す", async () => {
       const POST = await loadPost();
       const res = await POST(makeRequest(null, "{壊れた JSON"));

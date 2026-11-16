@@ -165,10 +165,10 @@ export function useTasks(householdId: string | null, managedResync = false) {
       builder = builder.lt("completed_at", completedCutoff);
     }
 
-    const { data, error } = await builder
+    const { data, error } = await taskWrite(builder
       .order("completed_at", { ascending: false })
       .order("id", { ascending: false })
-      .limit(COMPLETED_PAGE_SIZE);
+      .limit(COMPLETED_PAGE_SIZE));
 
     if (error) {
       toast.error("完了済みタスクの取得に失敗しました");
