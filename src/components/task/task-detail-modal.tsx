@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { runBackgroundTask } from "@/lib/background-task";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Trash2 } from "lucide-react";
 import type { Task, Category, Profile } from "@/types";
@@ -37,10 +38,12 @@ export function TaskDetailModal({
   const [memo, setMemo] = useState(task?.memo ?? "");
   const [url, setUrl] = useState(task?.url ?? "");
   const [urlError, setUrlError] = useState("");
+  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
 
   const [previousTask, setPreviousTask] = useState(task);
   if (task !== previousTask) {
     setPreviousTask(task);
+    setIsDiscardConfirmOpen(false);
     if (task) {
       setTitle(task.title);
       setCategoryId(task.category_id);
@@ -52,6 +55,20 @@ export function TaskDetailModal({
   }
 
   if (!task) return null;
+
+  const hasUnsavedChanges = title !== task.title
+    || categoryId !== task.category_id
+    || dueDate !== (task.due_date ?? "")
+    || memo !== (task.memo ?? "")
+    || url !== (task.url ?? "");
+
+  const handleClose = () => {
+    if (hasUnsavedChanges) {
+      setIsDiscardConfirmOpen(true);
+      return;
+    }
+    onClose();
+  };
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -79,7 +96,7 @@ export function TaskDetailModal({
   const createdByMember = members.find((m) => m.id === task.created_by);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="タスク詳細">
+    <Modal isOpen={isOpen} onClose={handleClose} title="タスク詳細">
       <div className="flex flex-col gap-4">
         {/* Title */}
         <input
@@ -162,6 +179,18 @@ export function TaskDetailModal({
           </Button>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={isOpen && isDiscardConfirmOpen}
+        title="保存せずに閉じますか？"
+        description="変更内容は保存されません。"
+        confirmLabel="保存せずに閉じる"
+        variant="destructive"
+        onConfirm={() => {
+          setIsDiscardConfirmOpen(false);
+          onClose();
+        }}
+        onCancel={() => setIsDiscardConfirmOpen(false)}
+      />
     </Modal>
   );
 }
