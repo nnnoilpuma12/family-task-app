@@ -19,7 +19,7 @@ const foregroundSvg = readFileSync(join(adaptiveDir, "foreground.svg"));
 // 生成するアイコンサイズ
 const sizes = [48, 72, 96, 144, 192, 512];
 
-async function generateIcon(size) {
+async function generateIcon(size, foregroundImage = sharp(foregroundSvg).resize(size, size)) {
   // background レイヤーを指定サイズでレンダリング
   const background = await sharp(backgroundSvg)
     .resize(size, size)
@@ -27,10 +27,7 @@ async function generateIcon(size) {
     .toBuffer();
 
   // foreground レイヤーを指定サイズでレンダリング
-  const foreground = await sharp(foregroundSvg)
-    .resize(size, size)
-    .png()
-    .toBuffer();
+  const foreground = await foregroundImage.png().toBuffer();
 
   // 合成
   const combined = await sharp(background)
@@ -42,9 +39,19 @@ async function generateIcon(size) {
 }
 
 async function generateMaskableIcon(size) {
-  // マスカブルアイコン: 円形マスクなしの正方形（背景 + 前景）
-  // Android はOSがマスクを適用するため、正方形のままでOK
-  return generateIcon(size);
+  // 前景の図柄を拡大して中央に寄せ、半径40%のセーフゾーン内に収める。
+  // 背景はAndroidがマスクを適用する範囲を覆うよう、画像の端まで描画する。
+  const foregroundSize = Math.round(size * 1.2);
+  const artworkCenter = { x: 55.5 / 108, y: 52.75 / 108 };
+  const foreground = sharp(foregroundSvg)
+    .resize(foregroundSize, foregroundSize)
+    .extract({
+      left: Math.round(foregroundSize * artworkCenter.x - size / 2),
+      top: Math.round(foregroundSize * artworkCenter.y - size / 2),
+      width: size,
+      height: size,
+    });
+  return generateIcon(size, foreground);
 }
 
 async function generateFavicon() {
